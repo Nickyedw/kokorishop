@@ -1,27 +1,35 @@
-import React from 'react';
-import { FaHeart } from 'react-icons/fa';
+import React, { useContext } from 'react';
+import { FavoritesContext } from '../context/FavoritesContext';
 
 const Favorites = () => {
-  const favoritos = [
-    { name: 'Peluche Panda', emoji: '🐼', price: '$15' },
-    { name: 'Lámpara Estrellita', emoji: '⭐', price: '$10' },
-    { name: 'Auriculares Gato', emoji: '🎧', price: '$25' },
-  ];
+  const { favorites, removeFromFavorites } = useContext(FavoritesContext);
 
   return (
-    <div className="min-h-screen bg-pink-100 text-pink-800 p-6">
-      <h1 className="text-3xl font-bold mb-4 flex items-center gap-2">
-        <FaHeart className="text-pink-500" /> Tus Favoritos
-      </h1>
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-        {favoritos.map((item, index) => (
-          <div key={index} className="bg-white p-4 rounded-xl text-center shadow-md">
-            <div className="text-4xl mb-2">{item.emoji}</div>
-            <p className="font-semibold">{item.name}</p>
-            <p className="font-bold">{item.price}</p>
-          </div>
-        ))}
-      </div>
+    <div className="min-h-screen bg-purple-900 text-white p-6">
+      <h1 className="text-2xl font-bold mb-6">💖 Tus productos favoritos</h1>
+
+      {favorites.length === 0 ? (
+        <p className="text-purple-300">No tienes productos en tu lista de favoritos.</p>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          {favorites.map((product) => (
+            <div key={product.id} className="bg-purple-100 text-purple-800 rounded-xl p-4 text-center shadow-md relative">
+              <div className="text-4xl mb-2">{product.emoji}</div>
+              <p className="font-semibold mb-1">{product.name}</p>
+              <p className="font-bold mb-2">${product.price}</p>
+
+              {/* Botón para quitar de favoritos */}
+              <button
+                onClick={() => removeFromFavorites(product.id)}
+                className="absolute top-2 right-2 text-pink-500 text-xl hover:scale-110 transition-transform"
+                title="Quitar de favoritos"
+              >
+                💔
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
