@@ -5,10 +5,10 @@ import { CartContext } from "../context/CartContext";
 import { FavoritesContext } from "../context/FavoritesContext";
 
 const Home = () => {
-  const { cart, addToCart } = useContext(CartContext);
+    const { cartItems, addToCart } = useContext(CartContext);
   const { favorites, addToFavorites, removeFromFavorites, isFavorite } = useContext(FavoritesContext);
 
-  const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
+  const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
   const productos = [
     { id: 1, name: 'Kawaii', emoji: '🐱', price: 12 },
