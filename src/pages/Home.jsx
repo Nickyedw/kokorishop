@@ -22,6 +22,7 @@ const Home = () => {
       
       {/* ✅ Navbar con contadores */}
       <nav className="flex items-center justify-between px-6 py-4 bg-purple-800 shadow-md">
+      <span className="text-3xl">🐾</span>
         <h1 className="text-xl font-bold">KokoShop</h1>
         <div className="flex items-center gap-4 text-white text-lg relative">
           <Link to="/favorites" className="relative">
@@ -43,6 +44,14 @@ const Home = () => {
           <FaBars />
         </div>
       </nav>
+
+    {/* Banner */}
+      <section className="bg-purple-800 rounded-3xl m-4 p-6 text-center text-purple-100">
+        <h2 className="text-3xl md:text-4xl font-bold mb-4">Shop the Cutest Products</h2>
+        <button className="bg-purple-500 hover:bg-purple-600 text-white py-2 px-4 rounded-full font-medium text-lg">
+          Shop Now
+        </button>
+      </section>
 
       <section className="px-6 py-4">
         <h3 className="text-xl font-semibold mb-4 text-purple-100">Popular Products</h3>
