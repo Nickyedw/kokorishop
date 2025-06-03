@@ -23,7 +23,7 @@ const Home = () => {
       {/* ✅ Navbar con contadores */}
       <nav className="flex items-center justify-between px-6 py-4 bg-purple-800 shadow-md">
       <span className="text-3xl">🐾</span>
-        <h1 className="text-xl font-bold">KokoShop</h1>
+        <h1 className="text-2xl font-bold text-purple-100">KokoShop</h1>
         <div className="flex items-center gap-4 text-white text-lg relative">
           <Link to="/favorites" className="relative">
             <FaHeart />
