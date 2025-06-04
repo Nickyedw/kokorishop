@@ -87,22 +87,22 @@ const Home = () => {
 
       {/* Bottom Nav */}
       <footer className="fixed bottom-0 left-0 right-0 bg-purple-800 text-purple-200 shadow-inner flex justify-around py-3 rounded-t-3xl">
-        <button className="flex flex-col items-center text-sm">
+        <Link to="/Home" className="flex flex-col items-center text-sm">
           <FaHome className="text-xl" />
           Home
-        </button>
-        <button className="flex flex-col items-center text-sm">
+        </Link>
+        <Link to="/Favorites" className="flex flex-col items-center text-sm">
           <FaHeart className="text-xl" />
           Favorites
-        </button>
-        <button className="flex flex-col items-center text-sm">
+        </Link>
+        <Link to="/Cart" className="flex flex-col items-center text-sm">
           <FaShoppingBag className="text-xl" />
           Cart
-        </button>
-        <button className="flex flex-col items-center text-sm">
+        </Link>
+        <Link to="/Menu" className="flex flex-col items-center text-sm">
           <FaBars className="text-xl" />
           Menu
-        </button>
+        </Link>
       </footer>
 
     </div>
