@@ -87,7 +87,7 @@ const Home = () => {
 
       {/* Bottom Nav */}
       <footer className="fixed bottom-0 left-0 right-0 bg-purple-800 text-purple-200 shadow-inner flex justify-around py-3 rounded-t-3xl">
-        <Link to="/Home" className="flex flex-col items-center text-sm">
+        <Link to="/" className="flex flex-col items-center text-sm">
           <FaHome className="text-xl" />
           Home
         </Link>
