@@ -22,3 +22,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Ignorar entornos y configuraciones sensibles
+.env
+backend/.env
+frontend/.env
