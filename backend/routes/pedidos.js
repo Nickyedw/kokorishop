@@ -4,7 +4,11 @@ const PDFDocument = require('pdfkit');
 const router = express.Router();
 const db = require('../db');
 const { enviarCorreoPedido, enviarWhatsappPedidoInicial, enviarNotificacionConfirmacionPago } = require('../services/notificaciones');
+<<<<<<< HEAD
 //const { verificarToken } = require('../middlewares/auth');
+=======
+const { verificarToken } = require('../middlewares/auth');
+>>>>>>> ac039c0 (Backend funcionando: conexión DB y endpoint /notificaciones y AdminPedidos)
 
 
 // Crear nuevo pedido
@@ -179,19 +183,28 @@ router.delete('/pedidos/:id', async (req, res) => {
   });
   
 // 5. endpoint para confirmar pago manualmente
+<<<<<<< HEAD
 router.put('/pedidos/:id/confirmar-pago', async (req, res) => {
+=======
+router.put('/:id/confirmar-pago', verificarToken, async (req, res) => {
+>>>>>>> ac039c0 (Backend funcionando: conexión DB y endpoint /notificaciones y AdminPedidos)
     const pedidoId = req.params.id;
     const fecha = new Date();
   
     try {
+<<<<<<< HEAD
       // 1. Actualizar estado de pago
       const updateResult = await db.query(
+=======
+      const result = await db.query(
+>>>>>>> ac039c0 (Backend funcionando: conexión DB y endpoint /notificaciones y AdminPedidos)
         `UPDATE pedidos 
          SET pago_confirmado = TRUE, fecha_confirmacion_pago = $1 
          WHERE id = $2 RETURNING *`,
         [fecha, pedidoId]
       );
   
+<<<<<<< HEAD
       if (updateResult.rowCount === 0) {
         return res.status(404).json({ message: 'Pedido no encontrado' });
       }
@@ -212,16 +225,30 @@ router.put('/pedidos/:id/confirmar-pago', async (req, res) => {
       }
   
       // 3. Enviar notificaciones
+=======
+      if (result.rowCount === 0) {
+        return res.status(404).json({ message: 'Pedido no encontrado' });
+      }
+  
+      const pedido = result.rows[0];
+  
+      // 🔔 Lógica para enviar notificación por correo y WhatsApp
+>>>>>>> ac039c0 (Backend funcionando: conexión DB y endpoint /notificaciones y AdminPedidos)
       await enviarNotificacionConfirmacionPago(pedido);
   
       res.json({ message: 'Pago confirmado y cliente notificado', pedido });
   
     } catch (error) {
+<<<<<<< HEAD
       console.error('❌ Error al confirmar pago:', error);
+=======
+      console.error('Error al confirmar pago:', error);
+>>>>>>> ac039c0 (Backend funcionando: conexión DB y endpoint /notificaciones y AdminPedidos)
       res.status(500).json({ message: 'Error interno del servidor' });
     }
   });
   
+<<<<<<< HEAD
   // GET /pedidos/:id/comprobante
 router.get('/:id/comprobante', async (req, res) => {
     const { id } = req.params;
@@ -270,4 +297,6 @@ router.get('/:id/comprobante', async (req, res) => {
     }
   });
   
+=======
+>>>>>>> ac039c0 (Backend funcionando: conexión DB y endpoint /notificaciones y AdminPedidos)
 module.exports = router;

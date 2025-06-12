@@ -1,5 +1,8 @@
+<<<<<<< HEAD
 // backend/app.js
 
+=======
+>>>>>>> ac039c0 (Backend funcionando: conexión DB y endpoint /notificaciones y AdminPedidos)
 require('dotenv').config(); // 👈 Carga variables del archivo .env
 
 const express = require('express');
