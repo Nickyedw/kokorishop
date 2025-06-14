@@ -76,6 +76,11 @@ async function enviarNotificacionConfirmacionPago(pedido) {
         <p>Gracias por confiar en KokoShop 🐼💖</p>
       `,
     });
+
+    if (!pedido.telefono?.startsWith('+')) {
+        console.warn('⚠️ Número de teléfono no válido para WhatsApp:', pedido.telefono);
+        return;
+      }
   
     // ✅ Enviar WhatsApp
     try {

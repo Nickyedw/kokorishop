@@ -228,7 +228,12 @@ router.get('/:id/comprobante', async (req, res) => {
   
     try {
       // 1. Obtener datos del pedido y su detalle
-      const pedido = await db.oneOrNone('SELECT * FROM pedidos WHERE id = $1', [id]);
+      const pedido = await db.oneOrNone(`
+        SELECT p.*, u.nombre_completo AS cliente 
+        FROM pedidos p
+        JOIN usuarios u ON p.usuario_id = u.id
+        WHERE p.id = $1
+      `, [id]);
       if (!pedido) {
         return res.status(404).json({ error: 'Pedido no encontrado' });
       }
