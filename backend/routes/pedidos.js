@@ -8,7 +8,7 @@ const { enviarCorreoPedido, enviarWhatsappPedidoInicial, enviarNotificacionConfi
 
 
 // Crear nuevo pedido
-router.post('/pedidos', async (req, res) => {
+router.post('/', async (req, res) => {
   const {
     usuario_id,
     metodo_pago_id,
@@ -67,7 +67,7 @@ router.post('/pedidos', async (req, res) => {
 });
 
 // 1. Listar todos los pedidos con detalles
-router.get('/pedidos', async (req, res) => {
+router.get('/', async (req, res) => {
   const { usuario_id, estado } = req.query;
   let filtros = [];
   let valores = [];
@@ -115,7 +115,7 @@ router.get('/pedidos', async (req, res) => {
 });
 
 // 2. Obtener pedido por ID
-router.get('/pedidos/:id', async (req, res) => {
+router.get('/:id', async (req, res) => {
   const pedidoId = parseInt(req.params.id);
 
   try {
@@ -148,7 +148,7 @@ router.get('/pedidos/:id', async (req, res) => {
 
 
 // 3. Actualizar estado de un pedido
-router.put('/pedidos/:id/estado', async (req, res) => {
+router.put('/:id/estado', async (req, res) => {
     const { id } = req.params;
     const { estado } = req.body;
   
@@ -166,7 +166,7 @@ router.put('/pedidos/:id/estado', async (req, res) => {
   });
   
 // 4. Eliminar un pedido
-router.delete('/pedidos/:id', async (req, res) => {
+router.delete('/:id', async (req, res) => {
     const { id } = req.params;
   
     try {
@@ -179,7 +179,7 @@ router.delete('/pedidos/:id', async (req, res) => {
   });
   
 // 5. endpoint para confirmar pago manualmente
-router.put('/pedidos/:id/confirmar-pago', async (req, res) => {
+router.put('/:id/confirmar-pago', async (req, res) => {
     const pedidoId = req.params.id;
     const fecha = new Date();
   
@@ -233,7 +233,7 @@ router.get('/:id/comprobante', async (req, res) => {
         return res.status(404).json({ error: 'Pedido no encontrado' });
       }
   
-      const detalle = await db.any('SELECT * FROM detalle_pedidos WHERE pedido_id = $1', [id]);
+      const detalle = await db.any('SELECT * FROM detalle_pedido WHERE pedido_id = $1', [id]);
   
       // 2. Configurar encabezados de respuesta
       res.setHeader('Content-Type', 'application/pdf');
