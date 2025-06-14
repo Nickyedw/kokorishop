@@ -17,16 +17,11 @@
     "dotenv": "^16.5.0",
     "express": "^5.1.0",
     "nodemailer": "^7.0.3",
-<<<<<<< HEAD
     "pdfkit": "^0.17.1",
     "pg": "^8.16.0",
     "twilio": "^5.7.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.10"
-=======
-    "pg": "^8.16.0",
-    "twilio": "^5.7.0"
->>>>>>> ac039c0 (Backend funcionando: conexión DB y endpoint /notificaciones y AdminPedidos)
   }
 }
