@@ -27,7 +27,6 @@ dist-ssr
 .env
 backend/.env
 frontend/.env
-<<<<<<< HEAD
 
 # Vite build output (ya incluido por dist pero específico por claridad)
 frontend/dist
@@ -47,5 +46,3 @@ pids
 
 # Parcel cache (si usas Parcel en algún micro proyecto)
 .cache
-=======
->>>>>>> 5c27ba1 (Backend funcionando: conexión DB y endpoint /notificaciones y AdminPedidos)
