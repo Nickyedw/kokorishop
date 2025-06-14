@@ -60,7 +60,12 @@ async function enviarWhatsappPedidoInicial(numeroCliente, nombreCliente, pedidoI
     const nombre = pedido.nombre_cliente;
     const numero = pedido.numero_pedido;
   
-    // ✅ Enviar correo de confirmación (usando EMAIL_FROM)
+    if (!email || !nombre || !numero) {
+      console.warn('⚠️ No se puede enviar el correo: información incompleta:', pedido);
+      return;
+    }
+  
+    // ✅ Enviar correo de confirmación
     await transporter.sendMail({
       from: process.env.EMAIL_FROM,
       to: email,
@@ -74,15 +79,15 @@ async function enviarWhatsappPedidoInicial(numeroCliente, nombreCliente, pedidoI
       `,
     });
   
-    // ✅ Enviar WhatsApp con plantilla de Twilio
+    // ✅ Enviar WhatsApp
     try {
       const message = await client.messages.create({
         from: fromWhatsAppNumber,
         to: `whatsapp:${pedido.telefono}`,
         contentSid: 'HX78a37ca3b3e9c498f462e6645e86ebe5', // plantilla: pago_confirmado
         contentVariables: JSON.stringify({
-          '1': pedido.nombre_cliente,
-          '2': pedido.numero_pedido,
+          '1': nombre,
+          '2': numero,
         }),
       });
   
@@ -91,9 +96,7 @@ async function enviarWhatsappPedidoInicial(numeroCliente, nombreCliente, pedidoI
       console.error('❌ Error al enviar WhatsApp de confirmación de pago:', error.message);
     }
   }
-  
-  
-  
+   
 
 module.exports = {
   enviarCorreoPedido,

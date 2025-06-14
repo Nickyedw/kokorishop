@@ -1,3 +1,5 @@
+// backend/app.js
+
 require('dotenv').config(); // 👈 Carga variables del archivo .env
 
 const express = require('express');
@@ -91,7 +93,9 @@ app.get('/productos/buscar', async (req, res) => {
   }
 });
 
-app.use(pedidosRouter);
+// Rutas del módulo de pedidos
+app.use('/pedidos', pedidosRouter); // ✅ Así todas las rutas internas serán del tipo /pedidos/:id, etc.
+
 
 app.listen(PORT, () => {
   console.log(`🚀 Servidor backend corriendo en http://localhost:${PORT}`);

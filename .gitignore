@@ -27,3 +27,22 @@ dist-ssr
 .env
 backend/.env
 frontend/.env
+
+# Vite build output (ya incluido por dist pero específico por claridad)
+frontend/dist
+
+# Coverage reports (si usas testing con Jest o similar)
+coverage/
+
+# pm2 logs (si en el futuro usas pm2 para producción)
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# SQLite (si en algún momento haces pruebas con SQLite)
+*.sqlite
+*.sqlite3
+
+# Parcel cache (si usas Parcel en algún micro proyecto)
+.cache
