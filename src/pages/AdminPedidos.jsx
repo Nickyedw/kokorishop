@@ -2,7 +2,15 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import ConfirmarPagoButton from '../components/ConfirmarPagoButton';
-import { Link } from 'react-router-dom'; // ✅ agregado
+import { Link } from 'react-router-dom';
+
+const estadosDisponibles = [
+  'pendiente',
+  'pago confirmado',
+  'listo para entrega',
+  'pedido enviado',
+  'pedido entregado'
+];
 
 const AdminPedidos = () => {
   const [pedidos, setPedidos] = useState([]);
@@ -16,6 +24,19 @@ const AdminPedidos = () => {
       console.error('❌ Error al obtener pedidos:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const actualizarEstado = async (idPedido, nuevoEstado) => {
+    try {
+      await axios.put(`http://localhost:3001/pedidos/${idPedido}/estado`, {
+        estado: nuevoEstado,
+      });
+      console.log(`✅ Estado actualizado a "${nuevoEstado}"`);
+      obtenerPedidos(); // recargar
+    } catch (error) {
+      console.error('❌ Error al actualizar estado:', error.message);
+      alert('Error al actualizar el estado del pedido');
     }
   };
 
@@ -51,7 +72,19 @@ const AdminPedidos = () => {
                   </Link>
                 </td>
                 <td className="px-4 py-2 border-b">{pedido.cliente}</td>
-                <td className="px-4 py-2 border-b capitalize">{pedido.estado}</td>
+                <td className="px-4 py-2 border-b capitalize">
+                  <select
+                    value={pedido.estado}
+                    onChange={(e) => actualizarEstado(pedido.id, e.target.value)}
+                    className="border border-gray-300 rounded px-2 py-1"
+                  >
+                    {estadosDisponibles.map((estado) => (
+                      <option key={estado} value={estado}>
+                        {estado}
+                      </option>
+                    ))}
+                  </select>
+                </td>
                 <td className="px-4 py-2 border-b">
                   <ConfirmarPagoButton
                     pedidoId={pedido.id}

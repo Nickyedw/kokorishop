@@ -274,5 +274,7 @@ router.get('/:id/comprobante', async (req, res) => {
       res.status(500).json({ error: 'Error al generar comprobante' });
     }
   });
+
+    
   
 module.exports = router;
