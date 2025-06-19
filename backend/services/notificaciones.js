@@ -1,7 +1,7 @@
 const nodemailer = require('nodemailer');
 const twilio = require('twilio');
-const db = require('../db');
-const { ESTADOS_PEDIDO } = require('../utils/constants');
+//const db = require('../db');
+//const { ESTADOS_PEDIDO } = require('../utils/constants');
 
 // Configuración de correo
 const transporter = nodemailer.createTransport({
@@ -102,12 +102,12 @@ async function enviarNotificacionConfirmacionPago(pedido) {
     }
   
     // ✅ Actualizar estado en la base de datos
-    try {
-      await db.query('UPDATE pedidos SET estado = $1 WHERE id = $2', [ESTADOS_PEDIDO.PAGO_CONFIRMADO, numero]);
-      console.log('📦 Estado del pedido actualizado a "pago confirmado"');
-    } catch (error) {
-      console.error('❌ Error al actualizar el estado del pedido:', error.message);
-    }
+    //try {
+      //await db.query('UPDATE pedidos SET estado = $1 WHERE id = $2', [ESTADOS_PEDIDO.PAGO_CONFIRMADO, numero]);
+      //console.log('📦 Estado del pedido actualizado a "pago confirmado"');
+    //} catch (error) {
+      //console.error('❌ Error al actualizar el estado del pedido:', error.message);
+    //}
   }
   
  // Función de notificación (correo + WhatsApp) de Listo para Entrega
@@ -158,12 +158,12 @@ async function enviarNotificacionListoParaEntrega(pedido) {
     }
   
     // ✅ Actualizar estado en la base de datos
-    try {
-      await db.query('UPDATE pedidos SET estado = $1 WHERE id = $2', [ESTADOS_PEDIDO.LISTO_ENTREGA, numero]);
-      console.log('📦 Estado del pedido actualizado a "listo para entrega"');
-    } catch (error) {
-      console.error('❌ Error al actualizar el estado del pedido:', error.message);
-    }
+    //try {
+      //await db.query('UPDATE pedidos SET estado = $1 WHERE id = $2', [ESTADOS_PEDIDO.LISTO_ENTREGA, numero]);
+      //console.log('📦 Estado del pedido actualizado a "listo para entrega"');
+    //} catch (error) {
+      //console.error('❌ Error al actualizar el estado del pedido:', error.message);
+    //}
   }
 
 // Función de notificación (correo + WhatsApp) de Listo para Envio
@@ -214,12 +214,12 @@ async function enviarNotificacionPedidoEnviado(pedido) {
     }
   
     // ✅ Actualizar estado en la base de datos
-    try {
-      await db.query('UPDATE pedidos SET estado = $1 WHERE id = $2', [ESTADOS_PEDIDO.ENVIADO, numero]);
-      console.log('📦 Estado del pedido actualizado a "pedido enviado"');
-    } catch (error) {
-      console.error('❌ Error al actualizar el estado del pedido:', error.message);
-    }
+    //try {
+      //await db.query('UPDATE pedidos SET estado = $1 WHERE id = $2', [ESTADOS_PEDIDO.ENVIADO, numero]);
+      //console.log('📦 Estado del pedido actualizado a "pedido enviado"');
+    //} catch (error) {
+      //console.error('❌ Error al actualizar el estado del pedido:', error.message);
+    //}
   }
 
 // Función de notificación (correo + WhatsApp) de Pedido Entregado
@@ -270,13 +270,13 @@ async function enviarNotificacionPedidoEntregado(pedido) {
     }
   
     // ✅ Actualizar estado en la base de datos
-    try {
+    //try {
       //await db.query('UPDATE pedidos SET estado = $1 WHERE id = $2', ['pedido entregado', numero]);  
-      await db.query('UPDATE pedidos SET estado = $1 WHERE id = $2', [ESTADOS_PEDIDO.ENTREGADO, numero]);
-      console.log('📦 Estado del pedido actualizado a "pedido entregado"');
-    } catch (error) {
-      console.error('❌ Error al actualizar el estado del pedido:', error.message);
-    }
+      //await db.query('UPDATE pedidos SET estado = $1 WHERE id = $2', [ESTADOS_PEDIDO.ENTREGADO, numero]);
+      //console.log('📦 Estado del pedido actualizado a "pedido entregado"');
+    //} catch (error) {
+      //console.error('❌ Error al actualizar el estado del pedido:', error.message);
+    //}
   }
 
 module.exports = {

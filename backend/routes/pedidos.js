@@ -1,11 +1,20 @@
 // routes/pedidos.js
 const express = require('express');
-const PDFDocument = require('pdfkit');
+//const PDFDocument = require('pdfkit');
 const router = express.Router();
 const db = require('../db');
-const { enviarCorreoPedido, enviarWhatsappPedidoInicial, enviarNotificacionConfirmacionPago } = require('../services/notificaciones');
-//const { verificarToken } = require('../middlewares/auth');
+const { generarComprobantePDF } = require('../controllers/comprobante');
 
+//const { verificarToken } = require('../middlewares/auth');
+const {
+    enviarCorreoPedido,
+    enviarWhatsappPedidoInicial,
+    enviarNotificacionConfirmacionPago,
+    enviarNotificacionListoParaEntrega,
+    enviarNotificacionPedidoEnviado,
+    enviarNotificacionPedidoEntregado,
+  } = require('../services/notificaciones'); // Ajusta ruta si es necesario
+  const { ESTADOS_PEDIDO } = require('../utils/constants');
 
 // Crear nuevo pedido
 router.post('/', async (req, res) => {
@@ -153,15 +162,58 @@ router.put('/:id/estado', async (req, res) => {
     const { estado } = req.body;
   
     try {
-      await db.query(
-        'UPDATE pedidos SET estado = $1 WHERE id = $2',
-        [estado, id]
-      );
+        // ✅ Actualizar estado
+        await db.query('UPDATE pedidos SET estado = $1 WHERE id = $2', [estado, id]);
+        console.log(`📦 Pedido #${id} actualizado a estado: ${estado}`);
+    
+        // ✅ Obtener datos del pedido + cliente
+        const resultado = await db.query(`
+            SELECT 
+            p.*, 
+            p.id AS numero_pedido,
+            u.nombre_completo AS nombre_cliente, 
+            u.correo AS correo_cliente, 
+            u.telefono,
+            z.nombre_zona AS zona_entrega_nombre,
+            h.hora_inicio AS horario_entrega_texto,
+            me.descripcion AS metodo_entrega_nombre
+            FROM pedidos p
+            JOIN usuarios u ON p.usuario_id = u.id
+            LEFT JOIN zonas_entrega z ON p.zona_entrega_id = z.id
+            LEFT JOIN horarios_entrega h ON p.horario_entrega_id = h.id
+            LEFT JOIN metodos_entrega me ON p.metodo_entrega_id = me.id
+            WHERE p.id = $1
+        `, [id]);
+    
+        const pedido = resultado.rows[0]; // 👈🏽 importante
+    
+        if (!pedido) {
+          console.warn(`⚠️ No se encontró el pedido con ID ${id}`);
+          return res.status(404).json({ error: 'Pedido no encontrado' });
+        }
   
-      res.json({ mensaje: 'Estado del pedido actualizado correctamente' });
+      // Lógica de notificación según estado
+      switch (estado) {
+        case ESTADOS_PEDIDO.PAGO_CONFIRMADO:
+          await enviarNotificacionConfirmacionPago(pedido);
+          break;
+        case ESTADOS_PEDIDO.LISTO_ENTREGA:
+          await enviarNotificacionListoParaEntrega(pedido);
+          break;
+        case ESTADOS_PEDIDO.ENVIADO:
+          await enviarNotificacionPedidoEnviado(pedido);
+          break;
+        case ESTADOS_PEDIDO.ENTREGADO:
+          await enviarNotificacionPedidoEntregado(pedido);
+          break;
+        default:
+          console.log('🔔 Estado no tiene notificación asociada:', estado);
+      }
+  
+      res.json({ mensaje: 'Estado actualizado y notificación enviada si aplicaba.' });
     } catch (error) {
-      console.error('❌ Error al actualizar estado del pedido:', error);
-      res.status(500).json({ error: 'Error interno del servidor' });
+      console.error('❌ Error al actualizar estado o enviar notificación:', error.message);
+      res.status(500).json({ error: 'Error al actualizar estado o enviar notificación' });
     }
   });
   
@@ -222,58 +274,9 @@ router.put('/:id/confirmar-pago', async (req, res) => {
     }
   });
   
-  // GET /pedidos/:id/comprobante
-router.get('/:id/comprobante', async (req, res) => {
-    const { id } = req.params;
+  //get obtener comprobante PDF
+  router.get('/pedidos/:id/comprobante', generarComprobantePDF);
   
-    try {
-      // 1. Obtener datos del pedido y su detalle
-      const pedido = await db.oneOrNone(`
-        SELECT p.*, u.nombre_completo AS cliente 
-        FROM pedidos p
-        JOIN usuarios u ON p.usuario_id = u.id
-        WHERE p.id = $1
-      `, [id]);
-      if (!pedido) {
-        return res.status(404).json({ error: 'Pedido no encontrado' });
-      }
-  
-      const detalle = await db.any('SELECT * FROM detalle_pedido WHERE pedido_id = $1', [id]);
-  
-      // 2. Configurar encabezados de respuesta
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `attachment; filename="comprobante_${id}.pdf"`);
-  
-      // 3. Crear documento PDF
-      const doc = new PDFDocument();
-      doc.pipe(res); // Redirige la salida al cliente
-  
-      doc.fontSize(18).text('🧾 Comprobante de Pedido', { align: 'center' });
-      doc.moveDown();
-      doc.fontSize(12).text(`ID Pedido: ${pedido.id}`);
-      doc.text(`Cliente: ${pedido.cliente}`);
-      doc.text(`Fecha: ${new Date(pedido.fecha_creacion).toLocaleDateString()}`);
-      doc.text(`Estado: ${pedido.estado}`);
-      doc.moveDown();
-  
-      doc.fontSize(14).text('🛒 Detalle del pedido');
-      doc.moveDown(0.5);
-  
-      detalle.forEach((item, i) => {
-        doc.fontSize(12).text(
-          `${i + 1}. ${item.nombre_producto} - ${item.cantidad} x S/ ${item.precio_unitario}`
-        );
-      });
-  
-      doc.moveDown();
-      doc.fontSize(14).text(`💵 Total: S/ ${pedido.total}`, { align: 'right' });
-  
-      doc.end(); // Finaliza el documento
-    } catch (error) {
-      console.error('❌ Error generando comprobante:', error);
-      res.status(500).json({ error: 'Error al generar comprobante' });
-    }
-  });
 
     
   
