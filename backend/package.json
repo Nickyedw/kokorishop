@@ -19,6 +19,8 @@
     "nodemailer": "^7.0.3",
     "pdfkit": "^0.17.1",
     "pg": "^8.16.0",
+    "qr-image": "^3.2.0",
+    "qrcode": "^1.5.4",
     "twilio": "^5.7.0"
   },
   "devDependencies": {

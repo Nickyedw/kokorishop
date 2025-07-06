@@ -6,12 +6,14 @@ const express = require('express');
 const cors = require('cors');
 const db = require('./db');
 const pedidosRouter = require('./routes/pedidos'); // <-- Aquí
+const comprobanteRoutes = require('./routes/comprobantes');
 
 const app = express();
 const PORT = 3001;
 
 app.use(cors());
 app.use(express.json());
+app.use('/api', comprobanteRoutes);
 
 // Ruta de prueba: obtener todas las categorías
 app.get('/categorias', async (req, res) => {

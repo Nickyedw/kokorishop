@@ -46,3 +46,9 @@ pids
 
 # Parcel cache (si usas Parcel en algún micro proyecto)
 .cache
+
+stream.on('finish', () => {
+  res.download(rutaArchivo, nombreArchivo, () => {
+    fs.unlinkSync(rutaArchivo); // elimina después de enviar
+  });
+});

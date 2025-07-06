@@ -1,5 +1,11 @@
 const nodemailer = require('nodemailer');
 const twilio = require('twilio');
+
+const {
+  generarComprobantePDF,
+  generarTicketPDF
+} = require('../controllers/comprobante');
+
 //const db = require('../db');
 //const { ESTADOS_PEDIDO } = require('../utils/constants');
 
@@ -64,6 +70,15 @@ async function enviarNotificacionConfirmacionPago(pedido) {
       console.warn('⚠️ No se puede enviar la notificación: información incompleta:', pedido);
       return;
     }
+
+  // 🧾 Generar comprobante A4
+  let pdfPath;
+  try {
+    pdfPath = await generarComprobantePDF(numero);
+  } catch (error) {
+    console.error('❌ Error generando comprobante PDF:', error.message);
+    return;
+  }
   
     // ✅ Enviar correo de confirmación
     await transporter.sendMail({
@@ -77,6 +92,10 @@ async function enviarNotificacionConfirmacionPago(pedido) {
         <br>
         <p>Gracias por confiar en KokoShop 🐼💖</p>
       `,
+      attachments: [{
+        filename: `comprobante_${numero}.pdf`,
+        path: pdfPath,
+      }],
     });
   
     if (!pedido.telefono?.startsWith('+')) {
@@ -177,6 +196,15 @@ async function enviarNotificacionPedidoEnviado(pedido) {
       return;
     }
   
+  // 🧾 Generar ticket mini
+  let pdfPath;
+  try {
+    pdfPath = await generarTicketPDF(numero);
+  } catch (error) {
+    console.error('❌ Error generando ticket PDF:', error.message);
+    return;
+  }
+
     // ✅ Enviar correo de confirmación
     await transporter.sendMail({
       from: process.env.EMAIL_FROM,
@@ -189,6 +217,12 @@ async function enviarNotificacionPedidoEnviado(pedido) {
         <br>
         <p>Gracias por confiar en KokoShop 🐼💖</p>
       `,
+
+      attachments: [{
+        filename: `ticket_${numero}.pdf`,
+        path: pdfPath,
+      }],
+      
     });
   
     if (!pedido.telefono?.startsWith('+')) {

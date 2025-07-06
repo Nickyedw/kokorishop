@@ -3,7 +3,7 @@ const express = require('express');
 //const PDFDocument = require('pdfkit');
 const router = express.Router();
 const db = require('../db');
-const { generarComprobantePDF } = require('../controllers/comprobante');
+//const { generarComprobantePDF } = require('../controllers/comprobante');
 
 //const { verificarToken } = require('../middlewares/auth');
 const {
@@ -274,9 +274,7 @@ router.put('/:id/confirmar-pago', async (req, res) => {
     }
   });
   
-  //get obtener comprobante PDF
-  router.get('/pedidos/:id/comprobante', generarComprobantePDF);
-  
+
 
     
   
