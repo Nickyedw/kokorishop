@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { FaUser, FaCog, FaSignOutAlt, FaClipboardList } from 'react-icons/fa';
+import { FaUser, FaCog, FaSignOutAlt, FaClipboardList, FaBoxes } from 'react-icons/fa';
 
 const Menu = () => {
   return (
@@ -26,6 +26,13 @@ const Menu = () => {
           <Link to="/admin/pedidos" className="flex items-center gap-3 bg-white p-4 rounded-xl shadow-md hover:bg-yellow-100 cursor-pointer">
             <FaClipboardList className="text-yellow-600" />
             <span>Panel de Pedidos</span>
+          </Link>
+        </li>
+
+        <li>
+          <Link to="/admin/productos" className="flex items-center gap-3 bg-white p-4 rounded-xl shadow-md hover:bg-yellow-100 cursor-pointer">
+            <FaBoxes className="text-yellow-600" />
+            <span>Gestión de Productos</span>
           </Link>
         </li>
 

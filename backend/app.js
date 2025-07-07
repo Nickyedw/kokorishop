@@ -1,104 +1,43 @@
 // backend/app.js
-
-require('dotenv').config(); // 👈 Carga variables del archivo .env
-
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const db = require('./db');
-const pedidosRouter = require('./routes/pedidos'); // <-- Aquí
+const morgan = require('morgan');
+const path = require('path');
+
+const productosRouter = require('./routes/productos');
+const pedidosRouter = require('./routes/pedidos');
 const comprobanteRoutes = require('./routes/comprobantes');
+const categoriaRoutes = require('./routes/categoriaRoutes');
 
 const app = express();
-const PORT = 3001;
+const PORT = process.env.PORT || 3001;
 
+// Middlewares
 app.use(cors());
+app.use(morgan('dev'));
 app.use(express.json());
-app.use('/api', comprobanteRoutes);
+app.use(express.urlencoded({ extended: true }));
 
-// Ruta de prueba: obtener todas las categorías
-app.get('/categorias', async (req, res) => {
-  try {
-    const result = await db.query('SELECT * FROM categorias');
-    res.json(result.rows);
-  } catch (error) {
-    console.error('❌ Error al obtener categorías:', error);
-    res.status(500).json({ error: 'Error interno del servidor' });
-  }
+// Archivos estáticos (para imágenes de productos)
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// Rutas principales
+app.use('/productos', productosRouter);
+app.use('/categorias', categoriaRoutes);
+app.use('/comprobantes', comprobanteRoutes);
+app.use('/pedidos', pedidosRouter);
+
+// Ruta de prueba
+app.get('/', (req, res) => {
+  res.send('🚀 API funcionando correctamente');
 });
 
-// Ruta de prueba: obtener todos los productos
-app.get('/productos', async (req, res) => {
-  const { categoria_id } = req.query;
-
-  let query = `
-    SELECT p.*, c.nombre AS categoria_nombre
-    FROM productos p
-    JOIN categorias c ON p.categoria_id = c.id
-  `;
-  const values = [];
-
-  if (categoria_id) {
-    query += ' WHERE p.categoria_id = $1';
-    values.push(categoria_id);
-  }
-
-  try {
-    const result = await db.query(query, values);
-    res.json(result.rows);
-  } catch (error) {
-    console.error('❌ Error al obtener productos:', error);
-    res.status(500).json({ error: 'Error interno del servidor' });
-  }
+// Ruta no encontrada
+app.use((req, res) => {
+  res.status(404).json({ mensaje: 'Ruta no encontrada' });
 });
-
-// Ruta de prueba: obtener todos los productos categoria id
-app.get('/productos/categoria/:id', async (req, res) => {
-  try {
-    const categoriaId = parseInt(req.params.id, 10);
-
-    const result = await db.query(
-      `
-      SELECT p.*, c.nombre AS categoria_nombre
-      FROM productos p
-      JOIN categorias c ON p.categoria_id = c.id
-      WHERE p.categoria_id = $1
-      `,
-      [categoriaId]
-    );
-
-    res.json(result.rows);
-  } catch (error) {
-    console.error('❌ Error al obtener productos por categoría:', error);
-    res.status(500).json({ error: 'Error interno del servidor' });
-  }
-});
-
-// Ruta de prueba: obtener todos los productos buscar
-app.get('/productos/buscar', async (req, res) => {
-  const { q } = req.query;
-
-  try {
-    const result = await db.query(
-      `
-      SELECT p.*, c.nombre AS categoria_nombre
-      FROM productos p
-      JOIN categorias c ON p.categoria_id = c.id
-      WHERE LOWER(p.nombre) LIKE LOWER($1)
-      `,
-      [`%${q}%`]
-    );
-
-    res.json(result.rows);
-  } catch (error) {
-    console.error('❌ Error al buscar productos:', error);
-    res.status(500).json({ error: 'Error interno del servidor' });
-  }
-});
-
-// Rutas del módulo de pedidos
-app.use('/pedidos', pedidosRouter); // ✅ Así todas las rutas internas serán del tipo /pedidos/:id, etc.
-
 
 app.listen(PORT, () => {
-  console.log(`🚀 Servidor backend corriendo en http://localhost:${PORT}`);
+  console.log(`✅ Servidor backend corriendo en http://localhost:${PORT}`);
 });
