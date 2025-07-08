@@ -14,7 +14,7 @@ export default function ProductForm({ onSubmit, productoActual, setProductoActua
   const [categorias, setCategorias] = useState([]);
 
   useEffect(() => {
-    fetch('http://localhost:3000/api/categorias')
+    fetch('http://localhost:3001/api/categorias')
       .then(res => res.json())
       .then(data => setCategorias(data))
       .catch(err => console.error('Error al cargar categorías:', err));

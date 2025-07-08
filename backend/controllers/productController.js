@@ -1,3 +1,5 @@
+//backend/controllers/productController.js
+
 const productService = require('../services/productService');
 
 const listarProductos = async (req, res) => {

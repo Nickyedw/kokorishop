@@ -27,6 +27,8 @@ app.use('/productos', productosRouter);
 app.use('/categorias', categoriaRoutes);
 app.use('/comprobantes', comprobanteRoutes);
 app.use('/pedidos', pedidosRouter);
+app.use('/api/productos', productosRouter);
+app.use('/api/categorias', categoriaRoutes);
 
 // Ruta de prueba
 app.get('/', (req, res) => {

@@ -75,7 +75,7 @@ export default function ProductList({ productos, onEdit, onDelete }) {
             <tr key={producto.id} className="text-center border-t">
               <td className="p-2 border">{producto.nombre}</td>
               <td className="p-2 border">{producto.descripcion}</td>
-              <td className="p-2 border">S/ {producto.precio.toFixed(2)}</td>
+              <td className="p-2 border">S/ {Number(producto.precio || 0).toFixed(2)}</td>
               <td className="p-2 border">{producto.stock}</td>
               <td className="p-2 border">{producto.categoria_nombre}</td>
               <td className="p-2 border">
@@ -201,7 +201,7 @@ export default function ProductList({ productos, onEdit, onDelete }) {
                   <>
                     <h2 className="text-xl font-semibold">{productoActual.nombre}</h2>
                     <p className="text-gray-700">{productoActual.descripcion}</p>
-                    <p className="text-gray-800 font-medium">Precio: S/ {productoActual.precio.toFixed(2)}</p>
+                    <p className="text-gray-800 font-medium">Precio: S/ {Number(productoActual.precio || 0).toFixed(2)}</p>
                     <p className="text-gray-600">Stock: {productoActual.stock}</p>
                     <p className="text-gray-500 italic">Categoría: {productoActual.categoria_nombre}</p>
 

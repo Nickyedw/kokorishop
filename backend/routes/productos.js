@@ -1,3 +1,5 @@
+//backend/routes/productos.js
+
 const express = require('express');
 const router = express.Router();
 const subirImagen = require('../middlewares/uploadMiddleware');
@@ -9,6 +11,13 @@ const {
   buscarProductos,
   productosPorCategoria
 } = require('../controllers/productController');
+
+const productService = require('../services/productService');
+
+router.get('/', async (req, res) => {
+  const productos = await productService.listarProductos();
+  res.json(productos);
+});
 
 router.get('/', listarProductos); // Todos los productos
 router.get('/buscar', buscarProductos); // Búsqueda por nombre

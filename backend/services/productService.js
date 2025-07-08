@@ -1,10 +1,17 @@
+//backend/services/productService.js
+
 const pool = require('../db');
 
 // Obtener todos los productos ordenados por ID descendente
 const obtenerProductos = async () => {
-  const result = await pool.query('SELECT * FROM productos ORDER BY id DESC');
-  return result.rows;
-};
+    try {
+        const result = await pool.query('SELECT * FROM productos ORDER BY id DESC');
+        return result.rows;
+      } catch (error) {
+        console.error('Error al obtener productos:', error);
+        throw error;
+      }
+    };
 
 // Crear nuevo producto
 const crearProducto = async ({ nombre, descripcion, precio, stock, categoria_id, imagen_url }) => {
