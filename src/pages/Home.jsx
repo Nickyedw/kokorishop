@@ -1,40 +1,48 @@
-import React, { useContext, useState } from 'react';
-import { FaHome, FaHeart, FaShoppingBag, FaBars, FaSearch } from 'react-icons/fa';
-import { Link } from "react-router-dom";
-import { CartContext } from "../context/CartContext";
-import { FavoritesContext } from "../context/FavoritesContext";
+import React, { useEffect, useState, useContext } from 'react';
+import { FaHeart, FaShoppingBag, FaBars, FaSearch } from 'react-icons/fa';
+import { Link } from 'react-router-dom';
+import { getProductos } from '../services/productService';
+import ProductCard from '../components/ProductCard';
+import { CartContext } from '../context/CartContext';
+import { FavoritesContext } from '../context/FavoritesContext';
 
 const Home = () => {
-  const { cartItems, addToCart } = useContext(CartContext);
-  const { favorites, addToFavorites, removeFromFavorites, isFavorite } = useContext(FavoritesContext);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('Todos');
+  const { cartItems } = useContext(CartContext);
+  const { favorites } = useContext(FavoritesContext);
+
+  const [productos, setProductos] = useState([]);
+  const [busqueda, setBusqueda] = useState('');
 
   const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
-  const productos = [
-    { id: 1, name: 'Peluche Kawaii', emoji: '🐱', price: 12, category: 'Kawaii' },
-    { id: 2, name: 'Audífonos', emoji: '🎧', price: 20, category: 'Accesorios' },
-    { id: 3, name: 'Control Gamer', emoji: '🎮', price: 99, category: 'Electrónica' },
-    { id: 4, name: 'Luz Nocturna', emoji: '⭐', price: 18, category: 'Hogar' },
-    { id: 5, name: 'Taza Panda', emoji: '🐼', price: 10, category: 'Hogar' },
-    { id: 6, name: 'Estuche Gato', emoji: '📱', price: 8, category: 'Kawaii' },
-  ];
+  useEffect(() => {
+    const cargarProductos = async () => {
+      try {
+        const data = await getProductos();
+        setProductos(data);
+      } catch (err) {
+        console.error('Error cargando productos:', err);
+      }
+    };
+    cargarProductos();
+  }, []);
 
-  const categorias = ['Todos', 'Kawaii', 'Accesorios', 'Electrónica', 'Hogar'];
-
-  const productosFiltrados = productos.filter(product => {
-    const porCategoria = selectedCategory === 'Todos' || product.category === selectedCategory;
-    const porBusqueda = product.name.toLowerCase().includes(searchTerm.toLowerCase());
-    return porCategoria && porBusqueda;
+  const productosFiltrados = productos.filter((p) => {
+    const termino = busqueda.toLowerCase();
+    return (
+      p.nombre.toLowerCase().includes(termino) ||
+      p.descripcion.toLowerCase().includes(termino) ||
+      (p.categoria_nombre?.toLowerCase().includes(termino))
+    );
   });
 
   return (
-    <div className="min-h-screen bg-purple-900 text-white font-sans pb-24">
+    <div className="min-h-screen bg-purple-900 text-white pb-24">
+      {/* Header */}
       <nav className="flex items-center justify-between px-6 py-4 bg-purple-800 shadow-md">
         <span className="text-3xl">🐾</span>
-        <h1 className="text-2xl font-bold text-purple-100">KokoShop</h1>
-        <div className="flex items-center gap-4 text-white text-lg relative">
+        <h1 className="text-2xl font-bold">KokoShop</h1>
+        <div className="flex items-center gap-4 relative text-lg">
           <Link to="/favorites" className="relative">
             <FaHeart />
             {favorites.length > 0 && (
@@ -55,82 +63,50 @@ const Home = () => {
         </div>
       </nav>
 
+      {/* Hero */}
       <section className="bg-purple-800 rounded-3xl m-4 p-6 text-center text-purple-100">
-        <h2 className="text-3xl md:text-4xl font-bold mb-4">Shop the Cutest Products</h2>
+        <h2 className="text-3xl font-bold mb-4">Shop the Cutest Products</h2>
         <button className="bg-purple-500 hover:bg-purple-600 text-white py-2 px-4 rounded-full font-medium text-lg">
           Shop Now
         </button>
       </section>
 
-      <section className="px-6 py-2">
-        <div className="mb-4 flex flex-wrap gap-2">
-          {categorias.map(cat => (
-            <button
-              key={cat}
-              onClick={() => setSelectedCategory(cat)}
-              className={`px-3 py-1 rounded-full text-sm font-medium border transition ${
-                selectedCategory === cat ? 'bg-white text-purple-700' : 'bg-purple-600 text-white'
-              }`}
-            >
-              {cat}
-            </button>
-          ))}
-        </div>
-
-        <div className="relative mb-4">
+      {/* Buscador */}
+      <div className="px-6">
+        <div className="relative mb-6">
           <input
             type="text"
-            placeholder="Buscar productos..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="🔍 Buscar productos por nombre, descripción o categoría..."
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
             className="w-full px-4 py-2 rounded-full text-purple-900"
           />
           <FaSearch className="absolute top-3 right-4 text-purple-600" />
         </div>
 
-        <h3 className="text-xl font-semibold mb-4 text-purple-100">Productos</h3>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-          {productosFiltrados.map((product) => (
-            <div key={product.id} className="bg-purple-100 text-purple-800 rounded-xl p-4 text-center shadow-md relative">
-              <div className="text-4xl mb-2">{product.emoji}</div>
-              <p className="font-semibold mb-1">{product.name}</p>
-              <p className="font-bold mb-2">${product.price}</p>
-              <button
-                onClick={() => addToCart(product)}
-                className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded-full text-sm"
-              >
-                Agregar al carrito
-              </button>
-              <button
-                onClick={() =>
-                  isFavorite(product.id)
-                    ? removeFromFavorites(product.id)
-                    : addToFavorites(product)
-                }
-                className="absolute top-2 right-2 text-pink-500 text-xl hover:scale-110 transition-transform"
-                title="Favorito"
-              >
-                {isFavorite(product.id) ? '💖' : '🤍'}
-              </button>
-            </div>
+        {/* Lista de productos */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+          {productosFiltrados.map((producto) => (
+            <ProductCard key={producto.id} producto={producto} />
           ))}
         </div>
-      </section>
+      </div>
 
+      {/* Footer */}
       <footer className="fixed bottom-0 left-0 right-0 bg-purple-800 text-purple-200 shadow-inner flex justify-around py-3 rounded-t-3xl">
         <Link to="/" className="flex flex-col items-center text-sm">
-          <FaHome className="text-xl" />
+          <FaShoppingBag className="text-xl" />
           Home
         </Link>
-        <Link to="/Favorites" className="flex flex-col items-center text-sm">
+        <Link to="/favorites" className="flex flex-col items-center text-sm">
           <FaHeart className="text-xl" />
           Favorites
         </Link>
-        <Link to="/Cart" className="flex flex-col items-center text-sm">
+        <Link to="/cart" className="flex flex-col items-center text-sm">
           <FaShoppingBag className="text-xl" />
           Cart
         </Link>
-        <Link to="/Menu" className="flex flex-col items-center text-sm">
+        <Link to="/menu" className="flex flex-col items-center text-sm">
           <FaBars className="text-xl" />
           Menu
         </Link>

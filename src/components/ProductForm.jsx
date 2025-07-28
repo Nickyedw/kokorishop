@@ -1,4 +1,7 @@
+// src/components/ProductForm.jsx
 import { useState, useEffect } from 'react';
+import { toast } from 'react-toastify';
+import { FaCheckCircle, FaTimesCircle, FaExclamationTriangle } from 'react-icons/fa'; // Íconos kawaii
 
 export default function ProductForm({ onSubmit, productoActual, setProductoActual }) {
   const [formData, setFormData] = useState({
@@ -55,19 +58,44 @@ export default function ProductForm({ onSubmit, productoActual, setProductoActua
     setFile(e.target.files[0]);
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    const dataToSend = new FormData();
-    dataToSend.append('nombre', formData.nombre);
-    dataToSend.append('descripcion', formData.descripcion);
-    dataToSend.append('precio', formData.precio);
-    dataToSend.append('stock', formData.stock);
-    dataToSend.append('categoria_id', formData.categoria_id);
-    if (file) {
-      dataToSend.append('imagen', file);
-    }
+const handleSubmit = async (e) => {
+  e.preventDefault();
 
-    await onSubmit(dataToSend); // onSubmit ahora espera un FormData
+  if (
+    !productoActual && (
+      !formData.nombre.trim() ||
+      !formData.descripcion.trim() ||
+      !formData.precio ||
+      !formData.stock ||
+      !formData.categoria_id
+    )
+  ) {
+    toast.warn(
+      <span className="flex items-center gap-2">
+        🐵 Todos los campos son obligatorios
+      </span>
+    );
+    return;
+  }
+
+  const dataToSend = {
+    nombre: formData.nombre,
+    descripcion: formData.descripcion,
+    precio: formData.precio,
+    stock: formData.stock,
+    categoria_id: formData.categoria_id,
+    imagenFile: file,
+  };
+
+  try {
+    await onSubmit(dataToSend, productoActual?.id);
+
+    toast.success(
+      <span className="flex items-center gap-2">
+        🐼 Producto {productoActual ? 'actualizado' : 'creado'} con éxito
+      </span>
+    );
+
     setFormData({
       nombre: '',
       descripcion: '',
@@ -78,7 +106,15 @@ export default function ProductForm({ onSubmit, productoActual, setProductoActua
     });
     setFile(null);
     setProductoActual(null);
-  };
+  } catch (error) {
+    toast.error(
+      <span className="flex items-center gap-2">
+        😵‍💫 Ocurrió un error al guardar el producto
+      </span>
+    );
+    console.error(error);
+  }
+};
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4 bg-white p-4 shadow rounded mb-6">

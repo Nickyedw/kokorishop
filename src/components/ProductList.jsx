@@ -1,9 +1,37 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';;
+import { motion as Motion} from 'framer-motion';
+import { FaEdit, FaTrashAlt } from 'react-icons/fa';
+import { toast } from 'react-toastify';
+import { updateProducto } from '../services/productService'; // asegúrate de importar esto
 
-export default function ProductList({ productos, onEdit, onDelete }) {
+const API_URL = 'http://localhost:3001';
+
+export default function ProductList({ productos, onEdit, onDelete, cargarProductos }) {
   const [imagenModalIndex, setImagenModalIndex] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [editableProducto, setEditableProducto] = useState(null);
+
+  const [categorias, setCategorias] = useState([]);
+
+useEffect(() => {
+  const cargarCategorias = async () => {
+    try {
+      const res = await fetch('http://localhost:3001/api/categorias');
+      const data = await res.json();
+      setCategorias(data);
+    } catch (error) {
+      console.error('Error al cargar categorías:', error);
+    }
+  };
+
+  cargarCategorias();
+}, []);
+
+  const getImageUrl = (imagen_url) => {
+    if (!imagen_url) return '/img/no-image.png';
+    if (imagen_url.startsWith('http')) return imagen_url;
+    return `${API_URL}${imagen_url.startsWith('/') ? '' : '/'}${imagen_url}`;
+  };
 
   const cerrarModal = () => {
     setImagenModalIndex(null);
@@ -37,14 +65,31 @@ export default function ProductList({ productos, onEdit, onDelete }) {
     setEditableProducto({ ...productoActual });
   };
 
-  const guardarCambios = () => {
+const guardarCambios = async () => {
+  try {
     const data = {
       ...editableProducto,
-      id: productoActual.id,
+      imagenFile: editableProducto.imagenFile,
     };
-    onEdit(data); // Puede incluir `imagenFile`
+
+    await updateProducto(productoActual.id, data);
+    await cargarProductos(); // <-- recarga la lista
+    toast.success(
+      <span className="flex items-center gap-2">
+        🐼 Producto actualizado con éxito
+      </span>
+    );
+
     cerrarModal();
-  };
+  } catch (error) {
+    console.error('Error al actualizar desde modal:', error);
+    toast.error(
+      <span className="flex items-center gap-2">
+        😿 Error al actualizar producto
+      </span>
+    );
+  }
+};
 
   const confirmarEliminacion = () => {
     setConfirmDelete(true);
@@ -57,7 +102,6 @@ export default function ProductList({ productos, onEdit, onDelete }) {
 
   return (
     <>
-      {/* Tabla */}
       <table className="w-full border mt-4">
         <thead>
           <tr className="bg-gray-200 text-center">
@@ -70,7 +114,12 @@ export default function ProductList({ productos, onEdit, onDelete }) {
             <th className="p-2 border">Acciones</th>
           </tr>
         </thead>
-        <tbody>
+
+        <Motion.tbody
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+        >
           {productos.map((producto, index) => (
             <tr key={producto.id} className="text-center border-t">
               <td className="p-2 border">{producto.nombre}</td>
@@ -81,7 +130,7 @@ export default function ProductList({ productos, onEdit, onDelete }) {
               <td className="p-2 border">
                 {producto.imagen_url ? (
                   <img
-                    src={producto.imagen_url}
+                    src={getImageUrl(producto.imagen_url)}
                     alt={producto.nombre}
                     onClick={() => setImagenModalIndex(index)}
                     className="w-16 h-16 object-cover mx-auto rounded-md shadow cursor-pointer hover:scale-105 transition-transform duration-200"
@@ -93,20 +142,20 @@ export default function ProductList({ productos, onEdit, onDelete }) {
               <td className="p-2 border">
                 <button
                   onClick={() => onEdit(producto)}
-                  className="bg-yellow-400 px-2 py-1 rounded mr-2"
+                  className="bg-yellow-400 px-2 py-1 rounded mr-2 flex items-center justify-center gap-1"
                 >
-                  Editar
+                  <FaEdit /> Editar
                 </button>
                 <button
                   onClick={() => onDelete(producto.id)}
-                  className="bg-red-500 text-white px-2 py-1 rounded"
+                  className="bg-red-500 text-white px-2 py-1 rounded flex items-center justify-center gap-1"
                 >
-                  Eliminar
+                  <FaTrashAlt /> Eliminar
                 </button>
               </td>
             </tr>
           ))}
-        </tbody>
+        </Motion.tbody>
       </table>
 
       {/* Modal */}
@@ -121,7 +170,7 @@ export default function ProductList({ productos, onEdit, onDelete }) {
           >
             <div className="flex flex-col items-center p-4">
               <img
-                src={productoActual.imagen_url}
+                src={getImageUrl(productoActual.imagen_url)}
                 alt={productoActual.nombre}
                 className="max-h-[60vh] object-contain rounded"
               />
@@ -154,33 +203,39 @@ export default function ProductList({ productos, onEdit, onDelete }) {
                       onChange={handleChange}
                       className="border rounded px-2 py-1 w-full"
                     />
-                    <input
-                      name="categoria_nombre"
-                      value={editableProducto.categoria_nombre}
-                      onChange={handleChange}
-                      className="border rounded px-2 py-1 w-full"
-                      disabled
-                    />
+                    <select
+                    name="categoria_id"
+                    value={editableProducto.categoria_id}
+                    onChange={handleChange}
+                    className="border rounded px-2 py-1 w-full"
+                  >
+                    <option value="">Seleccione una categoría</option>
+                    {categorias.map((categoria) => (
+                      <option key={categoria.id} value={categoria.id}>
+                        {categoria.nombre}
+                      </option>
+                    ))}
+                  </select>
 
                     <input
-                          type="file"
-                          accept="image/*"
-                          onChange={(e) =>
-                            setEditableProducto((prev) => ({
-                              ...prev,
-                              imagenFile: e.target.files[0],
-                              imagenPreview: URL.createObjectURL(e.target.files[0]),
-                            }))
-                          }
-                          className="border rounded px-2 py-1 w-full"
-                        />
-                        {editableProducto.imagenPreview && (
-                          <img
-                            src={editableProducto.imagenPreview}
-                            alt="Previsualización"
-                            className="max-h-48 object-contain mx-auto mt-2 rounded shadow"
-                          />
-                        )}
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) =>
+                        setEditableProducto((prev) => ({
+                          ...prev,
+                          imagenFile: e.target.files[0],
+                          imagenPreview: URL.createObjectURL(e.target.files[0]),
+                        }))
+                      }
+                      className="border rounded px-2 py-1 w-full"
+                    />
+                    {editableProducto.imagenPreview && (
+                      <img
+                        src={editableProducto.imagenPreview}
+                        alt="Previsualización"
+                        className="max-h-48 object-contain mx-auto mt-2 rounded shadow"
+                      />
+                    )}
 
                     <div className="flex gap-4 justify-center mt-2">
                       <button

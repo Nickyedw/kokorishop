@@ -1,24 +1,23 @@
+// middlewares/auth.js
 const jwt = require('jsonwebtoken');
+const SECRET_KEY = process.env.JWT_SECRET
 
 const verificarToken = (req, res, next) => {
-  const token = req.headers['authorization'];
+  const authHeader = req.headers['authorization'];
+  const token = authHeader?.startsWith('Bearer ') ? authHeader.split(' ')[1] : null;
 
   if (!token) {
-    return res.status(403).json({ mensaje: 'Token no proporcionado' });
+    return res.status(401).json({ error: 'Acceso denegado. Token no proporcionado.' });
   }
 
-  const tokenLimpio = token.replace('Bearer ', '');
-
-  jwt.verify(tokenLimpio, process.env.JWT_SECRET, (err, decoded) => {
-    if (err) {
-      return res.status(401).json({ mensaje: 'Token inválido o expirado' });
-    }
-
-    req.usuario = decoded; // Puedes acceder a los datos del usuario desde aquí
+  try {
+    const decoded = jwt.verify(token, SECRET_KEY);
+    req.usuario = decoded; // decoded.id, decoded.correo, etc.
     next();
-  });
+  } catch (error) {
+    console.error('❌ Error al verificar token:', error.message);
+    return res.status(403).json({ error: 'Token inválido o expirado. Por favor inicia sesión nuevamente.' });
+  }
 };
 
-module.exports = {
-  verificarToken,
-};
+module.exports = { verificarToken };

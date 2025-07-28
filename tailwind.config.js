@@ -1,16 +1,22 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-    content: [
-      './index.html',
-      './src/**/*.{js,ts,jsx,tsx}', // asegúrate de que tus archivos estén en ./src/
-    ],
-    theme: {
-      extend: {
-        // puedes personalizar colores, tipografías, etc.
+  content: [
+    "./index.html",
+    "./src/**/*.{js,ts,jsx,tsx}",
+  ],
+  theme: {
+    extend: {
+      animation: {
+        'fade-in': 'fadeIn 0.4s ease-out',
+      },
+      keyframes: {
+        fadeIn: {
+          '0%': { opacity: 0, transform: 'translateY(-10px)' },
+          '100%': { opacity: 1, transform: 'translateY(0)' },
+        },
       },
     },
-    plugins: [
-      // puedes agregar plugins como forms, typography, etc.
-    ],
+  },
+  plugins: [],
   }
   

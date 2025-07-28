@@ -18,7 +18,7 @@ const AdminPedidos = () => {
 
   const obtenerPedidos = async () => {
     try {
-      const res = await axios.get('http://localhost:3001/pedidos');
+      const res = await axios.get('http://localhost:3001/api/pedidos');
       setPedidos(res.data);
     } catch (error) {
       console.error('❌ Error al obtener pedidos:', error);
@@ -29,7 +29,7 @@ const AdminPedidos = () => {
 
   const actualizarEstado = async (idPedido, nuevoEstado) => {
     try {
-      await axios.put(`http://localhost:3001/pedidos/${idPedido}/estado`, {
+      await axios.put(`http://localhost:3001/api/pedidos/${idPedido}/estado`, {
         estado: nuevoEstado,
       });
       console.log(`✅ Estado actualizado a "${nuevoEstado}"`);
