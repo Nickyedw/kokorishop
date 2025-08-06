@@ -11,6 +11,9 @@ const productosRouter = require('./routes/productos');
 const pedidosRouter = require('./routes/pedidos');
 const comprobanteRoutes = require('./routes/comprobantes');
 const categoriaRoutes = require('./routes/categoriaRoutes');
+const opcionesEntregaRoutes = require('./routes/opcionesEntrega');
+const usuariosRouter = require('./routes/usuarios');
+const metodosPago = require('./routes/metodosPago');
 
 const PORT = process.env.PORT || 3001;
 
@@ -37,6 +40,9 @@ app.use('/api/pedidos', pedidosRouter);
 app.use('/comprobantes', comprobanteRoutes);
 app.use('/api/categorias', categoriaRoutes);
 app.use('/categorias', categoriaRoutes); // Extra
+app.use('/api', opcionesEntregaRoutes);
+app.use('/api/usuarios', usuariosRouter);
+app.use('/api/metodos_pago', metodosPago);
 
 // ✅ Ruta base de prueba
 app.get('/', (req, res) => {

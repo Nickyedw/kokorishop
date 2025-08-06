@@ -32,6 +32,7 @@ const DetalleClientePedido = () => {
       <p><strong>Fecha:</strong> {new Date(pedido.fecha).toLocaleString()}</p>
       <p><strong>Total:</strong> ${pedido.total}</p>
       <p><strong>Estado:</strong> {pedido.estado}</p>
+      <p><strong>Comentario de Pago:</strong>{pedido.comentario_pago || '—'}</p>
 
       <h3 className="text-xl mt-6 mb-2 font-semibold">Productos:</h3>
       <ul className="space-y-2">

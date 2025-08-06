@@ -7,6 +7,7 @@ import { CartContext } from '../context/CartContext';
 import { FavoritesContext } from '../context/FavoritesContext';
 
 const Home = () => {
+  const usuario_nombre = localStorage.getItem('usuario_nombre') || 'Invitado';
   const { cartItems } = useContext(CartContext);
   const { favorites } = useContext(FavoritesContext);
 
@@ -43,6 +44,7 @@ const Home = () => {
         <span className="text-3xl">🐾</span>
         <h1 className="text-2xl font-bold">KokoShop</h1>
         <div className="flex items-center gap-4 relative text-lg">
+          <h1 className="text-3xl font-bold mb-4">Bienvenido, {usuario_nombre}</h1>
           <Link to="/favorites" className="relative">
             <FaHeart />
             {favorites.length > 0 && (

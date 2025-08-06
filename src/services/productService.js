@@ -13,20 +13,21 @@ export const getProductos = async () => {
   }
 };
 
-
 export async function createProducto(data) {
   const formData = new FormData();
 
   formData.append('nombre', data.nombre);
   formData.append('descripcion', data.descripcion);
   formData.append('precio', data.precio);
-  formData.append('stock', data.stock);
-  formData.append('categoria_id', data.categoria_id); // este debe ser el id, no el nombre
+  formData.append('stock_actual', data.stock_actual || data.stock); // compatibilidad si viene como stock
+  formData.append('stock_minimo', data.stock_minimo || 5); // por defecto 5 si no se proporciona
+  formData.append('categoria_id', data.categoria_id);
+
   if (data.imagenFile) {
     formData.append('imagen', data.imagenFile);
   }
 
-  const response = await fetch('http://localhost:3001/api/productos', {
+  const response = await fetch(API_URL, {
     method: 'POST',
     body: formData,
   });
@@ -39,12 +40,10 @@ export async function createProducto(data) {
   return await response.json();
 }
 
-
 export const updateProducto = async (id, producto) => {
   try {
     const formData = new FormData();
 
-    // Agrega solo los campos que tengan valor (evita "" o undefined)
     if (producto.nombre?.trim()) {
       formData.append('nombre', producto.nombre);
     }
@@ -54,14 +53,18 @@ export const updateProducto = async (id, producto) => {
     if (producto.precio !== '' && producto.precio !== undefined && producto.precio !== null) {
       formData.append('precio', producto.precio);
     }
-    if (producto.stock !== '' && producto.stock !== undefined && producto.stock !== null) {
-      formData.append('stock', producto.stock);
+    if (producto.stock_actual !== '' && producto.stock_actual !== undefined && producto.stock_actual !== null) {
+      formData.append('stock_actual', producto.stock_actual);
+    } else if (producto.stock !== '' && producto.stock !== undefined && producto.stock !== null) {
+      formData.append('stock_actual', producto.stock);
+    }
+    if (producto.stock_minimo !== '' && producto.stock_minimo !== undefined && producto.stock_minimo !== null) {
+      formData.append('stock_minimo', producto.stock_minimo);
     }
     if (producto.categoria_id !== '' && producto.categoria_id !== undefined && producto.categoria_id !== null) {
       formData.append('categoria_id', producto.categoria_id);
     }
 
-    // Si hay nueva imagen, se adjunta
     if (producto.imagenFile) {
       formData.append('imagen', producto.imagenFile);
     }
@@ -71,14 +74,17 @@ export const updateProducto = async (id, producto) => {
       body: formData,
     });
 
-    if (!res.ok) throw new Error('Error al actualizar producto');
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error('Error al actualizar producto: ' + errText);
+    }
+
     return await res.json();
   } catch (error) {
     console.error('updateProducto:', error);
     throw error;
   }
 };
-
 
 export const deleteProducto = async (id) => {
   try {

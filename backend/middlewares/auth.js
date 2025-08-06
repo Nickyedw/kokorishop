@@ -1,6 +1,6 @@
 // middlewares/auth.js
 const jwt = require('jsonwebtoken');
-const SECRET_KEY = process.env.JWT_SECRET
+const SECRET_KEY = process.env.JWT_SECRET;
 
 const verificarToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
@@ -12,7 +12,7 @@ const verificarToken = (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, SECRET_KEY);
-    req.usuario = decoded; // decoded.id, decoded.correo, etc.
+    req.usuario = decoded; // ✅ Aquí se asigna decoded al request para su uso posterior
     next();
   } catch (error) {
     console.error('❌ Error al verificar token:', error.message);
@@ -20,4 +20,13 @@ const verificarToken = (req, res, next) => {
   }
 };
 
-module.exports = { verificarToken };
+const verificarTokenAdmin = (req, res, next) => {
+  verificarToken(req, res, () => {
+    if (!req.usuario || !req.usuario.es_admin) {
+      return res.status(403).json({ mensaje: 'Acceso restringido solo para administradores' });
+    }
+    next();
+  });
+};
+
+module.exports = { verificarToken, verificarTokenAdmin };

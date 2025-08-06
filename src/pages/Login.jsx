@@ -1,16 +1,15 @@
 // src/pages/Login.jsx
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { toast } from 'react-toastify';
 
 const Login = () => {
   const [correo, setCorreo] = useState('');
   const [password, setPassword] = useState('');
-  const [mensajeError, setMensajeError] = useState('');
   const navigate = useNavigate();
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    setMensajeError('');
 
     try {
       const res = await fetch('http://localhost:3001/api/auth/login', {
@@ -25,33 +24,28 @@ const Login = () => {
       }
 
       const data = await res.json();
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('usuario_id', data.usuario.id); // ✅ guardamos también el ID del usuario
 
-      navigate('/menu'); // Redirigir al menú principal
+      // Guardar token y datos del usuario
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('usuario', JSON.stringify(data.usuario));
+      localStorage.setItem('usuario_id', data.usuario.id);
+      localStorage.setItem('usuario_nombre', data.usuario.nombre);
+      localStorage.setItem('es_admin', data.usuario.es_admin ? 'true' : 'false');
+
+      toast.success(`¡Bienvenido, ${data.usuario.nombre}!`);
+      navigate('/menu');
     } catch (error) {
-      setMensajeError(error.message);
+      toast.error(error.message || 'Error al iniciar sesión');
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-purple-100 p-4">
+    <div className="min-h-screen flex flex-col items-center justify-center bg-purple-100 p-4">
       <form
         onSubmit={handleLogin}
         className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md"
       >
         <h2 className="text-2xl font-bold mb-4 text-center text-purple-800">Iniciar Sesión</h2>
-
-        {mensajeError && (
-          <div className="bg-red-100 text-red-700 px-4 py-2 rounded mb-4">
-            {mensajeError}
-          </div>
-        )}
-
-        <p className="text-center text-sm text-gray-600 mt-4">
-        ¿No tienes cuenta? <Link to="/register" className="text-yellow-600 hover:underline">Regístrate aquí</Link>
-        </p>
-
 
         <label className="block mb-2 text-sm font-medium">Correo electrónico:</label>
         <input
@@ -77,7 +71,27 @@ const Login = () => {
         >
           Ingresar
         </button>
+
+        <p className="text-center text-sm text-gray-600 mt-4">
+          ¿No tienes cuenta?{' '}
+          <Link to="/register" className="text-yellow-600 hover:underline">
+            Regístrate aquí
+          </Link>
+        </p>
       </form>
+
+      <p className="text-center text-sm text-gray-600 mt-2">
+        <Link to="/recuperar" className="text-purple-600 hover:underline">
+          ¿Olvidaste tu contraseña?
+        </Link>
+      </p>
+
+      <button
+        onClick={() => navigate('/')}
+        className="mt-4 text-purple-600 hover:underline text-sm"
+      >
+        ← Volver a la tienda
+      </button>
     </div>
   );
 };

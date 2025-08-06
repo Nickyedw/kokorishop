@@ -1,8 +1,10 @@
-import { useEffect, useState } from 'react';;
-import { motion as Motion} from 'framer-motion';
-import { FaEdit, FaTrashAlt } from 'react-icons/fa';
+//src/components/ProductList.jsx
+import { useEffect, useState } from 'react';
+import { motion as Motion } from 'framer-motion';
+import { FaEdit, FaTrashAlt, FaPlusCircle } from 'react-icons/fa';
 import { toast } from 'react-toastify';
-import { updateProducto } from '../services/productService'; // asegúrate de importar esto
+import { updateProducto } from '../services/productService';
+import axios from 'axios';
 
 const API_URL = 'http://localhost:3001';
 
@@ -10,22 +12,23 @@ export default function ProductList({ productos, onEdit, onDelete, cargarProduct
   const [imagenModalIndex, setImagenModalIndex] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [editableProducto, setEditableProducto] = useState(null);
-
   const [categorias, setCategorias] = useState([]);
+  const [modalReponer, setModalReponer] = useState(null);
+  const [cantidadReponer, setCantidadReponer] = useState(0);
+  const [productoResaltado, setProductoResaltado] = useState(null);
 
-useEffect(() => {
-  const cargarCategorias = async () => {
-    try {
-      const res = await fetch('http://localhost:3001/api/categorias');
-      const data = await res.json();
-      setCategorias(data);
-    } catch (error) {
-      console.error('Error al cargar categorías:', error);
-    }
-  };
-
-  cargarCategorias();
-}, []);
+  useEffect(() => {
+    const cargarCategorias = async () => {
+      try {
+        const res = await fetch('http://localhost:3001/api/categorias');
+        const data = await res.json();
+        setCategorias(data);
+      } catch (error) {
+        console.error('Error al cargar categorías:', error);
+      }
+    };
+    cargarCategorias();
+  }, []);
 
   const getImageUrl = (imagen_url) => {
     if (!imagen_url) return '/img/no-image.png';
@@ -41,9 +44,7 @@ useEffect(() => {
 
   const mostrarAnterior = (e) => {
     e.stopPropagation();
-    setImagenModalIndex((prev) =>
-      prev > 0 ? prev - 1 : productos.length - 1
-    );
+    setImagenModalIndex((prev) => (prev > 0 ? prev - 1 : productos.length - 1));
     setConfirmDelete(false);
   };
 
@@ -53,8 +54,7 @@ useEffect(() => {
     setConfirmDelete(false);
   };
 
-  const productoActual =
-    imagenModalIndex !== null ? productos[imagenModalIndex] : null;
+  const productoActual = imagenModalIndex !== null ? productos[imagenModalIndex] : null;
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -65,39 +65,47 @@ useEffect(() => {
     setEditableProducto({ ...productoActual });
   };
 
-const guardarCambios = async () => {
-  try {
-    const data = {
-      ...editableProducto,
-      imagenFile: editableProducto.imagenFile,
-    };
-
-    await updateProducto(productoActual.id, data);
-    await cargarProductos(); // <-- recarga la lista
-    toast.success(
-      <span className="flex items-center gap-2">
-        🐼 Producto actualizado con éxito
-      </span>
-    );
-
-    cerrarModal();
-  } catch (error) {
-    console.error('Error al actualizar desde modal:', error);
-    toast.error(
-      <span className="flex items-center gap-2">
-        😿 Error al actualizar producto
-      </span>
-    );
-  }
-};
-
-  const confirmarEliminacion = () => {
-    setConfirmDelete(true);
+  const guardarCambios = async () => {
+    try {
+      const data = {
+        ...editableProducto,
+        imagenFile: editableProducto.imagenFile,
+      };
+      await updateProducto(productoActual.id, data);
+      await cargarProductos();
+      toast.success(<span className="flex items-center gap-2">🐼 Producto actualizado con éxito</span>);
+      cerrarModal();
+    } catch (error) {
+      console.error('Error al actualizar desde modal:', error);
+      toast.error(<span className="flex items-center gap-2">😿 Error al actualizar producto</span>);
+    }
   };
+
+  const confirmarEliminacion = () => setConfirmDelete(true);
 
   const ejecutarEliminacion = () => {
     onDelete(productoActual.id);
     cerrarModal();
+  };
+
+  const handleReponer = async (id) => {
+    try {
+      const token = localStorage.getItem('token');
+      await axios.post(`http://localhost:3001/api/productos/${id}/reponer`, { cantidad: cantidadReponer }, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      toast.success('✅ Stock actualizado correctamente');
+      setProductoResaltado(id);
+      setTimeout(() => setProductoResaltado(null), 2000);
+      setModalReponer(null);
+      setCantidadReponer(0);
+      cargarProductos();
+    } catch (error) {
+      toast.error('❌ Error al reponer stock');
+      console.error(error);
+    }
   };
 
   return (
@@ -114,18 +122,25 @@ const guardarCambios = async () => {
             <th className="p-2 border">Acciones</th>
           </tr>
         </thead>
-
-        <Motion.tbody
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
-        >
+        <Motion.tbody initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
           {productos.map((producto, index) => (
-            <tr key={producto.id} className="text-center border-t">
+            <tr
+              key={producto.id}
+              className={`text-center border-t ${
+                productoResaltado === producto.id ? 'bg-green-100 font-semibold' : ''
+              }`}
+            >
               <td className="p-2 border">{producto.nombre}</td>
               <td className="p-2 border">{producto.descripcion}</td>
               <td className="p-2 border">S/ {Number(producto.precio || 0).toFixed(2)}</td>
-              <td className="p-2 border">{producto.stock}</td>
+              <td className="p-2 border">
+                {producto.stock_actual ?? '—'}
+                {producto.stock_actual !== null && producto.stock_actual <= producto.stock_minimo && (
+                  <span className="ml-2 text-red-600 font-bold" title="Stock bajo">
+                    ⚠️
+                  </span>
+                )}
+              </td>
               <td className="p-2 border">{producto.categoria_nombre}</td>
               <td className="p-2 border">
                 {producto.imagen_url ? (
@@ -139,7 +154,7 @@ const guardarCambios = async () => {
                   <span className="text-gray-400 italic">Sin imagen</span>
                 )}
               </td>
-              <td className="p-2 border">
+              <td className="p-2 border space-y-1">
                 <button
                   onClick={() => onEdit(producto)}
                   className="bg-yellow-400 px-2 py-1 rounded mr-2 flex items-center justify-center gap-1"
@@ -152,70 +167,71 @@ const guardarCambios = async () => {
                 >
                   <FaTrashAlt /> Eliminar
                 </button>
+                <button
+                  onClick={() => {
+                    setModalReponer(producto);
+                    setCantidadReponer(0);
+                  }}
+                  className="bg-blue-500 text-white px-2 py-1 rounded flex items-center justify-center gap-1"
+                >
+                  <FaPlusCircle /> Reponer
+                </button>
               </td>
             </tr>
           ))}
         </Motion.tbody>
       </table>
 
+      {modalReponer && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md relative">
+            <button onClick={() => setModalReponer(null)} className="absolute top-2 right-2 text-gray-600">✕</button>
+            <h3 className="text-xl font-bold mb-4">Reponer stock de "{modalReponer.nombre}"</h3>
+            <input
+              type="number"
+              className="w-full p-2 border rounded mb-4"
+              placeholder="Cantidad a reponer"
+              value={cantidadReponer}
+              onChange={(e) => setCantidadReponer(e.target.value)}
+            />
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setModalReponer(null)} className="bg-gray-300 px-4 py-2 rounded hover:bg-gray-400">
+                Cancelar
+              </button>
+              <button
+                onClick={() => handleReponer(modalReponer.id)}
+                className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
+              >
+                Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Modal */}
       {productoActual && productoActual.imagen_url && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50"
-          onClick={cerrarModal}
-        >
-          <div
-            className="relative max-w-4xl max-h-[90%] bg-white rounded-lg overflow-y-auto shadow-lg"
-            onClick={(e) => e.stopPropagation()}
-          >
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50" onClick={cerrarModal}>
+          <div className="relative max-w-4xl max-h-[90%] bg-white rounded-lg overflow-y-auto shadow-lg" onClick={(e) => e.stopPropagation()}>
             <div className="flex flex-col items-center p-4">
-              <img
-                src={getImageUrl(productoActual.imagen_url)}
-                alt={productoActual.nombre}
-                className="max-h-[60vh] object-contain rounded"
-              />
+              <img src={getImageUrl(productoActual.imagen_url)} alt={productoActual.nombre} className="max-h-[60vh] object-contain rounded" />
               <div className="mt-4 text-center space-y-2">
                 {editableProducto ? (
                   <>
-                    <input
-                      name="nombre"
-                      value={editableProducto.nombre}
-                      onChange={handleChange}
-                      className="border rounded px-2 py-1 w-full"
-                    />
-                    <textarea
-                      name="descripcion"
-                      value={editableProducto.descripcion}
-                      onChange={handleChange}
-                      className="border rounded px-2 py-1 w-full"
-                    />
-                    <input
-                      name="precio"
-                      type="number"
-                      value={editableProducto.precio}
-                      onChange={handleChange}
-                      className="border rounded px-2 py-1 w-full"
-                    />
-                    <input
-                      name="stock"
-                      type="number"
-                      value={editableProducto.stock}
-                      onChange={handleChange}
-                      className="border rounded px-2 py-1 w-full"
-                    />
-                    <select
-                    name="categoria_id"
-                    value={editableProducto.categoria_id}
-                    onChange={handleChange}
-                    className="border rounded px-2 py-1 w-full"
-                  >
-                    <option value="">Seleccione una categoría</option>
-                    {categorias.map((categoria) => (
-                      <option key={categoria.id} value={categoria.id}>
-                        {categoria.nombre}
-                      </option>
-                    ))}
-                  </select>
+                    <input name="nombre" value={editableProducto.nombre} onChange={handleChange} className="border rounded px-2 py-1 w-full" />
+                    <textarea name="descripcion" value={editableProducto.descripcion} onChange={handleChange} className="border rounded px-2 py-1 w-full" />
+                    <input name="precio" type="number" value={editableProducto.precio} onChange={handleChange} className="border rounded px-2 py-1 w-full" />
+                    <input name="stock_actual" type="number" value={editableProducto.stock_actual} onChange={handleChange} className="border rounded px-2 py-1 w-full" />
+                    <input name="stock_minimo" type="number" value={editableProducto.stock_minimo} onChange={handleChange} className="border rounded px-2 py-1 w-full" />
+
+                    <select name="categoria_id" value={editableProducto.categoria_id} onChange={handleChange} className="border rounded px-2 py-1 w-full">
+                      <option value="">Seleccione una categoría</option>
+                      {categorias.map((categoria) => (
+                        <option key={categoria.id} value={categoria.id}>
+                          {categoria.nombre}
+                        </option>
+                      ))}
+                    </select>
 
                     <input
                       type="file"
@@ -230,24 +246,14 @@ const guardarCambios = async () => {
                       className="border rounded px-2 py-1 w-full"
                     />
                     {editableProducto.imagenPreview && (
-                      <img
-                        src={editableProducto.imagenPreview}
-                        alt="Previsualización"
-                        className="max-h-48 object-contain mx-auto mt-2 rounded shadow"
-                      />
+                      <img src={editableProducto.imagenPreview} alt="Previsualización" className="max-h-48 object-contain mx-auto mt-2 rounded shadow" />
                     )}
 
                     <div className="flex gap-4 justify-center mt-2">
-                      <button
-                        onClick={guardarCambios}
-                        className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded"
-                      >
+                      <button onClick={guardarCambios} className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded">
                         Guardar
                       </button>
-                      <button
-                        onClick={cerrarModal}
-                        className="bg-gray-300 px-4 py-2 rounded"
-                      >
+                      <button onClick={cerrarModal} className="bg-gray-300 px-4 py-2 rounded">
                         Cancelar
                       </button>
                     </div>
@@ -257,29 +263,20 @@ const guardarCambios = async () => {
                     <h2 className="text-xl font-semibold">{productoActual.nombre}</h2>
                     <p className="text-gray-700">{productoActual.descripcion}</p>
                     <p className="text-gray-800 font-medium">Precio: S/ {Number(productoActual.precio || 0).toFixed(2)}</p>
-                    <p className="text-gray-600">Stock: {productoActual.stock}</p>
+                    <p className="text-gray-600">Stock actual: {productoActual.stock_actual}</p>
+                    <p className="text-gray-600">Stock mínimo: {productoActual.stock_minimo}</p>
                     <p className="text-gray-500 italic">Categoría: {productoActual.categoria_nombre}</p>
 
-                    {/* Botones */}
                     <div className="mt-4 flex justify-center gap-4">
-                      <button
-                        onClick={iniciarEdicion}
-                        className="bg-yellow-400 hover:bg-yellow-300 px-4 py-2 rounded"
-                      >
+                      <button onClick={iniciarEdicion} className="bg-yellow-400 hover:bg-yellow-300 px-4 py-2 rounded">
                         Editar
                       </button>
                       {!confirmDelete ? (
-                        <button
-                          onClick={confirmarEliminacion}
-                          className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded"
-                        >
+                        <button onClick={confirmarEliminacion} className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded">
                           Eliminar
                         </button>
                       ) : (
-                        <button
-                          onClick={ejecutarEliminacion}
-                          className="bg-red-700 hover:bg-red-800 text-white px-4 py-2 rounded"
-                        >
+                        <button onClick={ejecutarEliminacion} className="bg-red-700 hover:bg-red-800 text-white px-4 py-2 rounded">
                           Confirmar eliminación
                         </button>
                       )}
@@ -289,27 +286,9 @@ const guardarCambios = async () => {
               </div>
             </div>
 
-            {/* Botón cerrar */}
-            <button
-              onClick={cerrarModal}
-              className="absolute top-2 right-2 bg-gray-200 hover:bg-white text-black px-3 py-1 rounded shadow"
-            >
-              ✕
-            </button>
-
-            {/* Navegación */}
-            <button
-              onClick={mostrarAnterior}
-              className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-white text-black px-3 py-1 rounded shadow"
-            >
-              ←
-            </button>
-            <button
-              onClick={mostrarSiguiente}
-              className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-white text-black px-3 py-1 rounded shadow"
-            >
-              →
-            </button>
+            <button onClick={cerrarModal} className="absolute top-2 right-2 bg-gray-200 hover:bg-white text-black px-3 py-1 rounded shadow">✕</button>
+            <button onClick={mostrarAnterior} className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-white text-black px-3 py-1 rounded shadow">←</button>
+            <button onClick={mostrarSiguiente} className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-white text-black px-3 py-1 rounded shadow">→</button>
           </div>
         </div>
       )}

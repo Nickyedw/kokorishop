@@ -9,10 +9,14 @@ export const crearPedido = async (pedidoData) => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(pedidoData),
     });
-    if (!res.ok) throw new Error('Error al crear pedido');
+   if (!res.ok) {
+      const errorData = await res.json(); // <- captura mensaje del backend
+      throw new Error(errorData?.error || 'Error al crear pedido');
+    }
+
     return await res.json();
   } catch (error) {
-    console.error('crearPedido:', error);
+    console.error('Error en crearPedido:', error);
     throw error;
   }
 };

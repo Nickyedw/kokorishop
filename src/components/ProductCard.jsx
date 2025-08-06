@@ -1,3 +1,4 @@
+// ProductCard.jsx
 import React, { useContext } from 'react';
 import { CartContext } from '../context/CartContext';
 import { FavoritesContext } from '../context/FavoritesContext';
@@ -31,13 +32,15 @@ const ProductCard = ({ producto }) => {
       <p className="text-sm mb-1 text-gray-600">{producto.descripcion}</p>
       <p className="font-bold mb-2">S/ {producto.precio}</p>
       <button
-        onClick={() => addToCart({
-          id: producto.id,
-          name: producto.nombre,
-          price: producto.precio,
-          quantity: 1,
-          imagen_url: producto.imagen_url
-        })}
+        onClick={() =>
+          addToCart({
+            id: producto.id,
+            name: producto.nombre,
+            price: producto.precio,
+            stock_actual: producto.stock_actual, // ✅ Pasamos el stock
+            imagen_url: producto.imagen_url
+          })
+        }
         className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded-full text-sm"
       >
         Agregar al carrito

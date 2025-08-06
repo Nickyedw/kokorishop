@@ -1,3 +1,4 @@
+//backend/routes/pedidos.js
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
@@ -10,6 +11,7 @@ const {
   enviarNotificacionListoParaEntrega,
   enviarNotificacionPedidoEnviado,
   enviarNotificacionPedidoEntregado,
+  enviarAlertaStockBajo
 } = require('../services/notificaciones');
 const { ESTADOS_PEDIDO } = require('../utils/constants');
 
@@ -21,33 +23,71 @@ router.post('/', async (req, res) => {
     metodo_entrega_id,
     zona_entrega_id,
     horario_entrega_id,
-    productos
+    productos,
+    comentario_pago
   } = req.body;
 
+  const client = await db.connect();
   try {
+    await client.query('BEGIN');
+
+    // 🔒 Validar stock suficiente por cada producto antes de continuar
+    for (const producto of productos) {
+      const check = await client.query(
+        `SELECT nombre, stock_actual FROM productos WHERE id = $1`,
+        [producto.producto_id]
+      );
+      const existente = check.rows[0];
+      if (!existente) {
+        throw new Error(`Producto ID ${producto.producto_id} no existe`);
+      }
+      if (existente.stock_actual < producto.cantidad) {
+        throw new Error(`Stock insuficiente para "${existente.nombre}". Stock disponible: ${existente.stock_actual}`);
+      }
+    }
+
     let total = 0;
     productos.forEach(p => {
       total += p.precio_unitario * p.cantidad;
     });
 
-    const pedidoResult = await db.query(
-      `INSERT INTO pedidos (usuario_id, metodo_pago_id, metodo_entrega_id, zona_entrega_id, horario_entrega_id, total)
-       VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
-      [usuario_id, metodo_pago_id, metodo_entrega_id, zona_entrega_id, horario_entrega_id, total]
+    const pedidoResult = await client.query(
+      `INSERT INTO pedidos (usuario_id, metodo_pago_id, metodo_entrega_id, zona_entrega_id, horario_entrega_id, total, comentario_pago)
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
+      [usuario_id, metodo_pago_id, metodo_entrega_id, zona_entrega_id, horario_entrega_id, total, comentario_pago]
     );
 
     const pedido_id = pedidoResult.rows[0].id;
 
     for (const producto of productos) {
       const subtotal = producto.precio_unitario * producto.cantidad;
-      await db.query(
+
+      await client.query(
         `INSERT INTO detalle_pedido (pedido_id, producto_id, cantidad, precio_unitario, subtotal)
          VALUES ($1, $2, $3, $4, $5)`,
         [pedido_id, producto.producto_id, producto.cantidad, producto.precio_unitario, subtotal]
       );
+
+      await client.query(
+        `UPDATE productos
+         SET stock_actual = stock_actual - $1
+         WHERE id = $2`,
+        [producto.cantidad, producto.producto_id]
+      );
+
+      const stockCheck = await client.query(
+        `SELECT nombre, stock_actual, stock_minimo FROM productos WHERE id = $1`,
+        [producto.producto_id]
+      );
+
+      const { nombre, stock_actual, stock_minimo } = stockCheck.rows[0];
+      if (stock_actual < stock_minimo) {
+        console.warn(`⚠️ Producto con poco stock: ${nombre} (Stock actual: ${stock_actual})`);
+        await enviarAlertaStockBajo(nombre, stock_actual, stock_minimo);
+      }
     }
 
-    const usuarioResult = await db.query(
+    const usuarioResult = await client.query(
       'SELECT nombre_completo, correo, telefono FROM usuarios WHERE id = $1',
       [usuario_id]
     );
@@ -58,21 +98,33 @@ router.post('/', async (req, res) => {
     await enviarCorreoPedido(usuario.correo, usuario.nombre_completo, pedido_id);
     await enviarWhatsappPedidoInicial(usuario.telefono, usuario.nombre_completo, pedido_id, fecha, total);
 
+    await client.query('COMMIT');
     res.status(201).json({ mensaje: 'Pedido registrado correctamente', pedido_id });
   } catch (error) {
+    await client.query('ROLLBACK');
     console.error('❌ Error al registrar pedido:', error);
-    res.status(500).json({ error: 'Error interno del servidor' });
+    res.status(400).json({ error: error.message });
+  } finally {
+    client.release();
   }
 });
 
 // 🟢 Listar pedidos (por usuario o por estado si se desea)
 router.get('/', verificarToken, async (req, res) => {
   const { estado } = req.query;
-  const usuario_id = req.usuario.usuario_id; // ✅ Obtenido desde el token
+  const usuario_id = req.usuario.usuario_id;
+  const es_admin = req.usuario.es_admin;
 
-  let filtros = [`p.usuario_id = $1`];
-  let valores = [usuario_id];
+  let filtros = [];
+  let valores = [];
 
+  // Solo filtrar por usuario si NO es admin
+  if (!es_admin) {
+    filtros.push(`p.usuario_id = $1`);
+    valores.push(usuario_id);
+  }
+
+  // Si hay estado, agregarlo al filtro
   if (estado) {
     filtros.push(`p.estado = $${valores.length + 1}`);
     valores.push(estado);
@@ -108,6 +160,7 @@ router.get('/', verificarToken, async (req, res) => {
     res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
+
 
 
 // 🟢 Obtener pedido por ID

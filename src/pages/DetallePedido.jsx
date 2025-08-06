@@ -8,6 +8,7 @@ const DetallePedido = () => {
   const navigate = useNavigate();
   const [pedido, setPedido] = useState(null);
   const [loading, setLoading] = useState(true);
+  const usuario_nombre = localStorage.getItem('usuario_nombre') || 'Invitado';
 
   const obtenerDetalle = async () => {
     try {
@@ -46,6 +47,8 @@ const DetallePedido = () => {
       </button>
 
       <h2 className="text-2xl font-bold mb-2 text-gray-800">📄 Detalle del Pedido #{pedido.id}</h2>
+      <p className="text-sm text-gray-700 mb-2">Cliente: {usuario_nombre}</p>
+      <button onClick={() => navigate('/')} className="mb-4 text-yellow-600 underline text-sm">← Volver a la tienda</button>
 
       <div className="bg-white rounded shadow p-4 mb-4 border border-gray-200">
         <p className="text-gray-700">
@@ -55,6 +58,10 @@ const DetallePedido = () => {
           Estado:{' '}
           <span className={`inline-block px-2 py-1 text-xs font-semibold rounded border ${estadoClase[pedido.estado] || 'bg-gray-100 text-gray-800 border-gray-300'}`}>
             {pedido.estado}
+          </span><br />
+          <span className="block mt-2 text-sm text-gray-600">
+            <strong>Comentario de pago:</strong><br />
+            {pedido.comentario_pago || '—'}
           </span>
         </p>
         {pedido.pago_confirmado && (

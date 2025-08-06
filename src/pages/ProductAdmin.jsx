@@ -17,12 +17,17 @@ export default function ProductAdmin() {
   const [errorMsg, setErrorMsg] = useState('');
   const [mostrarModal, setMostrarModal] = useState(false);
   const [busqueda, setBusqueda] = useState('');
+  const [alertaStockBajo, setAlertaStockBajo] = useState(false);
 
   const cargarProductos = async () => {
     try {
       setErrorMsg('');
       const lista = await getProductos();
       setProductos(lista);
+
+      // Detectar productos con stock bajo
+      const productosConStockBajo = lista.filter(p => p.stock_actual <= p.stock_minimo);
+      setAlertaStockBajo(productosConStockBajo.length > 0);
     } catch (err) {
       console.error('Error cargando productos:', err);
       setErrorMsg('No se pudo cargar la lista de productos.');
@@ -85,12 +90,18 @@ export default function ProductAdmin() {
   });
 
   return (
-    <div className="max-w-5xl mx-auto p-6 relative">
+    <div className="max-w-6xl mx-auto p-6 relative">
       <h2 className="text-3xl font-bold mb-6">Gestión de Productos</h2>
 
       {errorMsg && (
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-2 rounded mb-4">
           {errorMsg}
+        </div>
+      )}
+
+      {alertaStockBajo && (
+        <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-800 px-4 py-2 rounded mb-4">
+          ⚠️ Algunos productos tienen <strong>stock bajo</strong>. ¡Revisa y repón inventario!
         </div>
       )}
 
@@ -136,7 +147,6 @@ export default function ProductAdmin() {
         cargarProductos={cargarProductos}
       />
 
-      {/* Botón flotante con animación framer-motion */}
       <Motion.button
         onClick={handleAgregar}
         className="fixed bottom-6 right-6 bg-green-600 hover:bg-green-700 text-white px-5 py-4 rounded-full text-2xl z-50 shadow-lg"

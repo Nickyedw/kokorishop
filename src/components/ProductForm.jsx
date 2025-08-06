@@ -1,14 +1,14 @@
 // src/components/ProductForm.jsx
 import { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
-import { FaCheckCircle, FaTimesCircle, FaExclamationTriangle } from 'react-icons/fa'; // Íconos kawaii
 
 export default function ProductForm({ onSubmit, productoActual, setProductoActual }) {
   const [formData, setFormData] = useState({
     nombre: '',
     descripcion: '',
     precio: '',
-    stock: '',
+    stock_actual: '',
+    stock_minimo: '',
     categoria_id: '',
     imagen_url: ''
   });
@@ -29,7 +29,8 @@ export default function ProductForm({ onSubmit, productoActual, setProductoActua
         nombre: productoActual.nombre || '',
         descripcion: productoActual.descripcion || '',
         precio: productoActual.precio || '',
-        stock: productoActual.stock || '',
+        stock_actual: productoActual.stock_actual || '',
+        stock_minimo: productoActual.stock_minimo || '',
         categoria_id: productoActual.categoria_id || '',
         imagen_url: productoActual.imagen_url || ''
       });
@@ -38,7 +39,8 @@ export default function ProductForm({ onSubmit, productoActual, setProductoActua
         nombre: '',
         descripcion: '',
         precio: '',
-        stock: '',
+        stock_actual: '',
+        stock_minimo: '',
         categoria_id: '',
         imagen_url: ''
       });
@@ -58,70 +60,62 @@ export default function ProductForm({ onSubmit, productoActual, setProductoActua
     setFile(e.target.files[0]);
   };
 
-const handleSubmit = async (e) => {
-  e.preventDefault();
+  const handleSubmit = async (e) => {
+    e.preventDefault();
 
-  if (
-    !productoActual && (
-      !formData.nombre.trim() ||
-      !formData.descripcion.trim() ||
-      !formData.precio ||
-      !formData.stock ||
-      !formData.categoria_id
-    )
-  ) {
-    toast.warn(
-      <span className="flex items-center gap-2">
-        🐵 Todos los campos son obligatorios
-      </span>
-    );
-    return;
-  }
+    if (
+      !productoActual && (
+        !formData.nombre.trim() ||
+        !formData.descripcion.trim() ||
+        !formData.precio ||
+        !formData.stock_actual ||
+        !formData.stock_minimo ||
+        !formData.categoria_id
+      )
+    ) {
+      toast.warn('🐵 Todos los campos son obligatorios');
+      return;
+    }
 
-  const dataToSend = {
-    nombre: formData.nombre,
-    descripcion: formData.descripcion,
-    precio: formData.precio,
-    stock: formData.stock,
-    categoria_id: formData.categoria_id,
-    imagenFile: file,
+    const dataToSend = {
+      nombre: formData.nombre,
+      descripcion: formData.descripcion,
+      precio: formData.precio,
+      stock_actual: formData.stock_actual,
+      stock_minimo: formData.stock_minimo,
+      categoria_id: formData.categoria_id,
+      imagenFile: file,
+    };
+
+    try {
+      await onSubmit(dataToSend, productoActual?.id);
+      toast.success(`🐼 Producto ${productoActual ? 'actualizado' : 'creado'} con éxito`);
+
+      // Reset
+      setFormData({
+        nombre: '',
+        descripcion: '',
+        precio: '',
+        stock_actual: '',
+        stock_minimo: '',
+        categoria_id: '',
+        imagen_url: ''
+      });
+      setFile(null);
+      setProductoActual(null);
+    } catch (error) {
+      toast.error('😵‍💫 Ocurrió un error al guardar el producto');
+      console.error(error);
+    }
   };
-
-  try {
-    await onSubmit(dataToSend, productoActual?.id);
-
-    toast.success(
-      <span className="flex items-center gap-2">
-        🐼 Producto {productoActual ? 'actualizado' : 'creado'} con éxito
-      </span>
-    );
-
-    setFormData({
-      nombre: '',
-      descripcion: '',
-      precio: '',
-      stock: '',
-      categoria_id: '',
-      imagen_url: ''
-    });
-    setFile(null);
-    setProductoActual(null);
-  } catch (error) {
-    toast.error(
-      <span className="flex items-center gap-2">
-        😵‍💫 Ocurrió un error al guardar el producto
-      </span>
-    );
-    console.error(error);
-  }
-};
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4 bg-white p-4 shadow rounded mb-6">
       <input type="text" name="nombre" placeholder="Nombre" value={formData.nombre} onChange={handleChange} className="w-full border p-2 rounded" required />
       <textarea name="descripcion" placeholder="Descripción" value={formData.descripcion} onChange={handleChange} className="w-full border p-2 rounded" required />
       <input type="number" name="precio" placeholder="Precio" value={formData.precio} onChange={handleChange} className="w-full border p-2 rounded" required />
-      <input type="number" name="stock" placeholder="Stock" value={formData.stock} onChange={handleChange} className="w-full border p-2 rounded" required />
+      <input type="number" name="stock_actual" placeholder="Stock actual" value={formData.stock_actual} onChange={handleChange} className="w-full border p-2 rounded" required />
+      <input type="number" name="stock_minimo" placeholder="Stock mínimo" value={formData.stock_minimo} onChange={handleChange} className="w-full border p-2 rounded" required />
 
       <select name="categoria_id" value={formData.categoria_id} onChange={handleChange} className="w-full border p-2 rounded" required>
         <option value="">Seleccione una categoría</option>

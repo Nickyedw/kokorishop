@@ -1,8 +1,10 @@
 // src/pages/MisPedidos.jsx
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 const MisPedidos = () => {
+  const usuario_nombre = localStorage.getItem('usuario_nombre') || 'Invitado';
+  const navigate = useNavigate();
   const [pedidos, setPedidos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
@@ -27,7 +29,6 @@ const MisPedidos = () => {
         throw new Error('Formato de datos inválido');
       }
 
-      // Convertir totales y subtotales a número
       const pedidosConNumeros = data.map(p => ({
         ...p,
         total: Number(p.total || 0),
@@ -52,7 +53,15 @@ const MisPedidos = () => {
 
   return (
     <div className="min-h-screen bg-purple-50 text-purple-800 p-6">
-      <h1 className="text-3xl font-bold mb-4">📦 Mis Pedidos</h1>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold">📦 Tus Pedidos, {usuario_nombre}</h1>
+        <button
+          onClick={() => navigate('/')}
+          className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-full text-sm shadow-md transition duration-200"
+        >
+          ← Volver a la Tienda
+        </button>
+      </div>
 
       {loading && <p className="text-center text-gray-500">Cargando pedidos...</p>}
 
@@ -79,7 +88,8 @@ const MisPedidos = () => {
               </span>
             </div>
             <p className="text-sm text-gray-600 mb-2">
-              Total: ${pedido.total.toFixed(2)} – Fecha: {new Date(pedido.fecha).toLocaleDateString()}
+              Total: ${pedido.total.toFixed(2)} – Fecha: {new Date(pedido.fecha).toLocaleDateString()}<br />
+              <span className="text-gray-700">💬 Comentario de Pago:</span> <em>{pedido.comentario_pago || '—'}</em>
             </p>
             <ul className="text-sm text-gray-700 list-disc pl-6">
               {pedido.productos.map((prod) => (
