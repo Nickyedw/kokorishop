@@ -4,8 +4,28 @@ import { FaShoppingBag } from 'react-icons/fa';
 import { CartContext } from '../context/CartContext';
 import { crearPedido } from '../services/pedidoService';
 import { Link } from 'react-router-dom';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
+
+// 🔗 Base del backend para servir imágenes
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3001";
+
+// 🖼️ Helper: devuelve una URL usable por <img />
+function getImageSrc(item) {
+  const raw =
+    item.imagen_url || item.image || item.imagen || item.foto || item.url_imagen;
+
+  if (!raw) return null;
+
+  // Si ya es absoluta (http/https), úsala tal cual
+  if (/^https?:\/\//i.test(raw)) return raw;
+
+  // Si viene con slash inicial, prefix con el backend (ej. "/uploads/archivo.jpg")
+  if (raw.startsWith("/")) return `${API_BASE}${raw}`;
+
+  // Si viene solo el nombre de archivo, asume carpeta /uploads del backend
+  return `${API_BASE}/uploads/${raw}`;
+}
 
 const Cart = () => {
   const {
@@ -118,6 +138,16 @@ const handleConfirmarPedido = async () => {
     }
   };
 
+  const { search } = useLocation();
+
+  React.useEffect(() => {
+    const qp = new URLSearchParams(search);
+    if (qp.get('checkout') === '1') {
+      // Abre tu modal al llegar desde favoritos
+      setMostrarResumen(true);
+    }
+  }, [search]);
+
   return (
     <div className="min-h-screen bg-purple-50 text-purple-800 p-6">
       <div className="flex justify-between items-center mb-4">
@@ -142,65 +172,161 @@ const handleConfirmarPedido = async () => {
         <p className="text-center">Tu carrito está vacío 🛒</p>
       ) : (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {cartItems.map((item) => (
-              <div
-                key={item.id}
-                className="bg-white p-4 rounded-xl text-center shadow-md"
-              >
-                <div className="text-4xl mb-2">{item.emoji}</div>
-                <p className="font-semibold">{item.name}</p>
-                <div className="flex justify-center items-center gap-2 mt-1">
-                  <button
-                    onClick={() => decreaseQuantity(item.id)}
-                    className="px-2 bg-gray-300 rounded"
-                  >
-                    -
-                  </button>
-                  <span>{item.quantity}</span>
-                  <button
-                    onClick={() => {
-                      const stock = Number(item.stock_actual) || 0;
-                      if (item.quantity < stock) {
-                        increaseQuantity(item.id);
-                      } else {
-                        toast.warning(`😵‍💫 Solo hay ${stock} unidades disponibles`);
-                      }
-                    }}
-                    className="bg-purple-500 text-white px-2"
-                  >
-                    +
-                  </button>
-                </div>
-                <p className="font-bold mt-2">
-                  ${item.price * item.quantity}
-                </p>
-                <button
-                  onClick={() => removeFromCart(item.id)}
-                  className="mt-2 bg-red-500 text-white px-4 py-1 rounded-full text-sm hover:bg-red-600"
+          {/* Layout principal: lista + resumen */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* LISTA DE PRODUCTOS */}
+            <section className="lg:col-span-2 space-y-4">
+              {cartItems.map((item) => (
+                <article
+                  key={item.id}
+                  className="group bg-white rounded-2xl shadow-sm border border-purple-100 hover:shadow-md transition overflow-hidden"
                 >
-                  Eliminar
-                </button>
-              </div>
-            ))}
-          </div>
+                  <div className="flex items-stretch gap-4 p-4 sm:p-5">
+                    {/* Miniatura */}
+                    <div className="shrink-0 w-24 h-24 sm:w-28 sm:h-28 rounded-xl overflow-hidden bg-purple-50 border border-purple-100 grid place-items-center">
+                      {getImageSrc(item) ? (
+                        <img
+                          src={getImageSrc(item)}
+                          alt={item.name}
+                          className="w-full h-full object-cover object-center"
+                          loading="lazy"
+                          onError={(e) => { e.currentTarget.src = "/placeholder.png"; }}
+                        />
+                      ) : (
+                        <span className="text-3xl">{item.emoji || "🛍️"}</span>
+                      )}
+                    </div>
 
-          <div className="mt-6 text-right space-x-2">
-            <span className="font-bold text-xl">
-              Total: ${total.toFixed(2)}
-            </span>
-            <button
-              onClick={clearCart}
-              className="bg-gray-400 text-white px-4 py-2 rounded-full hover:bg-gray-500"
-            >
-              Vaciar Carrito
-            </button>
-            <button
-              onClick={() => setMostrarResumen(true)}
-              className="bg-purple-500 text-white px-6 py-2 rounded-full hover:bg-purple-600"
-            >
-              Proceder al Pago
-            </button>
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-3">
+                        <h3 className="font-semibold text-purple-900 text-base sm:text-lg line-clamp-2">
+                          {item.name}
+                        </h3>
+
+                        {/* Eliminar */}
+                        <button
+                          onClick={() => removeFromCart(item.id)}
+                          className="text-red-500/80 hover:text-red-600 text-sm flex items-center gap-1"
+                          aria-label={`Eliminar ${item.name}`}
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="h-4 w-4"
+                            viewBox="0 0 20 20"
+                            fill="currentColor"
+                          >
+                            <path
+                              fillRule="evenodd"
+                              d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 100 2h.293l.853 10.236A2 2 0 007.14 18h5.72a2 2 0 001.994-1.764L15.707 6H16a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0010 2H9zM8 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm4 0a1 1 0 112 0v6a1 1 0 11-2 0V8z"
+                              clipRule="evenodd"
+                            />
+                          </svg>
+                          Eliminar
+                        </button>
+                      </div>
+
+                      {/* Precio unitario */}
+                      <div className="text-purple-700 mt-1 text-sm">
+                        Precio:{" "}
+                        <span className="font-semibold">
+                          S/ {Number(item.price).toFixed(2)}
+                        </span>
+                      </div>
+
+                      {/* Controles */}
+                      <div className="mt-3 flex flex-wrap items-center gap-3">
+                        {/* Stepper */}
+                        <div className="inline-flex items-center rounded-full border border-purple-200 overflow-hidden">
+                          <button
+                            onClick={() => decreaseQuantity(item.id)}
+                            className="px-3 py-1.5 text-purple-700 hover:bg-purple-50 disabled:opacity-40"
+                            disabled={Number(item.quantity) <= 1}
+                          >
+                            –
+                          </button>
+                          <span className="px-3 py-1.5 text-sm font-semibold min-w-[2ch] text-center">
+                            {item.quantity}
+                          </span>
+                          <button
+                            onClick={() => {
+                              const stock = Number(item.stock_actual) || 0;
+                              if (item.quantity < stock) {
+                                increaseQuantity(item.id);
+                              } else {
+                                toast.warning(`😵‍💫 Solo hay ${stock} unidades disponibles`);
+                              }
+                            }}
+                            className="px-3 py-1.5 text-purple-700 hover:bg-purple-50"
+                          >
+                            +
+                          </button>
+                        </div>
+
+                        {/* Total por ítem */}
+                        <div className="ml-auto text-sm sm:text-base">
+                          <span className="text-gray-500 mr-1">Total:</span>
+                          <span className="font-bold text-purple-900">
+                            S/ {(Number(item.price) * Number(item.quantity)).toFixed(2)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </article>
+              ))}
+
+              {/* Acciones inferiores */}
+              <div className="flex items-center justify-between mt-4">
+                <button
+                  onClick={clearCart}
+                  className="rounded-full bg-gray-200/70 hover:bg-gray-300 text-gray-700 px-4 py-2 text-sm font-medium transition"
+                >
+                  Vaciar carrito
+                </button>
+                <div className="text-right">
+                  <div className="text-gray-600 text-sm">Subtotal</div>
+                  <div className="text-2xl font-bold text-purple-900">
+                    S/ {total.toFixed(2)}
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            {/* RESUMEN STICKY */}
+            <aside className="lg:sticky lg:top-6 h-max">
+              <div className="bg-white rounded-2xl shadow-sm border border-purple-100 p-6">
+                <h2 className="text-lg font-semibold text-purple-900">Resumen del pedido</h2>
+                <div className="mt-4 space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Subtotal</span>
+                    <span className="font-medium">S/ {total.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Envío</span>
+                    <span className="font-medium">A definir</span>
+                  </div>
+                  <div className="border-t border-purple-100 my-2" />
+                  <div className="flex justify-between text-base">
+                    <span className="font-semibold text-purple-800">Total</span>
+                    <span className="font-extrabold text-purple-900">
+                      S/ {total.toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => setMostrarResumen(true)}
+                  className="w-full mt-5 rounded-full bg-gradient-to-r from-purple-500 to-fuchsia-500 text-white py-3 font-semibold shadow hover:shadow-lg active:scale-[0.99] transition"
+                >
+                  Proceder al pago
+                </button>
+
+                <p className="text-[12px] text-gray-500 mt-3">
+                  Al continuar, aceptas nuestras políticas de compra y privacidad.
+                </p>
+              </div>
+            </aside>
           </div>
 
           {mostrarResumen && (
@@ -216,7 +342,7 @@ const handleConfirmarPedido = async () => {
                     <span>
                       {item.name} × {item.quantity}
                     </span>
-                    <span>${(item.price * item.quantity).toFixed(2)}</span>
+                    <span> S/ {(item.price * item.quantity).toFixed(2)}</span>
                   </li>
                 ))}
               </ul>
@@ -344,7 +470,7 @@ const handleConfirmarPedido = async () => {
               </div>
 
               <div className="font-bold text-right mb-4">
-                Total: ${total.toFixed(2)}
+                Total: S/{total.toFixed(2)}
               </div>
               <div className="flex justify-end gap-2">
                 <button

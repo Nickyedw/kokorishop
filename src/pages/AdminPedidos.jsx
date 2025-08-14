@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import ConfirmarPagoButton from '../components/ConfirmarPagoButton';
 import { Link } from 'react-router-dom';
+import { useRef } from 'react';
 import { FaFileExcel, FaFilePdf } from 'react-icons/fa';
 import * as XLSX from 'xlsx';
 import { jsPDF } from 'jspdf';
@@ -28,6 +29,10 @@ const AdminPedidos = () => {
   const [estadoFiltro, setEstadoFiltro] = useState('todos');
   const [paginaActual, setPaginaActual] = useState(1);
   const pedidosPorPagina = 5;
+  const [mostrarDetalle, setMostrarDetalle] = useState(false);
+  const [detalle, setDetalle] = useState(null);
+  const [cargandoDetalle, setCargandoDetalle] = useState(false);
+  const printRef = useRef(null);
 
   const [filtroCliente, setFiltroCliente] = useState('');
   const [fechaInicio, setFechaInicio] = useState('');
@@ -123,6 +128,52 @@ const exportarPDF = (datos) => {
 
   if (loading) return <p className="p-4">⏳ Cargando...</p>;
 
+  const abrirDetalle = async (idPedido) => {
+   try {
+     setCargandoDetalle(true);
+      setMostrarDetalle(true);
+      const res = await axios.get(`http://localhost:3001/api/pedidos/${idPedido}`);
+      setDetalle(res.data);
+    } catch (err) {
+      console.error('❌ Error cargando detalle:', err);
+      setDetalle(null);
+    } finally {
+      setCargandoDetalle(false);
+    }
+  };
+ 
+  const cerrarDetalle = () => {
+    setMostrarDetalle(false);
+    setDetalle(null);
+  };
+ 
+  const imprimirDetalle = () => {
+    if (!printRef.current) return;
+    const contenido = printRef.current.innerHTML;
+    const win = window.open('', '_blank', 'width=900,height=700');
+    win.document.write(`
+      <html>
+        <head>
+          <title>Detalle del Pedido</title>
+          <meta charset="utf-8" />
+          <style>
+            body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,'Helvetica Neue',Arial;}
+            h2{margin:0 0 8px 0}
+            table{width:100%;border-collapse:collapse;margin-top:12px}
+            th,td{border:1px solid #ddd;padding:6px;text-align:center;font-size:12px}
+            th{background:#f3f4f6}
+          </style>
+        </head>
+        <body>${contenido}</body>
+      </html>
+    `);
+    win.document.close();
+    win.focus();
+    win.print();
+    win.close();
+  };
+
+
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <h2 className="text-2xl font-bold mb-4">📦 Panel de Administración de Pedidos</h2>
@@ -182,7 +233,12 @@ const exportarPDF = (datos) => {
             {pedidosPaginados.map(pedido => (
               <tr key={pedido.id} className="text-center hover:bg-gray-50 text-sm">
                 <td className="border px-2 py-1">
-                  <Link to={`/admin/pedidos/${pedido.id}`} className="text-blue-600 hover:underline">#{pedido.id}</Link>
+                   <button
+                     onClick={() => abrirDetalle(pedido.id)}
+                     className="text-blue-600 hover:underline"
+                   >
+                     #{pedido.id}
+                   </button>
                 </td>
                 <td className="border px-2 py-1">{pedido.cliente}</td>
                 <td className="border px-2 py-1">
@@ -219,6 +275,83 @@ const exportarPDF = (datos) => {
           <button onClick={() => exportarPDF(pedidosFiltradosExport)} className="bg-red-500 text-white px-4 py-2 rounded">PDF</button>
         </div>
       </div>
+
+      {mostrarDetalle && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={cerrarDetalle}>
+          <div
+            className="bg-white rounded-lg shadow-xl w-full max-w-3xl p-6 relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              className="absolute top-3 right-3 w-8 h-8 rounded-full bg-gray-200 hover:bg-gray-300"
+              onClick={cerrarDetalle}
+              title="Cerrar"
+            >
+              ✕
+            </button>
+
+            <h2 className="text-xl font-bold mb-4">🧾 Detalle del Pedido</h2>
+
+            {cargandoDetalle && <p>Cargando...</p>}
+            {!cargandoDetalle && !detalle && (
+              <p className="text-red-600">No se pudo cargar el detalle.</p>
+            )}
+
+            {!cargandoDetalle && detalle && (
+              <>
+                <div ref={printRef}>
+                  <h3 className="text-lg font-semibold mb-2">
+                    Pedido #{detalle.id}
+                  </h3>
+                  <div className="text-sm text-gray-700 space-y-1">
+                    <p><strong>Cliente:</strong> {detalle.cliente}</p>
+                    <p><strong>Fecha:</strong> {new Date(detalle.fecha).toLocaleString()}</p>
+                    <p><strong>Estado:</strong> {detalle.estado}</p>
+                    <p><strong>Total:</strong> S/ {Number(detalle.total || 0).toFixed(2)}</p>
+                    <p><strong>Comentario de pago:</strong> {detalle.comentario_pago || '—'}</p>
+                  </div>
+
+                  <table className="mt-4">
+                    <thead>
+                      <tr>
+                        <th>Producto</th>
+                        <th>Cantidad</th>
+                        <th>Precio Unit.</th>
+                        <th>Subtotal</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(detalle.productos || []).map((item) => (
+                        <tr key={item.id}>
+                          <td>{item.producto_nombre}</td>
+                          <td>{item.cantidad}</td>
+                          <td>S/ {Number(item.precio_unitario).toFixed(2)}</td>
+                          <td>S/ {Number(item.subtotal).toFixed(2)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="mt-6 flex justify-end gap-3">
+                  <button
+                    onClick={imprimirDetalle}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded"
+                  >
+                    Imprimir
+                  </button>
+                  <button
+                    onClick={cerrarDetalle}
+                    className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded"
+                  >
+                    Cerrar
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

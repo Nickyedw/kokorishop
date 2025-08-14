@@ -5,7 +5,7 @@ import axios from 'axios';
 const ConfirmarPagoButton = ({ pedidoId, pagoConfirmado, recargarPedidos }) => {
   const confirmarPago = async () => {
     try {
-      await axios.put(`http://localhost:3001/pedidos/${pedidoId}/confirmar-pago`);
+      await axios.put(`http://localhost:3001/api/pedidos/${pedidoId}/confirmar-pago`);
       alert('✅ Pago confirmado y cliente notificado');
       recargarPedidos();
     } catch (error) {

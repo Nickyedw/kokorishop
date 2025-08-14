@@ -53,11 +53,11 @@ export const updateProducto = async (id, producto) => {
     if (producto.precio !== '' && producto.precio !== undefined && producto.precio !== null) {
       formData.append('precio', producto.precio);
     }
-    if (producto.stock_actual !== '' && producto.stock_actual !== undefined && producto.stock_actual !== null) {
-      formData.append('stock_actual', producto.stock_actual);
-    } else if (producto.stock !== '' && producto.stock !== undefined && producto.stock !== null) {
-      formData.append('stock_actual', producto.stock);
-    }
+    //if (producto.stock_actual !== '' && producto.stock_actual !== undefined && producto.stock_actual !== null) {
+    //  formData.append('stock_actual', producto.stock_actual);
+    //} else if (producto.stock !== '' && producto.stock !== undefined && producto.stock !== null) {
+    //  formData.append('stock_actual', producto.stock);
+    //}
     if (producto.stock_minimo !== '' && producto.stock_minimo !== undefined && producto.stock_minimo !== null) {
       formData.append('stock_minimo', producto.stock_minimo);
     }
@@ -98,9 +98,31 @@ export const deleteProducto = async (id) => {
   }
 };
 
+export const updateCampoProducto = async (id, campos) => {
+  const campo = Object.prototype.hasOwnProperty.call(campos, 'destacado') ? 'destacado' : 'en_oferta';
+  
+  const valor = campos[campo];
+  const res = await fetch(`http://localhost:3001/api/productos/${id}/${campo}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ [campo]: valor })
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`Error al actualizar ${campo}: ` + errText);
+  }
+
+  return await res.json();
+};
+
+
+
+
 export default {
   getProductos,
   createProducto,
   updateProducto,
   deleteProducto,
+  updateCampoProducto
 };

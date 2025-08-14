@@ -132,8 +132,8 @@ router.get('/', verificarToken, async (req, res) => {
 
   const where = filtros.length > 0 ? `WHERE ${filtros.join(' AND ')}` : '';
 
-  try {
-    const pedidos = await db.query(
+    try {
+    const pedidosRes = await db.query(
       `SELECT p.*, u.nombre_completo AS cliente, m.nombre AS metodo_pago
        FROM pedidos p
        JOIN usuarios u ON p.usuario_id = u.id
@@ -143,15 +143,32 @@ router.get('/', verificarToken, async (req, res) => {
       valores
     );
 
-    const detalles = await db.query(
-      `SELECT d.*, pr.nombre AS producto_nombre
+    const pedidos = pedidosRes.rows;
+    if (pedidos.length === 0) return res.json([]);
+
+    // ids de los pedidos devueltos
+    const ids = pedidos.map(p => p.id);
+
+    // 👉 Trae SOLO los detalles de esos pedidos + imagen
+    const detallesRes = await db.query(
+      `SELECT d.*, pr.nombre AS producto_nombre, pr.imagen_url AS producto_imagen_url
        FROM detalle_pedido d
-       JOIN productos pr ON d.producto_id = pr.id`
+       JOIN productos pr ON d.producto_id = pr.id
+       WHERE d.pedido_id = ANY($1::int[])
+       ORDER BY d.pedido_id, d.id`,
+      [ids]
     );
 
-    const respuesta = pedidos.rows.map(pedido => ({
-      ...pedido,
-      productos: detalles.rows.filter(d => d.pedido_id === pedido.id)
+    // agrupar por pedido
+    const detallesPorPedido = new Map();
+    for (const d of detallesRes.rows) {
+      if (!detallesPorPedido.has(d.pedido_id)) detallesPorPedido.set(d.pedido_id, []);
+      detallesPorPedido.get(d.pedido_id).push(d);
+    }
+
+    const respuesta = pedidos.map(p => ({
+      ...p,
+      productos: detallesPorPedido.get(p.id) || []
     }));
 
     res.json(respuesta);
@@ -162,38 +179,38 @@ router.get('/', verificarToken, async (req, res) => {
 });
 
 
-
 // 🟢 Obtener pedido por ID
 router.get('/:id', async (req, res) => {
-  const pedidoId = parseInt(req.params.id);
+  const pedidoId = parseInt(req.params.id, 10);
 
   try {
-    const pedido = await db.query(
+    const pedidoRes = await db.query(
       `SELECT p.*, u.nombre_completo AS cliente
        FROM pedidos p
        JOIN usuarios u ON p.usuario_id = u.id
        WHERE p.id = $1`,
       [pedidoId]
     );
-
-    const detalles = await db.query(
-      `SELECT d.*, pr.nombre AS producto_nombre
-       FROM detalle_pedido d
-       JOIN productos pr ON d.producto_id = pr.id
-       WHERE d.pedido_id = $1`,
-      [pedidoId]
-    );
-
-    if (pedido.rows.length === 0) {
+    if (pedidoRes.rows.length === 0) {
       return res.status(404).json({ error: 'Pedido no encontrado' });
     }
 
-    res.json({ ...pedido.rows[0], productos: detalles.rows });
+    const detallesRes = await db.query(
+      `SELECT d.*, pr.nombre AS producto_nombre, pr.imagen_url AS producto_imagen_url
+       FROM detalle_pedido d
+       JOIN productos pr ON d.producto_id = pr.id
+       WHERE d.pedido_id = $1
+       ORDER BY d.id`,
+      [pedidoId]
+    );
+
+    res.json({ ...pedidoRes.rows[0], productos: detallesRes.rows });
   } catch (error) {
     console.error('❌ Error al obtener pedido por ID:', error);
     res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
+
 
 // 🟢 Actualizar estado de pedido
 router.put('/:id/estado', async (req, res) => {

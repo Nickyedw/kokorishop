@@ -1,51 +1,56 @@
+// src/pages/Home.jsx
 import React, { useEffect, useState, useContext } from 'react';
-import { FaHeart, FaShoppingBag, FaBars, FaSearch } from 'react-icons/fa';
+import { FaHeart, FaShoppingBag, FaBars } from 'react-icons/fa';
 import { Link } from 'react-router-dom';
-import { getProductos } from '../services/productService';
 import ProductCard from '../components/ProductCard';
 import { CartContext } from '../context/CartContext';
 import { FavoritesContext } from '../context/FavoritesContext';
+import MiniCart from '../components/MiniCart';
 
 const Home = () => {
   const usuario_nombre = localStorage.getItem('usuario_nombre') || 'Invitado';
   const { cartItems } = useContext(CartContext);
   const { favorites } = useContext(FavoritesContext);
 
-  const [productos, setProductos] = useState([]);
-  const [busqueda, setBusqueda] = useState('');
+  const [destacados, setDestacados] = useState([]);
+  const [masVendidos, setMasVendidos] = useState([]);
+  const [oferta, setOferta] = useState([]);
 
-  const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+  const totalItems = cartItems.reduce((sum, item) => sum + (item.quantity || 0), 0);
 
   useEffect(() => {
-    const cargarProductos = async () => {
+    const cargarSecciones = async () => {
       try {
-        const data = await getProductos();
-        setProductos(data);
+        const resDestacados = await fetch('http://localhost:3001/api/productos/destacados');
+        const resMasVendidos = await fetch('http://localhost:3001/api/productos/mas-vendidos');
+        const resOferta = await fetch('http://localhost:3001/api/productos/oferta');
+
+        const dataDestacados = await resDestacados.json();
+        const dataMasVendidos = await resMasVendidos.json();
+        const dataOferta = await resOferta.json();
+
+        setDestacados(dataDestacados);
+        setMasVendidos(dataMasVendidos);
+        setOferta(dataOferta);
       } catch (err) {
-        console.error('Error cargando productos:', err);
+        console.error('Error al cargar secciones del home:', err);
       }
     };
-    cargarProductos();
-  }, []);
 
-  const productosFiltrados = productos.filter((p) => {
-    const termino = busqueda.toLowerCase();
-    return (
-      p.nombre.toLowerCase().includes(termino) ||
-      p.descripcion.toLowerCase().includes(termino) ||
-      (p.categoria_nombre?.toLowerCase().includes(termino))
-    );
-  });
+    cargarSecciones();
+  }, []);
 
   return (
     <div className="min-h-screen bg-purple-900 text-white pb-24">
-      {/* Header */}
+      {/* Navbar principal */}
       <nav className="flex items-center justify-between px-6 py-4 bg-purple-800 shadow-md">
-        <span className="text-3xl">🐾</span>
+        <span className="text-3xl" aria-hidden>🐾</span>
+
         <h1 className="text-2xl font-bold">KokoShop</h1>
+
         <div className="flex items-center gap-4 relative text-lg">
-          <h1 className="text-3xl font-bold mb-4">Bienvenido, {usuario_nombre}</h1>
-          <Link to="/favorites" className="relative">
+          {/* Favoritos */}
+          <Link to="/favorites" className="relative" aria-label="Favoritos">
             <FaHeart />
             {favorites.length > 0 && (
               <span className="absolute -top-2 -right-2 bg-pink-500 text-white text-xs w-5 h-5 flex items-center justify-center rounded-full">
@@ -53,7 +58,9 @@ const Home = () => {
               </span>
             )}
           </Link>
-          <Link to="/cart" className="relative">
+
+          {/* Carrito */}
+          <Link to="/Cart" className="relative" aria-label="Carrito">
             <FaShoppingBag />
             {totalItems > 0 && (
               <span className="absolute -top-2 -right-2 bg-yellow-400 text-purple-900 text-xs w-5 h-5 flex items-center justify-center rounded-full">
@@ -61,9 +68,19 @@ const Home = () => {
               </span>
             )}
           </Link>
-          <FaBars />
+
+          <button type="button" className="text-white/90" aria-label="Menú">
+            <FaBars />
+          </button>
         </div>
       </nav>
+
+      {/* Barra secundaria (saludo) */}
+      <div className="bg-gradient-to-r from-purple-700 to-fuchsia-700 text-purple-50 text-center py-2 shadow-inner">
+        <p className="text-xs sm:text-sm md:text-base">
+          👋 Bienvenido, <span className="font-semibold">{usuario_nombre}</span>
+        </p>
+      </div>
 
       {/* Hero */}
       <section className="bg-purple-800 rounded-3xl m-4 p-6 text-center text-purple-100">
@@ -73,25 +90,62 @@ const Home = () => {
         </button>
       </section>
 
-      {/* Buscador */}
-      <div className="px-6">
-        <div className="relative mb-6">
-          <input
-            type="text"
-            placeholder="🔍 Buscar productos por nombre, descripción o categoría..."
-            value={busqueda}
-            onChange={(e) => setBusqueda(e.target.value)}
-            className="w-full px-4 py-2 rounded-full text-purple-900"
-          />
-          <FaSearch className="absolute top-3 right-4 text-purple-600" />
-        </div>
+      {/* ⭐ Productos Destacados */}
+      {destacados.length > 0 && (
+        <section className="px-6 mt-8">
+          <h2 className="text-2xl font-bold text-yellow-300 mb-4">⭐ Productos Destacados</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+            {destacados.map((producto) => (
+              <ProductCard
+                key={producto.id}
+                producto={producto}
+                onAddedToCart={() => window.dispatchEvent(new CustomEvent('minicart:open'))}
+              />
+            ))}
+          </div>
+        </section>
+      )}
 
-        {/* Lista de productos */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-          {productosFiltrados.map((producto) => (
-            <ProductCard key={producto.id} producto={producto} />
-          ))}
-        </div>
+      {/* 🔥 Más Vendidos */}
+      {masVendidos.length > 0 && (
+        <section className="px-6 mt-10">
+          <h2 className="text-2xl font-bold text-orange-300 mb-4">🔥 Más Vendidos</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+            {masVendidos.map((producto) => (
+              <ProductCard
+                key={producto.id}
+                producto={producto}
+                onAddedToCart={() => window.dispatchEvent(new CustomEvent('minicart:open'))}
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* 💥 Productos en Oferta */}
+      {oferta.length > 0 && (
+        <section className="px-6 mt-10">
+          <h2 className="text-2xl font-bold text-red-300 mb-4">💥 Productos en Oferta</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+            {oferta.map((producto) => (
+              <ProductCard
+                key={producto.id}
+                producto={producto}
+                onAddedToCart={() => window.dispatchEvent(new CustomEvent('minicart:open'))}
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Ver catálogo completo */}
+      <div className="text-center my-10">
+        <Link
+          to="/catalogo"
+          className="inline-block bg-pink-500 hover:bg-pink-600 text-white py-3 px-6 rounded-full text-lg font-bold transition"
+        >
+          📦 Ir al Catálogo Completo
+        </Link>
       </div>
 
       {/* Footer */}
@@ -104,7 +158,7 @@ const Home = () => {
           <FaHeart className="text-xl" />
           Favorites
         </Link>
-        <Link to="/cart" className="flex flex-col items-center text-sm">
+        <Link to="/Cart" className="flex flex-col items-center text-sm">
           <FaShoppingBag className="text-xl" />
           Cart
         </Link>
@@ -113,6 +167,9 @@ const Home = () => {
           Menu
         </Link>
       </footer>
+
+      {/* MiniCart reutilizable */}
+      <MiniCart cartPath="/Cart" checkoutMode="query" />
     </div>
   );
 };

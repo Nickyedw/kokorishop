@@ -16,6 +16,7 @@ import Register from './pages/Register';
 import ConfiguracionPerfil from './pages/ConfiguracionPerfil';
 import Recuperar from './pages/Recuperar';
 import Reestablecer from './pages/Reestablecer';
+import Catalogo from './pages/Catalogo';
 
 // Paneles Admin
 import AdminPedidos from './pages/AdminPedidos';
@@ -40,6 +41,7 @@ function App() {
         <Route path="/register" element={<Register />} />
         <Route path="/recuperar" element={<Recuperar />} />
         <Route path="/reestablecer" element={<Reestablecer />} />
+        <Route path="/catalogo" element={<Catalogo />} />
 
         {/* Rutas protegidas */}
         <Route path="/cart" element={<RequireAuth><Cart /></RequireAuth>} />

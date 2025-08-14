@@ -60,40 +60,84 @@ const crearProducto = async (req, res) => {
   }
 };
 
-// Actualizar producto existente
+// Actualizar producto completo (nombre, precio, imagen, etc.)
 const actualizarProducto = async (req, res) => {
   try {
     const { id } = req.params;
-    let { nombre, descripcion, precio, stock_actual, stock_minimo, categoria_id } = req.body;
+
+    const body = JSON.parse(JSON.stringify(req.body));
     const imagen_url = req.file ? `/uploads/productos/${req.file.filename}` : null;
 
-    precio = precio !== '' && precio !== undefined ? parseFloat(precio) : undefined;
-    stock_actual = stock_actual !== '' && stock_actual !== undefined ? parseInt(stock_actual) : undefined;
-    stock_minimo = stock_minimo !== '' && stock_minimo !== undefined ? parseInt(stock_minimo) : undefined;
-    categoria_id = categoria_id !== '' && categoria_id !== undefined ? parseInt(categoria_id) : undefined;
+    console.log('📩 CAMPOS RECIBIDOS:', body);
 
-    const campos = {
-      ...(nombre && nombre !== '' && { nombre }),
-      ...(descripcion && descripcion !== '' && { descripcion }),
-      ...(precio !== undefined && { precio }),
-      ...(stock_actual !== undefined && { stock_actual }),
-      ...(stock_minimo !== undefined && { stock_minimo }),
-      ...(categoria_id !== undefined && { categoria_id }),
-      ...(imagen_url && { imagen_url })
-    };
+    const campos = {};
+
+    if (body.nombre?.trim()) campos.nombre = body.nombre;
+    if (body.descripcion?.trim()) campos.descripcion = body.descripcion;
+    if (body.precio !== undefined && body.precio !== '') campos.precio = parseFloat(body.precio);
+    if (body.stock_actual !== undefined && body.stock_actual !== '') campos.stock_actual = parseInt(body.stock_actual);
+    if (body.stock_minimo !== undefined && body.stock_minimo !== '') campos.stock_minimo = parseInt(body.stock_minimo);
+    if (body.categoria_id !== undefined && body.categoria_id !== '') campos.categoria_id = parseInt(body.categoria_id);
+    if (imagen_url) campos.imagen_url = imagen_url;
+
+    // Booleanos (se permiten aquí también por si se usan en formularios completos)
+    if ('destacado' in body) {
+      campos.destacado = body.destacado === true || body.destacado === 'true';
+    }
+    if ('en_oferta' in body) {
+      campos.en_oferta = body.en_oferta === true || body.en_oferta === 'true';
+    }
 
     if (Object.keys(campos).length === 0) {
-      return res.status(400).json({ error: 'No se proporcionaron campos válidos para actualizar' });
+      return res.status(400).json({ error: 'No hay campos para actualizar' });
     }
 
     const productoActualizado = await productService.actualizarProducto(id, campos);
     res.json(productoActualizado);
-
   } catch (err) {
-    console.error('Error al actualizar producto:', err.message);
+    console.error('❌ Error al actualizar producto:', err.message);
     res.status(500).json({ error: err.message });
   }
 };
+
+// Actualizar solo el campo destacado
+const actualizarCampoDestacado = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { destacado } = req.body;
+
+    if (typeof destacado === 'undefined') {
+      return res.status(400).json({ error: 'No se proporcionó el campo destacado' });
+    }
+
+    const campos = { destacado: destacado === true || destacado === 'true' };
+    const actualizado = await productService.actualizarProducto(id, campos);
+    res.json(actualizado);
+  } catch (err) {
+    console.error('❌ Error al actualizar destacado:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// Actualizar solo el campo en_oferta
+const actualizarCampoOferta = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { en_oferta } = req.body;
+
+    if (typeof en_oferta === 'undefined') {
+      return res.status(400).json({ error: 'No se proporcionó el campo en_oferta' });
+    }
+
+    const campos = { en_oferta: en_oferta === true || en_oferta === 'true' };
+    const actualizado = await productService.actualizarProducto(id, campos);
+    res.json(actualizado);
+  } catch (err) {
+    console.error('❌ Error al actualizar en_oferta:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+};
+
 
 // Eliminar producto
 const eliminarProducto = async (req, res) => {
@@ -181,6 +225,38 @@ const historialReposiciones = async (req, res) => {
   }
 };
 
+// Obtener productos destacados
+const productosDestacados = async (req, res) => {
+  try {
+    const productos = await productService.obtenerProductosDestacados();
+    res.json(productos);
+  } catch (error) {
+    console.error('Error al obtener productos destacados:', error.message);
+    res.status(500).json({ error: 'Error al obtener productos destacados' });
+  }
+};
+
+// Obtener productos más vendidos
+const productosMasVendidos = async (req, res) => {
+  try {
+    const productos = await productService.obtenerProductosMasVendidos();
+    res.json(productos);
+  } catch (error) {
+    console.error('Error al obtener productos más vendidos:', error.message);
+    res.status(500).json({ error: 'Error al obtener productos más vendidos' });
+  }
+};
+
+const productosEnOferta = async (req, res) => {
+  try {
+    const productos = await productService.obtenerProductosEnOferta();
+    res.json(productos);
+  } catch (error) {
+    console.error('Error al obtener productos en oferta:', error.message);
+    res.status(500).json({ error: 'Error al obtener productos en oferta' });
+  }
+};
+
 module.exports = {
   listarProductos,
   crearProducto,
@@ -190,5 +266,10 @@ module.exports = {
   productosPorCategoria,
   obtenerProductoPorId,
   reponerStock,
-  historialReposiciones
+  historialReposiciones,
+  productosDestacados,
+  productosMasVendidos,
+  productosEnOferta,
+  actualizarCampoDestacado,
+  actualizarCampoOferta
 };

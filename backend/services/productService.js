@@ -38,6 +38,7 @@ const actualizarProducto = async (id, campos) => {
   const valores = [];
   let index = 1;
 
+  // Eliminar imagen antigua si llega una nueva
   if (campos.imagen_url) {
     const result = await pool.query('SELECT imagen_url FROM productos WHERE id = $1', [id]);
     const producto = result.rows[0];
@@ -50,33 +51,42 @@ const actualizarProducto = async (id, campos) => {
     }
   }
 
-  if (campos.nombre) {
+  // Campos válidos, incluyendo booleanos
+  if (Object.prototype.hasOwnProperty.call(campos, 'nombre')) {
     columnas.push(`nombre = $${index++}`);
     valores.push(campos.nombre);
   }
-  if (campos.descripcion) {
+  if (Object.prototype.hasOwnProperty.call(campos, 'descripcion')) {
     columnas.push(`descripcion = $${index++}`);
     valores.push(campos.descripcion);
   }
-  if (campos.precio !== undefined) {
+  if (Object.prototype.hasOwnProperty.call(campos, 'precio')) {
     columnas.push(`precio = $${index++}`);
     valores.push(campos.precio);
   }
-  if (campos.stock_actual !== undefined) {
+  if (Object.prototype.hasOwnProperty.call(campos, 'stock_actual')) {
     columnas.push(`stock_actual = $${index++}`);
     valores.push(campos.stock_actual);
   }
-  if (campos.stock_minimo !== undefined) {
+  if (Object.prototype.hasOwnProperty.call(campos, 'stock_minimo')) {
     columnas.push(`stock_minimo = $${index++}`);
     valores.push(campos.stock_minimo);
   }
-  if (campos.categoria_id !== undefined) {
+  if (Object.prototype.hasOwnProperty.call(campos, 'categoria_id')) {
     columnas.push(`categoria_id = $${index++}`);
     valores.push(campos.categoria_id);
   }
-  if (campos.imagen_url) {
+  if (Object.prototype.hasOwnProperty.call(campos, 'imagen_url')) {
     columnas.push(`imagen_url = $${index++}`);
     valores.push(campos.imagen_url);
+  }
+  if (Object.prototype.hasOwnProperty.call(campos, 'destacado')) {
+    columnas.push(`destacado = $${index++}`);
+    valores.push(campos.destacado);
+  }
+  if (Object.prototype.hasOwnProperty.call(campos, 'en_oferta')) {
+    columnas.push(`en_oferta = $${index++}`);
+    valores.push(campos.en_oferta);
   }
 
   if (columnas.length === 0) {
@@ -93,6 +103,7 @@ const actualizarProducto = async (id, campos) => {
   const result = await pool.query(query, valores);
   return result.rows[0];
 };
+
 
 // Eliminar producto
 const eliminarProducto = async (id) => {
@@ -222,6 +233,48 @@ const obtenerHistorialReposiciones = async () => {
   return result.rows;
 };
 
+// Productos destacados
+const obtenerProductosDestacados = async () => {
+  const result = await pool.query(`
+    SELECT p.*, c.nombre AS categoria_nombre 
+    FROM productos p
+    LEFT JOIN categorias c ON p.categoria_id = c.id
+    WHERE p.destacado = TRUE AND p.stock_actual > 0
+    ORDER BY p.creado_en DESC
+    LIMIT 12
+  `);
+  return result.rows;
+};
+
+// Productos más vendidos (basado en la cantidad total vendida)
+const obtenerProductosMasVendidos = async () => {
+  const result = await pool.query(`
+    SELECT 
+      p.*, 
+      c.nombre AS categoria_nombre,
+      SUM(dp.cantidad) AS total_vendido
+    FROM productos p
+    JOIN detalle_pedido dp ON dp.producto_id = p.id
+    LEFT JOIN categorias c ON p.categoria_id = c.id
+    GROUP BY p.id, c.nombre
+    HAVING SUM(dp.cantidad) > 0
+    ORDER BY total_vendido DESC
+    LIMIT 12
+  `);
+  return result.rows;
+};
+
+const obtenerProductosEnOferta = async () => {
+  const result = await pool.query(`
+    SELECT p.*, c.nombre AS categoria_nombre
+    FROM productos p
+    LEFT JOIN categorias c ON p.categoria_id = c.id
+    WHERE p.en_oferta = TRUE AND p.stock_actual > 0
+    ORDER BY p.creado_en DESC
+    LIMIT 12
+  `);
+  return result.rows;
+};
 
 module.exports = {
   obtenerProductos,
@@ -236,5 +289,8 @@ module.exports = {
   obtenerProductosConStockBajo,
   registrarReposicionStock,
   obtenerHistorialReposiciones,
-  actualizarStock
+  actualizarStock,
+  obtenerProductosDestacados,
+  obtenerProductosMasVendidos,
+  obtenerProductosEnOferta
 };

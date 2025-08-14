@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { motion as Motion } from 'framer-motion';
 import { FaEdit, FaTrashAlt, FaPlusCircle } from 'react-icons/fa';
 import { toast } from 'react-toastify';
-import { updateProducto } from '../services/productService';
+import { updateProducto, updateCampoProducto } from '../services/productService';
 import axios from 'axios';
 
 const API_URL = 'http://localhost:3001';
@@ -16,6 +16,18 @@ export default function ProductList({ productos, onEdit, onDelete, cargarProduct
   const [modalReponer, setModalReponer] = useState(null);
   const [cantidadReponer, setCantidadReponer] = useState(0);
   const [productoResaltado, setProductoResaltado] = useState(null);
+  const toggleCampo = async (producto, campo) => {
+    try {
+      const nuevoValor = !producto[campo];
+      await updateCampoProducto(producto.id, { [campo]: nuevoValor });
+      toast.success(`${campo === 'destacado' ? '⭐' : '💥'} ${campo} actualizado`);
+      cargarProductos();
+    } catch (error) {
+      console.error(`Error actualizando ${campo}:`, error);
+      toast.error(`❌ No se pudo actualizar ${campo}`);
+    }
+  };
+
 
   useEffect(() => {
     const cargarCategorias = async () => {
@@ -119,6 +131,8 @@ export default function ProductList({ productos, onEdit, onDelete, cargarProduct
             <th className="p-2 border">Stock</th>
             <th className="p-2 border">Categoría</th>
             <th className="p-2 border">Imagen</th>
+            <th className="p-2 border">⭐</th>
+            <th className="p-2 border">💥</th>
             <th className="p-2 border">Acciones</th>
           </tr>
         </thead>
@@ -154,6 +168,22 @@ export default function ProductList({ productos, onEdit, onDelete, cargarProduct
                   <span className="text-gray-400 italic">Sin imagen</span>
                 )}
               </td>
+              
+              <td className="p-2 border">
+                <input
+                  type="checkbox"
+                  checked={producto.destacado}
+                  onChange={() => toggleCampo(producto, 'destacado')}
+                />
+              </td>
+              <td className="p-2 border">
+                <input
+                  type="checkbox"
+                  checked={producto.en_oferta}
+                  onChange={() => toggleCampo(producto, 'en_oferta')}
+                />
+              </td>
+
               <td className="p-2 border space-y-1">
                 <button
                   onClick={() => onEdit(producto)}
@@ -221,7 +251,22 @@ export default function ProductList({ productos, onEdit, onDelete, cargarProduct
                     <input name="nombre" value={editableProducto.nombre} onChange={handleChange} className="border rounded px-2 py-1 w-full" />
                     <textarea name="descripcion" value={editableProducto.descripcion} onChange={handleChange} className="border rounded px-2 py-1 w-full" />
                     <input name="precio" type="number" value={editableProducto.precio} onChange={handleChange} className="border rounded px-2 py-1 w-full" />
-                    <input name="stock_actual" type="number" value={editableProducto.stock_actual} onChange={handleChange} className="border rounded px-2 py-1 w-full" />
+                    {/* Stock SOLO lectura */}
+                    <div className="text-left">
+                      <label className="block text-sm font-medium text-gray-600 mb-1">
+                        Stock actual
+                      </label>
+                      <input
+                        type="number"
+                        value={editableProducto.stock_actual}
+                        readOnly
+                        disabled
+                        className="border rounded px-2 py-1 w-full bg-gray-100 cursor-not-allowed select-none"
+                      />
+                      <small className="text-gray-500">
+                        El stock se actualiza desde <strong>“Reponer”</strong>.
+                      </small>
+                    </div>
                     <input name="stock_minimo" type="number" value={editableProducto.stock_minimo} onChange={handleChange} className="border rounded px-2 py-1 w-full" />
 
                     <select name="categoria_id" value={editableProducto.categoria_id} onChange={handleChange} className="border rounded px-2 py-1 w-full">
