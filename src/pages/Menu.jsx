@@ -39,25 +39,18 @@ const Menu = () => {
         </li>
 
         <li>
-          <Link to="/perfil" className="flex items-center gap-3 bg-white p-4 rounded-xl shadow-md hover:bg-yellow-100">
-            <FaUser className="text-yellow-600" />
-            <span>Mi Perfil</span>
-          </Link>
-        </li>
-
-        <li>
           <Link to="/configuracion" className="flex items-center gap-3 bg-white p-4 rounded-xl shadow-md hover:bg-yellow-100">
             <FaCog className="text-yellow-600" />
-            <span>Configuración</span>
+            <span>Configuración de Perfil</span>
           </Link>
         </li>
-
+{/* Footer 
         <li>
           <Link to="/register" className="flex items-center gap-3 bg-white p-4 rounded-xl shadow-md hover:bg-yellow-100">
             <FaUserPlus className="text-yellow-600" />
             <span>Registrarse</span>
           </Link>
-        </li>
+        </li>*/}
 
         <li>
           <Link to="/mis-pedidos" className="flex items-center gap-3 bg-white p-4 rounded-xl shadow-md hover:bg-yellow-100">
@@ -72,13 +65,6 @@ const Menu = () => {
               <Link to="/admin" className="flex items-center gap-3 bg-white p-4 rounded-xl shadow-md hover:bg-yellow-100">
                 <FaTachometerAlt className="text-yellow-600" />
                 <span>Panel Administrativo</span>
-              </Link>
-            </li>
-
-            <li>
-              <Link to="/admin/crear-usuario" className="flex items-center gap-3 bg-white p-4 rounded-xl shadow-md hover:bg-yellow-100">
-                <FaUserShield className="text-yellow-600" />
-                <span>Crear Usuario Admin</span>
               </Link>
             </li>
           </>
