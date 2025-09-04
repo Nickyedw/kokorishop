@@ -116,7 +116,7 @@ export default function KokoriIntro({
   const TY = pickTitleY(titleY, bp);
 
   if (debug) {
-    // eslint-disable-next-line no-console
+
     console.log('[KokoriIntro]', { bp, size, P, M, TY });
   }
 

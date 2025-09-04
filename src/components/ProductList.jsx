@@ -329,114 +329,160 @@ export default function ProductList({ productos, onEdit, onDelete, cargarProduct
 
   return (
     <>
-      <table className="w-full border mt-4">
-        <thead>
-          <tr className="bg-gray-200 text-center">
-            <th className="p-2 border">Nombre</th>
-            <th className="p-2 border">Descripción</th>
-            <th className="p-2 border">Precio</th>
-            <th className="p-2 border">Stock</th>
-            <th className="p-2 border">Categoría</th>
-            <th className="p-2 border">Imagen</th>
-            <th className="p-2 border">Galería</th>
-            <th className="p-2 border">⭐</th>
-            <th className="p-2 border">💥</th>
-            <th className="p-2 border">Acciones</th>
-          </tr>
-        </thead>
+  {/* Desktop table */}
+<div className="hidden md:block">
+  <div className="mt-4 w-full overflow-x-auto rounded border bg-white">
+    <table className="min-w-[920px] w-full border">
+      <thead className="sticky top-0 z-10">
+        <tr className="bg-gray-100 text-center border-b">
+          <th className="p-2 border w-[220px]">Nombre</th>
+          <th className="p-2 border w-[320px]">Descripción</th>
+          <th className="p-2 border w-[120px]">Precio</th>
+          <th className="p-2 border w-[110px]">Stock</th>
+          <th className="p-2 border w-[160px]">Categoría</th>
+          <th className="p-2 border w-[110px]">Imagen</th>
+          <th className="p-2 border w-[140px]">Galería</th>
+          <th className="p-2 border w-[70px]">⭐</th>
+          <th className="p-2 border w-[70px]">💥</th>
+          <th className="p-2 border w-[240px]">Acciones</th>
+        </tr>
+      </thead>
 
-        <Motion.tbody initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
-          {productos.map((producto, index) => {
-            const enOferta = !!producto.en_oferta;
-            const regular = Number(producto.precio_regular || producto.precio);
-            const oferta = Number(producto.precio);
-            const d = pct(regular, oferta);
+      <Motion.tbody
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+      >
+        {productos.map((producto, index) => {
+          const enOferta = !!producto.en_oferta;
+          const regular = Number(producto.precio_regular || producto.precio);
+          const oferta = Number(producto.precio);
+          const d = pct(regular, oferta);
 
-            return (
-              <tr
-                key={producto.id}
-                className={`text-center border-t ${productoResaltado === producto.id ? 'bg-green-100 font-semibold' : ''}`}
-              >
-                <td className="p-2 border">{producto.nombre}</td>
-                <td className="p-2 border">{producto.descripcion}</td>
+          return (
+            <tr
+              key={producto.id}
+              className={`text-center border-t hover:bg-gray-50 ${
+                productoResaltado === producto.id ? 'bg-green-100 font-semibold' : ''
+              }`}
+            >
+              {/* Nombre */}
+              <td className="p-2 border text-left max-w-[220px]">
+                <span className="block truncate" title={producto.nombre}>
+                  {producto.nombre}
+                </span>
+              </td>
 
-                {/* Precio con soporte de oferta */}
-                <td className="p-2 border">
-                  {enOferta ? (
-                    <div className="inline-flex flex-col items-center gap-0.5">
-                      <div className="font-bold text-purple-900">{fmt(oferta)}</div>
-                      <div className="text-xs line-through text-gray-500">{fmt(regular)}</div>
-                      {d > 0 && (
-                        <span className="text-[11px] px-2 py-0.5 rounded-full bg-pink-100 text-pink-700 font-semibold">
-                          -{d}%
-                        </span>
-                      )}
-                    </div>
-                  ) : (
-                    <span className="font-medium">{fmt(oferta)}</span>
-                  )}
-                </td>
+              {/* Descripción */}
+              <td className="p-2 border text-left">
+                <span className="block max-w-[320px] truncate" title={producto.descripcion}>
+                  {producto.descripcion}
+                </span>
+              </td>
 
-                <td className="p-2 border">
-                  {producto.stock_actual ?? '—'}
-                  {producto.stock_actual !== null && producto.stock_actual <= producto.stock_minimo && (
-                    <span className="ml-2 text-red-600 font-bold" title="Stock bajo">
+              {/* Precio con soporte de oferta */}
+              <td className="p-2 border whitespace-nowrap">
+                {enOferta ? (
+                  <div className="inline-flex flex-col items-center gap-0.5 leading-tight">
+                    <div className="font-bold text-purple-900">{fmt(oferta)}</div>
+                    <div className="text-xs line-through text-gray-500">{fmt(regular)}</div>
+                    {d > 0 && (
+                      <span className="text-[11px] px-2 py-0.5 rounded-full bg-pink-100 text-pink-700 font-semibold">
+                        -{d}%
+                      </span>
+                    )}
+                  </div>
+                ) : (
+                  <span className="font-medium">{fmt(oferta)}</span>
+                )}
+              </td>
+
+              {/* Stock */}
+              <td className="p-2 border whitespace-nowrap">
+                {producto.stock_actual ?? '—'}
+                {producto.stock_actual !== null &&
+                  producto.stock_actual <= producto.stock_minimo && (
+                    <span
+                      className="ml-2 inline-block text-red-600 font-bold"
+                      title="Stock bajo"
+                      aria-label="Stock bajo"
+                    >
                       ⚠️
                     </span>
                   )}
-                </td>
-                <td className="p-2 border">{producto.categoria_nombre}</td>
+              </td>
 
-                <td className="p-2 border">
-                  <img
-                    src={producto.imagen_url ? getImageUrl(producto.imagen_url) : FALLBACK_IMG}
-                    alt={producto.nombre}
-                    onClick={() => producto.imagen_url && setImagenModalIndex(index)}
-                    className="w-16 h-16 object-cover mx-auto rounded-md shadow cursor-pointer hover:scale-105 transition-transform duration-200"
-                    onError={(e) => (e.currentTarget.src = FALLBACK_IMG)}
-                  />
-                </td>
+              {/* Categoría */}
+              <td className="p-2 border">
+                <span className="block max-w-[160px] truncate" title={producto.categoria_nombre}>
+                  {producto.categoria_nombre}
+                </span>
+              </td>
 
-                <td className="p-2 border">
-                  <button
-                    type="button"
-                    onClick={() => openGallery(producto)}
-                    className="inline-flex items-center gap-2 px-3 py-1 rounded bg-purple-600 hover:bg-purple-700 text-white text-sm"
-                    title="Gestionar galería"
-                  >
-                    <FaImages /> Gestionar
-                  </button>
-                </td>
+              {/* Imagen principal */}
+              <td className="p-2 border">
+                <img
+                  src={producto.imagen_url ? getImageUrl(producto.imagen_url) : FALLBACK_IMG}
+                  alt={producto.nombre}
+                  onClick={() => producto.imagen_url && setImagenModalIndex(index)}
+                  className="w-16 h-16 object-cover mx-auto rounded-md shadow cursor-pointer hover:scale-105 transition-transform duration-200"
+                  onError={(e) => (e.currentTarget.src = FALLBACK_IMG)}
+                />
+              </td>
 
-                <td className="p-2 border">
-                  <input
-                    type="checkbox"
-                    checked={!!producto.destacado}
-                    onChange={() => toggleCampo(producto, 'destacado')}
-                  />
-                </td>
+              {/* Botón Galería */}
+              <td className="p-2 border">
+                <button
+                  type="button"
+                  onClick={() => openGallery(producto)}
+                  className="inline-flex items-center gap-2 px-3 py-1 rounded bg-purple-600 hover:bg-purple-700 text-white text-sm"
+                  title="Gestionar galería"
+                  aria-label={`Gestionar galería de ${producto.nombre}`}
+                >
+                  <FaImages /> Gestionar
+                </button>
+              </td>
 
-                <td className="p-2 border">
-                  {/* Al marcar oferta abrimos modal; al desmarcar, confirm y restaurar */}
-                  <input
-                    type="checkbox"
-                    checked={!!producto.en_oferta}
-                    onChange={() => handleOfertaToggle(producto)}
-                  />
-                </td>
+              {/* Destacado */}
+              <td className="p-2 border">
+                <input
+                  type="checkbox"
+                  checked={!!producto.destacado}
+                  onChange={() => toggleCampo(producto, 'destacado')}
+                  aria-label={`Marcar destacado ${producto.nombre}`}
+                  title="Destacado"
+                />
+              </td>
 
-                <td className="p-2 border space-y-1">
+              {/* Oferta */}
+              <td className="p-2 border">
+                <input
+                  type="checkbox"
+                  checked={!!producto.en_oferta}
+                  onChange={() => handleOfertaToggle(producto)}
+                  aria-label={`Marcar en oferta ${producto.nombre}`}
+                  title="Oferta"
+                />
+              </td>
+
+              {/* Acciones */}
+              <td className="p-2 border">
+                <div className="flex flex-wrap items-center justify-center gap-2">
                   <button
                     type="button"
                     onClick={() => onEdit(producto)}
-                    className="bg-yellow-400 px-2 py-1 rounded mr-2 flex items-center gap-1"
+                    className="bg-yellow-400 hover:bg-yellow-300 px-2 py-1 rounded flex items-center gap-1"
+                    aria-label={`Editar ${producto.nombre}`}
+                    title="Editar"
                   >
                     <FaEdit /> Editar
                   </button>
                   <button
                     type="button"
                     onClick={() => onDelete(producto.id)}
-                    className="bg-red-500 text-white px-2 py-1 rounded flex items-center gap-1"
+                    className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded flex items-center gap-1"
+                    aria-label={`Eliminar ${producto.nombre}`}
+                    title="Eliminar"
                   >
                     <FaTrashAlt /> Eliminar
                   </button>
@@ -446,16 +492,115 @@ export default function ProductList({ productos, onEdit, onDelete, cargarProduct
                       setModalReponer(producto);
                       setCantidadReponer(0);
                     }}
-                    className="bg-blue-500 text-white px-2 py-1 rounded flex items-center gap-1"
+                    className="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded flex items-center gap-1"
+                    aria-label={`Reponer stock de ${producto.nombre}`}
+                    title="Reponer"
                   >
                     <FaPlusCircle /> Reponer
                   </button>
-                </td>
-              </tr>
-            );
-          })}
-        </Motion.tbody>
-      </table>
+                </div>
+              </td>
+            </tr>
+          );
+        })}
+      </Motion.tbody>
+    </table>
+  </div>
+</div>
+
+
+{/* CARDS en móvil (optimizado y sin recortes) */}
+<div className="md:hidden space-y-3">
+  {productos.map((p) => {
+    const regular = Number(p.precio_regular || p.precio);
+    const oferta = Number(p.precio);
+    const enOferta = !!p.en_oferta;
+    const d = enOferta ? Math.round(((regular - oferta) / regular) * 100) : 0;
+
+    return (
+      <div key={p.id} className="bg-white rounded-xl shadow-sm p-3 w-full overflow-hidden">
+        {/* fila superior: imagen + info */}
+        <div className="grid grid-cols-[72px,1fr] gap-3">
+          <img
+            src={p.imagen_url ? getImageUrl(p.imagen_url) : FALLBACK_IMG}
+            alt={p.nombre}
+            onError={(e) => (e.currentTarget.src = FALLBACK_IMG)}
+            className="w-[72px] h-[72px] rounded object-cover shrink-0"
+          />
+          <div className="min-w-0">
+            <div className="font-semibold leading-tight truncate">{p.nombre}</div>
+            <div className="text-xs text-gray-500 truncate">{p.categoria_nombre}</div>
+
+            {/* precio */}
+            <div className="mt-1 flex items-baseline gap-2 flex-wrap">
+              {enOferta ? (
+                <>
+                  <span className="font-bold text-purple-900">S/ {oferta.toFixed(2)}</span>
+                  <span className="line-through text-gray-400 text-xs">S/ {regular.toFixed(2)}</span>
+                  <span className="bg-pink-100 text-pink-700 text-[11px] px-1.5 py-0.5 rounded">-{d}%</span>
+                </>
+              ) : (
+                <span className="font-medium">S/ {oferta.toFixed(2)}</span>
+              )}
+            </div>
+
+            {/* acciones */}
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button
+                onClick={() => onEdit(p)}
+                className="px-2.5 py-1 rounded bg-yellow-400 text-white text-xs"
+              >
+                Editar
+              </button>
+              <button
+                onClick={() => onDelete(p.id)}
+                className="px-2.5 py-1 rounded bg-red-500 text-white text-xs"
+              >
+                Eliminar
+              </button>
+              <button
+                onClick={() => {
+                  setModalReponer(p);
+                  setCantidadReponer(0);
+                }}
+                className="px-2.5 py-1 rounded bg-blue-600 text-white text-xs"
+              >
+                Reponer
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* toggles + stock */}
+        <div className="mt-3 pt-2 border-t grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <div className="flex items-center gap-4 flex-wrap">
+            <label className="inline-flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={!!p.destacado}
+                onChange={() => toggleCampo(p, 'destacado')}
+              />
+              <span className="text-sm">Destacado</span>
+            </label>
+            <label className="inline-flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={!!p.en_oferta}
+                onChange={() => handleOfertaToggle(p)}
+              />
+              <span className="text-sm">Oferta</span>
+            </label>
+          </div>
+
+          <div className="text-sm text-gray-600 sm:text-right">
+            Stock: <span className="font-medium">{p.stock_actual ?? '—'}</span>
+          </div>
+        </div>
+      </div>
+    );
+  })}
+</div>
+
 
       {/* Modal: Reponer */}
       {modalReponer && (
@@ -724,6 +869,9 @@ export default function ProductList({ productos, onEdit, onDelete, cargarProduct
                           </span>
                         )}
                       </div>
+
+
+
                     );
                   })}
                 </div>

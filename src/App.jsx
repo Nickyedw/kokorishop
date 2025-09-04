@@ -1,40 +1,40 @@
 // src/App.jsx
 import React from "react";
-import { Routes, Route } from 'react-router-dom';
-import { ToastContainer } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
+import { Routes, Route, Navigate } from "react-router-dom";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 // Páginas principales
 import Home from "./pages/Home";
 import Favorites from "./pages/Favorites";
 import Cart from "./pages/Cart";
 import Menu from "./pages/Menu";
-import MisPedidos from './pages/MisPedidos';
-import DetalleClientePedido from './pages/DetalleClientePedido';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import ConfiguracionPerfil from './pages/ConfiguracionPerfil';
-import Recuperar from './pages/Recuperar';
-import Reestablecer from './pages/Reestablecer';
-import Catalogo from './pages/Catalogo';
+import MisPedidos from "./pages/MisPedidos";
+import DetalleClientePedido from "./pages/DetalleClientePedido";
+import Login from "./pages/Login";
+import Register from "./pages/Register";
+import ConfiguracionPerfil from "./pages/ConfiguracionPerfil";
+import Recuperar from "./pages/Recuperar";
+import Reestablecer from "./pages/Reestablecer";
+import Catalogo from "./pages/Catalogo";
 
 // Paneles Admin
-import AdminPedidos from './pages/AdminPedidos';
-import DetallePedido from './pages/DetallePedido';
-import ProductAdmin from './pages/ProductAdmin';
-import EditarProducto from './pages/EditarProducto';
-import Dashboard from './pages/Dashboard';
+import AdminPedidos from "./pages/AdminPedidos";
+import DetallePedido from "./pages/DetallePedido";
+import ProductAdmin from "./pages/ProductAdmin";
+import EditarProducto from "./pages/EditarProducto";
 import AdminCrearUsuario from "./pages/AdminCrearUsuario";
-import HistorialReposiciones from './pages/HistorialReposiciones'; // ✅ Importado
+import HistorialReposiciones from "./pages/HistorialReposiciones";
+import AdminUsuarios from './pages/AdminUsuarios';
 
-// 🔐 Componente para proteger rutas
-import RequireAuth from './components/RequireAuth';
+// 🔐 Rutas protegidas
+import RequireAuth from "./components/RequireAuth";
 
 function App() {
   return (
     <>
       <Routes>
-        {/* Rutas públicas */}
+        {/* Públicas */}
         <Route path="/login" element={<Login />} />
         <Route path="/" element={<Home />} />
         <Route path="/favorites" element={<Favorites />} />
@@ -43,21 +43,30 @@ function App() {
         <Route path="/reestablecer" element={<Reestablecer />} />
         <Route path="/catalogo" element={<Catalogo />} />
 
-        {/* Rutas protegidas */}
+        {/* Protegidas (cliente) */}
         <Route path="/cart" element={<RequireAuth><Cart /></RequireAuth>} />
         <Route path="/menu" element={<RequireAuth><Menu /></RequireAuth>} />
         <Route path="/mis-pedidos" element={<RequireAuth><MisPedidos /></RequireAuth>} />
         <Route path="/mis-pedidos/:id" element={<RequireAuth><DetalleClientePedido /></RequireAuth>} />
         <Route path="/configuracion" element={<RequireAuth><ConfiguracionPerfil /></RequireAuth>} />
 
-        <Route path="/admin" element={<RequireAuth><Dashboard /></RequireAuth>} />
+        {/* Admin: redirigir raíz del admin a productos */}
+        <Route path="/admin" element={<RequireAuth><Navigate to="/admin/productos" replace /></RequireAuth>} />
+
+        {/* Admin secciones */}
         <Route path="/admin/pedidos" element={<RequireAuth><AdminPedidos /></RequireAuth>} />
         <Route path="/admin/pedidos/:id" element={<RequireAuth><DetallePedido /></RequireAuth>} />
         <Route path="/admin/productos" element={<RequireAuth><ProductAdmin /></RequireAuth>} />
         <Route path="/admin/productos/:id" element={<RequireAuth><EditarProducto /></RequireAuth>} />
+        <Route path="/admin/usuarios" element={<RequireAuth><AdminUsuarios /></RequireAuth>} />
         <Route path="/admin/crear-usuario" element={<RequireAuth><AdminCrearUsuario /></RequireAuth>} />
-        <Route path="/admin/reposiciones" element={<RequireAuth><HistorialReposiciones /></RequireAuth>} /> {/* ✅ NUEVO */}
+        <Route path="/admin/reposiciones" element={<RequireAuth><HistorialReposiciones /></RequireAuth>} />
 
+        {/* Alias en inglés (opcionales) */}
+        <Route path="/admin/products" element={<RequireAuth><ProductAdmin /></RequireAuth>} />
+        <Route path="/admin/orders" element={<RequireAuth><AdminPedidos /></RequireAuth>} />
+        <Route path="/admin/users" element={<RequireAuth><AdminCrearUsuario /></RequireAuth>} />
+        <Route path="/admin/restocks" element={<RequireAuth><HistorialReposiciones /></RequireAuth>} />
       </Routes>
 
       <ToastContainer

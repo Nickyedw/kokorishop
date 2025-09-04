@@ -23,7 +23,7 @@ export default function SloganRibbon({
   // Posición del contenedor según variante
   const container = isBanner
     ? `absolute z-40 ${topClass || "top-0"} left-0 right-0 pointer-events-none`
-    : `absolute z-40 ${topClass || "top-5 sm:top-6"} left-1/2 -translate-x-1/2 pointer-events-none px-3`;
+    : `absolute z-40 ${topClass || "top-1 sm:top-1"} left-1/2 -translate-x-1/2 pointer-events-none px-3`;
 
   // Estilo interior según variante
   const innerBase = isBanner

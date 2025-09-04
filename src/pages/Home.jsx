@@ -1,5 +1,5 @@
 // src/pages/Home.jsx
-import React, { useEffect, useState, useContext, useMemo } from 'react';
+import React, { useEffect, useState, useContext } from 'react';
 import { FaHeart, FaShoppingBag, FaBars } from 'react-icons/fa';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -17,6 +17,8 @@ import SloganRibbon from "../components/SloganRibbon";
 // Nombre de la tienda (se muestra en el header)
 const STORE_NAME = 'Kokorishop';
 
+
+const base = import.meta.env.BASE_URL; // normalmente "/" en dev, "/kokoshop/" si desplegas bajo subcarpeta
 const API_APP = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 const API_BASE = `${API_APP}/api`;
 
@@ -245,6 +247,103 @@ return (
   );
 }
 
+/** HERO VIDEO – KokoriShop (mobile cover, desktop contain) */
+/** HERO VIDEO – limpio, centrado y sin overlay */
+function HeroVideo() {
+  const PUB = import.meta.env.BASE_URL || "/";
+
+  return (
+    <section className="relative w-full mt-4">
+      {/* contenedor centrado y ancho máximo en desktop */}
+      <div
+        className="
+          mx-auto w-[94%] max-w-5xl
+          rounded-3xl overflow-hidden bg-purple-900
+        "
+      >
+        {/* alto por breakpoint (mobile/tablet) y proporción en desktop */}
+        <div className="
+          relative
+          h-48 sm:h-64 md:h-80       /* móvil/tablet: alto fijo */
+          lg:h-auto lg:aspect-[16/9] /* desktop: 16:9 verdadero */
+        ">
+          <video
+            className="
+              absolute inset-0 w-full h-full
+              object-cover            /* mobile: llena el cuadro */
+              lg:object-contain       /* desktop: no recorta */
+              bg-black                /* barras laterales si es necesario */
+            "
+            autoPlay
+            loop
+            muted
+            playsInline
+            preload="metadata"
+            poster={`${PUB}img/kokorishop-hero-poster.jpg`}
+          >
+            <source src={`${PUB}media/kokorishop-hero.webm`} type="video/webm" />
+            <source src={`${PUB}media/kokorishop-hero.mp4`} type="video/mp4" />
+          </video>
+
+          {/* layout interno: cinta arriba, CTA abajo (sin overlay) */}
+          <div className="absolute inset-0 z-10 flex flex-col">
+            {/* Cinta: arriba y centrada */}
+            <div className="pt-3 px-3 self-center">
+              <SloganRibbon variant="ribbon" text="Donde todo es Cute" />
+            </div>
+
+            <div className="flex-1" />
+
+            {/* CTA delgado */}
+            <div className="pb-0 sm:pb-4 self-center">
+              <Link
+                to="/catalogo"
+                className="relative inline-block rounded-full
+                          bg-gradient-to-r from-pink-500/90 to-fuchsia-500/90
+                          hover:from-pink-600/95 hover:to-fuchsia-600/95
+                          text-white font-semibold
+                          px-4 sm:px-5
+                          py-0.5 sm:py-1 md:py-1.5
+                          text-xs sm:text-sm md:text-base
+                          border border-white/70
+                          shadow-md backdrop-blur-sm
+                          transition overflow-hidden"
+              >
+                Ver catálogo
+
+                {/* Glow multicolor animado */}
+                <span
+                  className="absolute inset-0 rounded-full pointer-events-none"
+                  style={{
+                    border: "2px solid transparent",
+                    background:
+                      "linear-gradient(90deg, #ff4d8d, #ffde59, #66ffcc, #a66bff, #ff4d8d)",
+                    backgroundSize: "400% 400%",
+                    WebkitMask: "linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0)",
+                    WebkitMaskComposite: "destination-out",
+                    maskComposite: "exclude",
+                    animation: "glowRainbow 4s linear infinite",
+                  }}
+                />
+              </Link>
+
+              <style>
+              {`
+              @keyframes glowRainbow {
+                0% { background-position: 0% 50%; }
+                50% { background-position: 100% 50%; }
+                100% { background-position: 0% 50%; }
+              }
+              `}
+              </style>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 const Home = () => {
   const usuario_nombre = localStorage.getItem('usuario_nombre') || 'Invitado';
   const { cartItems } = useContext(CartContext);
@@ -305,7 +404,7 @@ const Home = () => {
   }, []);
 
   // Imágenes del hero (toma hasta 3 principales de destacados)
-  const heroImages = useMemo(() => {
+  {/*const heroImages = useMemo(() => {
     const imgs = [];
     for (const p of destacados) {
       const principal = p?.imagenes?.[0]?.url || p?.imagen_url;
@@ -313,7 +412,7 @@ const Home = () => {
       if (imgs.length >= 3) break;
     }
     return imgs;
-  }, [destacados]);
+  }, [destacados]);*/}
 
   // Si hay footer admin, reservamos espacio
   const pagePaddingBottom = isAdmin ? 'pb-[88px]' : 'pb-6';
@@ -321,26 +420,59 @@ const Home = () => {
   return (
     <div className={`min-h-screen bg-purple-900 text-white ${pagePaddingBottom}`}>
       {/* Navbar */}
-      <nav className="flex items-center justify-between px-6 py-4 bg-purple-800 shadow-md">
-        <span className="text-3xl" aria-hidden>🐾</span>
-        <h1 className="text-2xl font-bold">{STORE_NAME}</h1>
+      <nav className="grid grid-cols-[auto,1fr,auto] items-center gap-4 px-4 sm:px-6 py-3 bg-purple-800/95 shadow-lg">
+        {/* Icono pequeño de la tienda */}
+        <img
+          src={`${base}img/logo_ks.png`}
+          alt="Icono tienda KokoriShop"
+          className="
+            h-14 sm:h-20 md:h-24      /* MÁS GRANDE */
+            w-auto object-contain
+            shrink-0
+            drop-shadow-[0_0_4px_rgba(255,255,255,.6)]
+          "
+          loading="eager"
+          decoding="async"
+          onError={(e) => (e.currentTarget.src = `${base}img/no-image.png`)}
+        />
+
+        {/* Logo central: muy ancho y destacado */}
+        <div className="flex justify-center">
+          <img
+            src={`${base}img/logo_kokorishop.png`}
+            alt="KokoriShop"
+            className="
+              h-16 sm:h-20 md:h-24 lg:h-28 xl:h-32   /* altura crece en breakpoints */
+              w-[min(85vw,820px)]                    /* ancho casi total, con tope mayor */
+              object-contain
+              mx-auto
+              drop-shadow-[0_0_6px_rgba(255,255,255,.55)]
+            "
+            loading="eager"
+            decoding="async"
+          />
+        </div>
+
+        {/* Acciones */}
         <div className="flex items-center gap-4 relative text-lg">
           <Link to="/favorites" className="relative" aria-label="Favoritos">
             <FaHeart />
             {favorites.length > 0 && (
-              <span className="absolute -top-2 -right-2 bg-pink-500 text-white text-xs w-5 h-5 flex items-center justify-center rounded-full">
+              <span className="absolute -top-2 -right-2 bg-pink-500 text-white text-xs w-5 h-5 grid place-items-center rounded-full">
                 {favorites.length}
               </span>
             )}
           </Link>
+
           <Link to="/Cart" className="relative" aria-label="Carrito">
             <FaShoppingBag />
             {totalItems > 0 && (
-              <span className="absolute -top-2 -right-2 bg-yellow-400 text-purple-900 text-xs w-5 h-5 flex items-center justify-center rounded-full">
+              <span className="absolute -top-2 -right-2 bg-yellow-400 text-purple-900 text-xs w-5 h-5 grid place-items-center rounded-full">
                 {totalItems}
               </span>
             )}
           </Link>
+
           <button
             type="button"
             className="text-white/90 md:hidden"
@@ -359,6 +491,7 @@ const Home = () => {
           </button>
         </div>
       </nav>
+
 
       {/* Barra secundaria (saludo) */}
       <div className="bg-gradient-to-r from-purple-700 to-fuchsia-700 text-purple-50 py-2 shadow-inner">
@@ -380,7 +513,9 @@ const Home = () => {
       </div>
 
       {/* Hero */}
-      <MiniCarousel images={heroImages} />
+      {/*<MiniCarousel images={heroImages} />*/}
+      <HeroVideo />
+
 
       {/* ⭐ Productos Destacados */}
       {destacados.length > 0 && (
