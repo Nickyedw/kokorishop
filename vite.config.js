@@ -2,7 +2,7 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   plugins: [react()],
-  base: '/kokoshop/', // 👈 Agrega esta línea
-})
+  base: command === 'build' ? '/kokorishop/' : '/', // ✅ build sí, dev no
+}))

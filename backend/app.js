@@ -20,33 +20,52 @@ const metodosPago = require('./routes/metodosPago');
 const PORT = process.env.PORT || 3001;
 
 /* =========================
-   Middlewares globales
+   CORS (seguro por dominio)
    ========================= */
+const allowedOrigins =
+  (process.env.CORS_ORIGIN || '')
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean); // ej: "https://nickyedw.github.io, http://localhost:5173"
+
 app.use(
   cors({
-    origin: true,
+    origin: (origin, cb) => {
+      if (!origin) return cb(null, true);               // curl / health
+      if (allowedOrigins.length === 0) return cb(null, true); // sin restricción
+      if (allowedOrigins.includes(origin)) return cb(null, true);
+      return cb(new Error('CORS: origin no permitido: ' + origin));
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     exposedHeaders: ['Content-Disposition'],
   })
 );
-// ❌ En Express 5, '*' rompe path-to-regexp. Si quisieras mantenerlo, usa '(.*)':
-// app.options('(.*)', cors());
+// Preflight universal sin '*' (Express 5)
+app.options(/.*/, cors());
 
+/* =========================
+   Middlewares
+   ========================= */
 app.use(morgan('dev'));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+/* =========================
+   Estáticos (producción)
+   ========================= */
 app.use(
   '/uploads',
   express.static(path.join(__dirname, 'uploads'), {
     maxAge: '7d',
-    setHeaders: (res) => {
-      res.setHeader('X-Content-Type-Options', 'nosniff');
-    },
+    setHeaders: (res) => res.setHeader('X-Content-Type-Options', 'nosniff'),
   })
 );
+
+// Sirve PDF generados y assets del servidor (logos, etc.)
+app.use('/pdfs', express.static(path.join(__dirname, 'pdfs'), { maxAge: '1d' }));
+app.use('/assets', express.static(path.join(__dirname, 'assets'), { maxAge: '30d' }));
 
 /* =========================
    Depuración
@@ -67,27 +86,24 @@ app.use('/productos', productosRouter); // alias si lo usas en el front
 
 app.use('/api/pedidos', pedidosRouter);
 app.use('/comprobantes', comprobanteRoutes);
+
 app.use('/api/categorias', categoriaRoutes);
 app.use('/categorias', categoriaRoutes); // alias
+
 app.use('/api', opcionesEntregaRoutes);  // mantiene tu prefijo actual
 app.use('/api/metodos_pago', metodosPago);
 
 /* =========================
    Health / Root
    ========================= */
-app.get('/', (_req, res) => {
-  res.send('🚀 API funcionando correctamente');
-});
-app.get('/health', (_req, res) => {
-  res.status(200).json({ ok: true, ts: Date.now() });
-});
+app.get('/', (_req, res) => res.send('🚀 API funcionando correctamente'));
+app.get('/health', (_req, res) => res.status(200).json({ ok: true, ts: Date.now() }));
 
 /* =========================
    404 y errores
    ========================= */
-app.use((req, res) => {
-  res.status(404).json({ mensaje: 'Ruta no encontrada' });
-});
+app.use((req, res) => res.status(404).json({ mensaje: 'Ruta no encontrada' }));
+
 /* eslint-disable-next-line no-unused-vars */
 app.use((err, req, res, _next) => {
   console.error('❌ Error global:', err);
@@ -105,5 +121,5 @@ app.use((err, req, res, _next) => {
    Arranque
    ========================= */
 app.listen(PORT, () => {
-  console.log(`✅ Servidor backend corriendo en http://localhost:${PORT}`);
+  console.log(`✅ Servidor backend corriendo en puerto ${PORT}`);
 });

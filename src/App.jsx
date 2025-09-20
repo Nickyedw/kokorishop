@@ -25,7 +25,7 @@ import ProductAdmin from "./pages/ProductAdmin";
 import EditarProducto from "./pages/EditarProducto";
 import AdminCrearUsuario from "./pages/AdminCrearUsuario";
 import HistorialReposiciones from "./pages/HistorialReposiciones";
-import AdminUsuarios from './pages/AdminUsuarios';
+import AdminUsuarios from "./pages/AdminUsuarios";
 
 // 🔐 Rutas protegidas
 import RequireAuth from "./components/RequireAuth";
@@ -35,38 +35,163 @@ function App() {
     <>
       <Routes>
         {/* Públicas */}
-        <Route path="/login" element={<Login />} />
         <Route path="/" element={<Home />} />
-        <Route path="/favorites" element={<Favorites />} />
+        <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/recuperar" element={<Recuperar />} />
         <Route path="/reestablecer" element={<Reestablecer />} />
         <Route path="/catalogo" element={<Catalogo />} />
+        <Route path="/favorites" element={<Favorites />} />
 
         {/* Protegidas (cliente) */}
-        <Route path="/cart" element={<RequireAuth><Cart /></RequireAuth>} />
-        <Route path="/menu" element={<RequireAuth><Menu /></RequireAuth>} />
-        <Route path="/mis-pedidos" element={<RequireAuth><MisPedidos /></RequireAuth>} />
-        <Route path="/mis-pedidos/:id" element={<RequireAuth><DetalleClientePedido /></RequireAuth>} />
-        <Route path="/configuracion" element={<RequireAuth><ConfiguracionPerfil /></RequireAuth>} />
+        <Route
+          path="/cart"
+          element={
+            <RequireAuth>
+              <Cart />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/menu"
+          element={
+            <RequireAuth>
+              <Menu />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/mis-pedidos"
+          element={
+            <RequireAuth>
+              <MisPedidos />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/mis-pedidos/:id"
+          element={
+            <RequireAuth>
+              <DetalleClientePedido />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/configuracion"
+          element={
+            <RequireAuth>
+              <ConfiguracionPerfil />
+            </RequireAuth>
+          }
+        />
 
         {/* Admin: redirigir raíz del admin a productos */}
-        <Route path="/admin" element={<RequireAuth><Navigate to="/admin/productos" replace /></RequireAuth>} />
+        <Route
+          path="/admin"
+          element={
+            <RequireAuth>
+              <Navigate to="/admin/productos" replace />
+            </RequireAuth>
+          }
+        />
 
         {/* Admin secciones */}
-        <Route path="/admin/pedidos" element={<RequireAuth><AdminPedidos /></RequireAuth>} />
-        <Route path="/admin/pedidos/:id" element={<RequireAuth><DetallePedido /></RequireAuth>} />
-        <Route path="/admin/productos" element={<RequireAuth><ProductAdmin /></RequireAuth>} />
-        <Route path="/admin/productos/:id" element={<RequireAuth><EditarProducto /></RequireAuth>} />
-        <Route path="/admin/usuarios" element={<RequireAuth><AdminUsuarios /></RequireAuth>} />
-        <Route path="/admin/crear-usuario" element={<RequireAuth><AdminCrearUsuario /></RequireAuth>} />
-        <Route path="/admin/reposiciones" element={<RequireAuth><HistorialReposiciones /></RequireAuth>} />
+        <Route
+          path="/admin/pedidos"
+          element={
+            <RequireAuth>
+              <AdminPedidos />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/admin/pedidos/:id"
+          element={
+            <RequireAuth>
+              <DetallePedido />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/admin/productos"
+          element={
+            <RequireAuth>
+              <ProductAdmin />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/admin/productos/:id"
+          element={
+            <RequireAuth>
+              <EditarProducto />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/admin/usuarios"
+          element={
+            <RequireAuth>
+              <AdminUsuarios />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/admin/crear-usuario"
+          element={
+            <RequireAuth>
+              <AdminCrearUsuario />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/admin/reposiciones"
+          element={
+            <RequireAuth>
+              <HistorialReposiciones />
+            </RequireAuth>
+          }
+        />
 
         {/* Alias en inglés (opcionales) */}
-        <Route path="/admin/products" element={<RequireAuth><ProductAdmin /></RequireAuth>} />
-        <Route path="/admin/orders" element={<RequireAuth><AdminPedidos /></RequireAuth>} />
-        <Route path="/admin/users" element={<RequireAuth><AdminCrearUsuario /></RequireAuth>} />
-        <Route path="/admin/restocks" element={<RequireAuth><HistorialReposiciones /></RequireAuth>} />
+        <Route
+          path="/admin/products"
+          element={
+            <RequireAuth>
+              <ProductAdmin />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/admin/orders"
+          element={
+            <RequireAuth>
+              <AdminPedidos />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/admin/users"
+          element={
+            <RequireAuth>
+              <AdminCrearUsuario />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/admin/restocks"
+          element={
+            <RequireAuth>
+              <HistorialReposiciones />
+            </RequireAuth>
+          }
+        />
+
+        {/* Redirección desde la ruta antigua */}
+        <Route path="/kokoshop/*" element={<Navigate to="/" replace />} />
+
+        {/* 404 catch-all */}
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
 
       <ToastContainer

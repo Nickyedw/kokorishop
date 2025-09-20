@@ -1,18 +1,35 @@
-const PDFDocument = require('pdfkit'); 
+// backend/controllers/comprobante.js
+const PDFDocument = require('pdfkit');
 const fs = require('fs');
 const path = require('path');
 const QRCode = require('qrcode');
 const db = require('../db');
 
-// =============================================
-// 📄 COMPROBANTE A4 ESTILO KAWAII
-// =============================================
-// Carpeta donde se guardarán los PDF generados
+// ======= Utils de salida =======
 const OUTPUT_DIR = path.join(__dirname, '..', 'pdfs');
 if (!fs.existsSync(OUTPUT_DIR)) fs.mkdirSync(OUTPUT_DIR);
 
+// ======= Paleta y helpers =======
+const COL = {
+  bgPage:     '#FFE7F0', // fondo rosado suave
+  sep:        '#FFB4D3', // separadores
+  line:       '#FFC2D9', // líneas finas
+  text:       '#111111', // texto principal
+  tableHeadBg:'#FFE4EC', // encabezado tabla
+  tableRowAlt:'#FFF7FA', // fila alterna
+};
+
+function niceDate(d) {
+  try { return new Date(d).toLocaleString(); }
+  catch { return String(d); }
+}
+
+// ===========================================================
+//  COMPROBANTE A4 — limpio, alineado y sin solapes
+// ===========================================================
 async function generarComprobantePDF(pedidoId) {
   try {
+    // --- datos del pedido
     const pedidoResult = await db.query(
       `SELECT p.id, u.nombre_completo AS cliente, p.fecha, p.estado, p.total, u.correo AS correo_cliente
        FROM pedidos p JOIN usuarios u ON p.usuario_id=u.id
@@ -28,110 +45,166 @@ async function generarComprobantePDF(pedidoId) {
     );
     const detalle = detalleResult.rows;
 
-    const qrURL = 'https://nickyedw.github.io/kokoshop/';
+    // --- QR
+    const qrURL = 'https://nickyedw.github.io/kokorishop/';
     const qrData = await QRCode.toDataURL(qrURL);
     const qrBuffer = Buffer.from(qrData.split(',')[1], 'base64');
 
+    // --- documento
     const filename = `comprobante_${pedidoId}.pdf`;
     const filepath = path.join(OUTPUT_DIR, filename);
-    const doc = new PDFDocument({ size: 'A4', margin: 50 });
+    const doc = new PDFDocument({ size: 'A4', margin: 40 });
     const stream = fs.createWriteStream(filepath);
     doc.pipe(stream);
 
+    // --- fondo y tipografía
+    const pageW = doc.page.width;
+    doc.rect(0, 0, pageW, doc.page.height).fill(COL.bgPage);
+    doc.fillColor(COL.text);
+
     const kawaiiFont = path.join(__dirname, '../fonts/Gontserrat-Medium.ttf');
-    if (fs.existsSync(kawaiiFont)) {
-      doc.registerFont('kawaii', kawaiiFont);
-      doc.font('kawaii');
-    } else {
-      doc.font('Helvetica');
+    if (fs.existsSync(kawaiiFont)) { doc.registerFont('kawaii', kawaiiFont); doc.font('kawaii'); }
+    else { doc.font('Helvetica'); }
+
+    // ===== LAYOUT CONTROLADO POR y =====
+    let y = 30;
+
+    // ---- LOGO (centrado y con espacio suficiente debajo)
+    const logoPath = path.join(__dirname, '../assets/logo_kokorishop.png');
+    const logoW = 210; // tamaño más grande
+    if (fs.existsSync(logoPath)) {
+      doc.image(logoPath, (pageW - logoW) / 2, y, { width: logoW });
+      y += Math.round(logoW * 0.55) + 44; // más aire bajo el logo
     }
 
-    const pageCenter = doc.page.width / 2;
-    doc.rect(0, 0, doc.page.width, doc.page.height).fill('#FFF0F5');
-    doc.fillColor('#000');
+    // --- Título
+    doc
+      .fontSize(22)
+      .fillColor(COL.text)
+      .text('COMPROBANTE DEL PEDIDO', 48, y, { width: pageW - 96, align: 'center' });
+    y += 28; // más aire bajo el título
 
-    const logoPath = path.join(__dirname, '../assets/logo_kawaii.png');
-    const logoWidth = 100;
-    doc.image(logoPath, pageCenter - logoWidth / 2, 50, { width: logoWidth });
-    doc.moveDown(10);
-    doc.fontSize(22).fillColor('#000').text('COMPROBANTE DEL PEDIDO', { align: 'center' });
-    doc.moveDown(0.5);
-    doc.moveTo(50, doc.y).lineTo(545, doc.y).dash(1, { space: 2 }).strokeColor('#FFB6C1').stroke();
-    doc.undash().strokeColor('#000');
+    // --- Separador
+    doc
+      .moveTo(48, y)
+      .lineTo(pageW - 48, y)
+      .strokeColor(COL.sep)
+      .lineWidth(1)
+      .dash(1, { space: 2 })
+      .stroke()
+      .undash();
+    y += 20; // espacio extra tras la línea
 
-    doc.moveDown(1);
-    doc.fontSize(12);
-    doc.text(`ID del Pedido :  ${pedido.id}`);
-    doc.text(`Cliente       :  ${pedido.cliente}`);
-    doc.text(`Fecha         :  ${new Date(pedido.fecha).toLocaleString()}`);
-    doc.text(`Estado        :  ${pedido.estado}`);
-    doc.moveDown(0.5);
-    doc.moveTo(50, doc.y).lineTo(545, doc.y).dash(1, { space: 2 }).strokeColor('#FFB6C1').stroke();
-    doc.undash().strokeColor('#000');
+    // ---- INFO BÁSICA
+    doc.fontSize(12).fillColor(COL.text);
+    const labelW = 95;
+    const lineH  = 18;
 
-    doc.moveDown(1);
-    doc.fontSize(13).text('Detalle del Pedido :', { underline: true });
-    doc.moveDown(0.5);
+    const putRow = (label, value) => {
+      doc.font('Helvetica-Bold').text(`${label}:`, 48, y, { width: labelW });
+      doc.font('Helvetica').text(String(value ?? '-'), 48 + labelW + 6, y, {
+        width: pageW - 48 - (48 + labelW + 6)
+      });
+      y += lineH;
+    };
 
-    const tableTop = doc.y;
-    const itemX = 50;
-    const colWidths = { producto: 220, cantidad: 70, precio: 100, subtotal: 100 };
+    putRow('ID del Pedido', pedido.id);
+    putRow('Cliente',       pedido.cliente || '-');
+    putRow('Fecha',         niceDate(pedido.fecha));
+    putRow('Estado',        pedido.estado || '-');
 
-    doc.fontSize(11).font('Helvetica-Bold').fillColor('#000');
-    doc.rect(itemX, tableTop, 495, 20).fill('#FFE4E1').stroke();
-    doc.fillColor('#000');
-    doc.text('Descripción', itemX + 5, tableTop + 5);
-    doc.text('Cantidad', itemX + colWidths.producto, tableTop + 5);
-    doc.text('P. Unitario', itemX + colWidths.producto + colWidths.cantidad, tableTop + 5);
-    doc.text('Subtotal', itemX + colWidths.producto + colWidths.cantidad + colWidths.precio, tableTop + 5);
+    y += 6;
+    drawSep(doc, y, pageW, COL.sep);
+    y += 16;
 
-    doc.font('Helvetica').fillColor('#000');
+    // ---- DETALLE
+    doc.font('Helvetica-Bold').fontSize(13).text('Detalle del Pedido', 48, y);
+    y += 12;
+
+    const tableX = 48;
+    const tableW = pageW - 96;
+    const col = {
+      producto: 0.48 * tableW,
+      cantidad: 0.14 * tableW,
+      precio:   0.18 * tableW,
+      subtotal: 0.20 * tableW
+    };
+    const thH = 22;
+    const trH = 20;
+
+    // Header de tabla
+    doc.rect(tableX, y, tableW, thH).fill(COL.tableHeadBg)
+       .strokeColor(COL.line).lineWidth(0.6).stroke();
+    doc.fillColor(COL.text).font('Helvetica-Bold').fontSize(11);
+    doc.text('Descripción', tableX + 6, y + 5, { width: col.producto - 12 });
+    doc.text('Cantidad',    tableX + col.producto + 6, y + 5, { width: col.cantidad - 12, align: 'center' });
+    doc.text('P. Unitario', tableX + col.producto + col.cantidad + 6, y + 5, { width: col.precio - 12, align: 'right' });
+    doc.text('Subtotal',    tableX + col.producto + col.cantidad + col.precio + 6, y + 5, { width: col.subtotal - 12, align: 'right' });
+    y += thH;
+
+    // Filas
+    doc.font('Helvetica').fontSize(11);
     let total = 0;
-    detalle.forEach((item, index) => {
-      const y = tableTop + 20 + index * 20;
-      const subtotal = item.cantidad * parseFloat(item.precio_unitario);
+    detalle.forEach((it, i) => {
+      const rowY = y + i * trH;
+      const alt  = i % 2 === 1;
+      doc.rect(tableX, rowY, tableW, trH)
+         .fill(alt ? COL.tableRowAlt : '#FFFFFF')
+         .strokeColor(COL.line).lineWidth(0.4).stroke();
+
+      const subtotal = Number(it.cantidad) * Number(it.precio_unitario);
       total += subtotal;
-      doc.rect(itemX, y, 495, 20).fill(index % 2 === 0 ? '#FFF' : '#FFF8FA').stroke();
-      doc.fillColor('#000');
-      doc.text(item.nombre_producto, itemX + 5, y + 5);
-      doc.text(item.cantidad.toString(), itemX + colWidths.producto, y + 5);
-      doc.text(`S/ ${parseFloat(item.precio_unitario).toFixed(2)}`, itemX + colWidths.producto + colWidths.cantidad, y + 5);
-      doc.text(`S/ ${subtotal.toFixed(2)}`, itemX + colWidths.producto + colWidths.cantidad + colWidths.precio, y + 5);
+
+      doc.fillColor(COL.text);
+      doc.text(it.nombre_producto, tableX + 6, rowY + 4, { width: col.producto - 12 });
+      doc.text(String(it.cantidad), tableX + col.producto, rowY + 4, { width: col.cantidad, align: 'center' });
+      doc.text(`S/ ${Number(it.precio_unitario).toFixed(2)}`,
+               tableX + col.producto + col.cantidad, rowY + 4, { width: col.precio - 6, align: 'right' });
+      doc.text(`S/ ${subtotal.toFixed(2)}`,
+               tableX + col.producto + col.cantidad + col.precio, rowY + 4, { width: col.subtotal - 6, align: 'right' });
     });
 
-    const finalY = tableTop + 20 + detalle.length * 20 + 10;
-    doc.font('Helvetica-Bold').fontSize(12);
-    doc.text(`Total: S/ ${total.toFixed(2)}`, 50, finalY, { align: 'right' });
+    y += trH * detalle.length + 8;
+    doc.font('Helvetica-Bold').text(`Total: S/ ${total.toFixed(2)}`, tableX, y, { width: tableW, align: 'right' });
+    y += 18;
 
-    doc.moveTo(50, finalY + 20).lineTo(545, finalY + 20).dash(1, { space: 2 }).strokeColor('#FFB6C1').stroke();
-    doc.undash();
-    doc.image(qrBuffer, pageCenter - 50, finalY + 40, { width: 100 });
+    drawSep(doc, y, pageW, COL.sep);
+    y += 22;
 
-    doc.moveDown(10);
-    doc.fontSize(8).fillColor('#000').text(
-      'KokoShop S.R.L. | RUC: 12345678901\n' +
+    // ---- QR centrado
+    const qrW = 130;
+    doc.image(qrBuffer, (pageW - qrW) / 2, y, { width: qrW });
+    y += qrW + 12;
+
+    // ---- Pie
+    doc.font('Helvetica').fontSize(8).fillColor(COL.text).text(
+      'KokoriShop S.R.L. | RUC: 12345678901\n' +
       'Av. Kawaii 123, Lima - Perú\n' +
       'Condiciones: Este comprobante es válido solo para fines informativos.\n' +
       '¡Gracias por tu compra! Vuelve pronto.',
-      { align: 'center' }
+      48, y, { width: pageW - 96, align: 'center' }
     );
 
     doc.end();
-
     return new Promise((resolve, reject) => {
       stream.on('finish', () => resolve(filepath));
       stream.on('error', reject);
     });
-
   } catch (err) {
     console.error('❌ Error generando comprobante PDF:', err);
     throw err;
   }
+
+  // ------ helper local ------
+  function drawSep(d, yy, w, color) {
+    d.moveTo(48, yy).lineTo(w - 48, yy)
+     .strokeColor(color).lineWidth(1).dash(1, { space: 2 }).stroke().undash();
+  }
 }
 
-// =============================================
-// 🧾 TICKET MINI / IMPRESORA TÉRMICA
-// =============================================
+// ===========================================================
+//  TICKET 58 mm – logo centrado y respirado
+// ===========================================================
 async function generarTicketPDF(pedidoId) {
   try {
     const pedidoResult = await db.query(
@@ -140,7 +213,7 @@ async function generarTicketPDF(pedidoId) {
        WHERE p.id=$1`, [pedidoId]
     );
     const pedido = pedidoResult.rows[0];
-    if (!pedido) throw new Error('Pedido no encontrado')
+    if (!pedido) throw new Error('Pedido no encontrado');
 
     const detalleResult = await db.query(
       `SELECT dp.cantidad, dp.precio_unitario, pr.nombre AS nombre_producto
@@ -149,66 +222,93 @@ async function generarTicketPDF(pedidoId) {
     );
     const detalle = detalleResult.rows;
 
-    const qrURL = 'https://nickyedw.github.io/kokoshop/';
+    // QR
+    const qrURL = 'https://nickyedw.github.io/kokorishop/';
     const qrData = await QRCode.toDataURL(qrURL);
     const qrBuffer = Buffer.from(qrData.split(',')[1], 'base64');
 
-    const ticketDoc = new PDFDocument({
-      size: [220, 600], // ≈ 58mm
-      margin: 10
-    });
-
+    // doc ticket
+    const ticketDoc = new PDFDocument({ size: [220, 680], margin: 10 });
     const filename = `ticket_${pedidoId}.pdf`;
     const filepath = path.join(OUTPUT_DIR, filename);
     const stream = fs.createWriteStream(filepath);
     ticketDoc.pipe(stream);
 
-    const logoPath = path.join(__dirname, '../assets/logo_kawaii.png');
-    if (fs.existsSync(logoPath)) {
-      ticketDoc.image(logoPath, 60, 10, { width: 100, align: 'center' });
+    let y = 18;
+
+    // logo bn (centrado y respirado)
+    const logoBn = path.join(__dirname, '../assets/logo_kokorishop_bn.png');
+    if (fs.existsSync(logoBn)) {
+      const w = 130;
+      ticketDoc.image(logoBn, (220 - w) / 2, y, { width: w });
+      y += 68;
     }
 
-    ticketDoc.moveDown(8);
-    ticketDoc.fontSize(10).text('KokoShop S.R.L.', { align: 'center' });
-    ticketDoc.fontSize(8).text('RUC: 12345678901', { align: 'center' });
-    ticketDoc.text('Av. Kawaii 123, Lima', { align: 'center' });
-    ticketDoc.moveDown(0.5);
+    ticketDoc.font('Helvetica').fillColor('#000').fontSize(11)
+      .text('KokoriShop S.R.L.', 0, y, { width: 220, align: 'center' });
+    y += 14;
+    ticketDoc.fontSize(9)
+      .text('RUC: 12345678901', 0, y, { width: 220, align: 'center' });
+    y += 12;
+    ticketDoc.text('Av. Kawaii 123, Lima', 0, y, { width: 220, align: 'center' });
+    y += 10;
 
-    ticketDoc.text('--------------------------------------------', { align: 'center' });
-    ticketDoc.fontSize(8);
-    ticketDoc.text(`PEDIDO #${pedido.id}`);
-    ticketDoc.text(`Cliente: ${pedido.cliente}`);
-    ticketDoc.text(`Fecha: ${new Date(pedido.fecha).toLocaleString()}`);
-    ticketDoc.text(`Estado: ${pedido.estado}`);
-    ticketDoc.text('--------------------------------------------', { align: 'center' });
+    // separador
+    ticketDoc.moveTo(12, y).lineTo(208, y).strokeColor('#999').lineWidth(0.7).stroke();
+    y += 8;
 
+    // cabecera pedido
+    ticketDoc.font('Helvetica-Bold').fontSize(10)
+      .text(`PEDIDO #${pedido.id}`, 0, y, { width: 220, align: 'center' });
+    y += 12;
+
+    ticketDoc.font('Helvetica').fontSize(9);
+    const left = 12;
+    ticketDoc.text(`Cliente: ${pedido.cliente}`, left, y, { width: 196 });
+    y += 12;
+    ticketDoc.text(`Fecha: ${niceDate(pedido.fecha)}`, left, y, { width: 196 });
+    y += 12;
+    ticketDoc.text(`Estado: ${pedido.estado}`, left, y, { width: 196 });
+    y += 8;
+
+    ticketDoc.moveTo(12, y).lineTo(208, y).strokeColor('#999').lineWidth(0.7).stroke();
+    y += 8;
+
+    // items
     let total = 0;
-    detalle.forEach(item => {
-      const subtotal = item.cantidad * parseFloat(item.precio_unitario);
+    detalle.forEach((it) => {
+      const subtotal = Number(it.cantidad) * Number(it.precio_unitario);
       total += subtotal;
-      ticketDoc.text(`${item.cantidad} x ${item.nombre_producto}`);
-      ticketDoc.text(`    S/ ${parseFloat(item.precio_unitario).toFixed(2)}  Subt: S/ ${subtotal.toFixed(2)}`);
+
+      ticketDoc.text(`${it.cantidad} x ${it.nombre_producto}`, left, y, { width: 196 });
+      y += 12;
+      ticketDoc.text(`S/ ${Number(it.precio_unitario).toFixed(2)}   Subt: S/ ${subtotal.toFixed(2)}`, left, y, { width: 196 });
+      y += 12;
     });
 
-    ticketDoc.moveDown();
-    ticketDoc.font('Helvetica-Bold').text(`TOTAL: S/ ${total.toFixed(2)}`, { align: 'right' });
+    // total
+    y += 6;
+    ticketDoc.font('Helvetica-Bold').fontSize(11)
+      .text(`TOTAL: S/ ${total.toFixed(2)}`, 0, y, { width: 220, align: 'right' });
+    y += 16;
 
-    ticketDoc.moveDown();
-    ticketDoc.image(qrBuffer, { width: 80, align: 'center' });
+    // QR centrado + mensaje
+    const qrW = 110;
+    ticketDoc.image(qrBuffer, (220 - qrW) / 2, y, { width: qrW });
+    y += qrW + 10;
 
-    ticketDoc.moveDown(1);
-    ticketDoc.fontSize(7).font('Helvetica').text(
-      '¡Gracias por tu compra! \nSolo válido para fines informativos',
-      { align: 'center' }
-    );
+    ticketDoc.font('Helvetica').fontSize(9)
+      .text('¡Gracias por tu compra!', 0, y, { width: 220, align: 'center' });
+    y += 12;
+    ticketDoc.fontSize(8)
+      .text('Solo válido para fines informativos', 0, y, { width: 220, align: 'center' });
 
     ticketDoc.end();
 
     return new Promise((resolve, reject) => {
-        stream.on('finish', () => resolve(filepath));
-        stream.on('error', reject);
-      });
-
+      stream.on('finish', () => resolve(filepath));
+      stream.on('error', reject);
+    });
   } catch (err) {
     console.error('❌ Error generando ticket PDF:', err);
     throw err;
@@ -217,5 +317,5 @@ async function generarTicketPDF(pedidoId) {
 
 module.exports = {
   generarComprobantePDF,
-  generarTicketPDF
+  generarTicketPDF,
 };

@@ -1,17 +1,15 @@
 {
-  "name": "backend",
+  "name": "kokorishop-api",
   "version": "1.0.0",
-  "description": "",
+  "private": true,
+  "description": "API de KokoriShop",
   "main": "app.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "nodemon app.js",
-    "start": "node app.js"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
   "type": "commonjs",
+  "engines": { "node": ">=18 <=22" },
+  "scripts": {
+    "start": "node app.js",
+    "dev": "nodemon app.js"
+  },
   "dependencies": {
     "bcrypt": "^6.0.0",
     "cors": "^2.8.5",
@@ -20,14 +18,14 @@
     "morgan": "^1.10.0",
     "multer": "^2.0.2",
     "nodemailer": "^7.0.3",
+    "qr-image": "^3.2.0",
     "pdfkit": "^0.17.1",
     "pg": "^8.16.0",
-    "qr-image": "^3.2.0",
     "qrcode": "^1.5.4",
-    "react-toastify": "^11.0.5",
     "twilio": "^5.7.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.10"
   }
 }
+

@@ -1,9 +1,10 @@
 // src/pages/HistorialReposiciones.jsx
 import { useEffect, useMemo, useState } from "react";
 import { FaFilePdf, FaFileExcel, FaSearch } from "react-icons/fa";
-import * as XLSX from "xlsx";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
+// ❌ Quitamos imports pesados estáticos:
+// import * as XLSX from "xlsx";
+// import jsPDF from "jspdf";
+// import autoTable from "jspdf-autotable";
 import AdminShell from "../components/admin/AdminShell";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3001";
@@ -12,6 +13,9 @@ export default function HistorialReposiciones() {
   const [reposiciones, setReposiciones] = useState([]);
   const [filtro, setFiltro] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // export/loading
+  const [exporting, setExporting] = useState(false);
 
   // 🔢 paginación
   const [pagina, setPagina] = useState(1);
@@ -64,46 +68,77 @@ export default function HistorialReposiciones() {
     [reposicionesFiltradas, inicio, porPagina]
   );
 
-  // 📤 exportaciones (usan TODO el filtro, no solo la página)
-  const exportarExcel = () => {
-    const data = reposicionesFiltradas.map((r) => ({
-      Producto: r.producto_nombre,
-      Cantidad: r.cantidad_agregada,
-      "Stock Anterior": r.stock_anterior,
-      "Stock Nuevo": r.stock_nuevo,
-      Usuario: r.usuario_nombre,
-      Fecha: new Date(r.fecha).toLocaleString(),
-    }));
+  // 📤 exportaciones (con import dinámico)
+  const exportarExcel = async () => {
+    try {
+      setExporting(true);
+      const mod = await import("xlsx");
+      const XLSX = mod.default || mod; // compat ESM/CJS
 
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.json_to_sheet(data);
-    XLSX.utils.book_append_sheet(wb, ws, "Historial");
-    XLSX.writeFile(wb, "historial_reposiciones.xlsx");
+      const data = reposicionesFiltradas.map((r) => ({
+        Producto: r.producto_nombre,
+        Cantidad: r.cantidad_agregada,
+        "Stock Anterior": r.stock_anterior,
+        "Stock Nuevo": r.stock_nuevo,
+        Usuario: r.usuario_nombre,
+        Fecha: new Date(r.fecha).toLocaleString(),
+      }));
+
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(data);
+      XLSX.utils.book_append_sheet(wb, ws, "Historial");
+      XLSX.writeFile(wb, "historial_reposiciones.xlsx");
+    } catch (e) {
+      console.error("❌ Error exportando Excel:", e);
+      alert("No se pudo exportar a Excel.");
+    } finally {
+      setExporting(false);
+    }
   };
 
-  const exportarPDF = () => {
-    const doc = new jsPDF();
-    doc.text("Historial de Reposición de Stock", 14, 10);
-    autoTable(doc, {
-      startY: 15,
-      head: [["Producto", "Cantidad", "Stock Anterior", "Stock Nuevo", "Usuario", "Fecha"]],
-      body: reposicionesFiltradas.map((r) => [
-        r.producto_nombre,
-        r.cantidad_agregada,
-        r.stock_anterior,
-        r.stock_nuevo,
-        r.usuario_nombre,
-        new Date(r.fecha).toLocaleString(),
-      ]),
-      styles: { fontSize: 9 },
-      headStyles: { fillColor: [243, 244, 246], textColor: 33 },
-    });
-    doc.save("historial_reposiciones.pdf");
+  const exportarPDF = async () => {
+    try {
+      setExporting(true);
+      const { jsPDF } = await import("jspdf");
+      const autoTable = (await import("jspdf-autotable")).default;
+
+      const doc = new jsPDF();
+      doc.text("Historial de Reposición de Stock", 14, 10);
+      autoTable(doc, {
+        startY: 15,
+        head: [
+          [
+            "Producto",
+            "Cantidad",
+            "Stock Anterior",
+            "Stock Nuevo",
+            "Usuario",
+            "Fecha",
+          ],
+        ],
+        body: reposicionesFiltradas.map((r) => [
+          r.producto_nombre,
+          r.cantidad_agregada,
+          r.stock_anterior,
+          r.stock_nuevo,
+          r.usuario_nombre,
+          new Date(r.fecha).toLocaleString(),
+        ]),
+        styles: { fontSize: 9 },
+        headStyles: { fillColor: [243, 244, 246], textColor: 33 },
+      });
+      doc.save("historial_reposiciones.pdf");
+    } catch (e) {
+      console.error("❌ Error exportando PDF:", e);
+      alert("No se pudo exportar a PDF.");
+    } finally {
+      setExporting(false);
+    }
   };
 
   return (
     <AdminShell title="Historial de Reposición">
-      {/* Toolbar sticky, edge-to-edge y sin overflow */}
+      {/* Toolbar sticky */}
       <div
         className="
           sticky top-1 md:top-0 z-30 bg-gray-50/80 backdrop-blur
@@ -126,21 +161,23 @@ export default function HistorialReposiciones() {
           <div className="flex gap-2">
             <button
               onClick={exportarExcel}
-              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded inline-flex items-center gap-2"
+              disabled={exporting}
+              className="bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white px-4 py-2 rounded inline-flex items-center gap-2"
             >
-              <FaFileExcel /> Excel
+              <FaFileExcel /> {exporting ? "Exportando…" : "Excel"}
             </button>
             <button
               onClick={exportarPDF}
-              className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded inline-flex items-center gap-2"
+              disabled={exporting}
+              className="bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white px-4 py-2 rounded inline-flex items-center gap-2"
             >
-              <FaFilePdf /> PDF
+              <FaFilePdf /> {exporting ? "Exportando…" : "PDF"}
             </button>
           </div>
         </div>
       </div>
 
-      {/* separador para que el 1er bloque no “pegue” con la toolbar */}
+      {/* separador */}
       <div className="h-3 md:h-4" />
 
       {/* Estado de carga */}
@@ -227,7 +264,7 @@ export default function HistorialReposiciones() {
         )}
       </div>
 
-      {/* 🔁 Controles de paginación (comunes para ambas vistas) */}
+      {/* 🔁 Controles de paginación */}
       <div className="mt-4 flex flex-col sm:flex-row items-center justify-center gap-3">
         <button
           disabled={pagina === 1}

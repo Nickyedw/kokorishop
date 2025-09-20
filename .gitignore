@@ -27,6 +27,8 @@ dist-ssr
 .env
 backend/.env
 frontend/.env
+backend/uploads
+backend/pdfs
 
 # Vite build output (ya incluido por dist pero específico por claridad)
 frontend/dist
