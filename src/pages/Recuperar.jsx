@@ -3,6 +3,9 @@ import React, { useState } from 'react';
 import { toast } from 'react-toastify';
 import { useNavigate } from 'react-router-dom';
 
+// 🔑 Base de la API desde .env (.env.development / .env.production)
+const API_APP = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
 const Recuperar = () => {
   const [correo, setCorreo] = useState('');
   const [enviado, setEnviado] = useState(false);
@@ -11,7 +14,7 @@ const Recuperar = () => {
   const handleEnviar = async (e) => {
     e.preventDefault();
     try {
-      const res = await fetch('http://localhost:3001/api/auth/recuperar', {
+      const res = await fetch(`${API_APP}/api/auth/recuperar`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ correo })

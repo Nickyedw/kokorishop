@@ -2,10 +2,14 @@
 import React from 'react';
 import axios from 'axios';
 
+
+// 🔑 usa la variable de entorno (ya definida en tu .env)
+const API_APP = import.meta.env.VITE_API_URL || "http://localhost:3001";
+
 const ConfirmarPagoButton = ({ pedidoId, pagoConfirmado, recargarPedidos }) => {
   const confirmarPago = async () => {
     try {
-      await axios.put(`http://localhost:3001/api/pedidos/${pedidoId}/confirmar-pago`);
+      await axios.put(`${API_APP}/api/pedidos/${pedidoId}/confirmar-pago`);
       alert('✅ Pago confirmado y cliente notificado');
       recargarPedidos();
     } catch (error) {

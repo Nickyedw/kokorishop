@@ -1,6 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 
+// 🔑 Base de la API desde .env (.env.development / .env.production)
+const API_APP = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
 const DetalleClientePedido = () => {
   const { id } = useParams();
   const [pedido, setPedido] = useState(null);
@@ -9,7 +12,7 @@ const DetalleClientePedido = () => {
   useEffect(() => {
     const fetchPedido = async () => {
       try {
-        const res = await fetch(`http://localhost:3001/api/pedidos/${id}`);
+        const res = await fetch(`${API_APP}/api/pedidos/${id}`);
         const data = await res.json();
         setPedido(data);
       } catch (error) {

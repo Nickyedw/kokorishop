@@ -3,6 +3,9 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
 
+// 🔑 Base de la API desde .env (.env.development / .env.production)
+const API_APP = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
 const Register = () => {
   const [nombre_completo, setNombreCompleto] = useState('');
   const [correo, setCorreo] = useState('');
@@ -32,7 +35,7 @@ const Register = () => {
     }
 
     try {
-      const res = await fetch('http://localhost:3001/api/auth/register', {
+      const res = await fetch(`${API_APP}/api/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ nombre_completo, correo, telefono: telefonoConPrefijo, direccion, password }),

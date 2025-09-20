@@ -3,6 +3,9 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
 
+// 🔑 Base de la API desde .env (.env.development / .env.production)
+const API_APP = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
 const Login = () => {
   const [correo, setCorreo] = useState('');
   const [password, setPassword] = useState('');
@@ -12,7 +15,7 @@ const Login = () => {
     e.preventDefault();
 
     try {
-      const res = await fetch('http://localhost:3001/api/auth/login', {
+      const res = await fetch(`${API_APP}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ correo, password })
@@ -45,7 +48,9 @@ const Login = () => {
         onSubmit={handleLogin}
         className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md"
       >
-        <h2 className="text-2xl font-bold mb-4 text-center text-purple-800">Iniciar Sesión</h2>
+        <h2 className="text-2xl font-bold mb-4 text-center text-purple-800">
+          Iniciar Sesión
+        </h2>
 
         <label className="block mb-2 text-sm font-medium">Correo electrónico:</label>
         <input

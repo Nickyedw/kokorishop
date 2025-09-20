@@ -6,6 +6,9 @@ import { useNavigate } from 'react-router-dom';
 import { motion as Motion } from 'framer-motion';
 import MiniCart from '../components/MiniCart';
 
+// 🔑 Base de la API desde .env (.env.development / .env.production)
+const API_APP = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
 const Catalogo = () => {
   const [categorias, setCategorias] = useState([]);
   const [productos, setProductos] = useState([]);
@@ -16,11 +19,13 @@ const Catalogo = () => {
   useEffect(() => {
     const cargarCategorias = async () => {
       try {
-        const res = await fetch('http://localhost:3001/api/categorias');
+        const res = await fetch(`${API_APP}/api/categorias`, { cache: 'no-store' });
+        if (!res.ok) throw new Error(await res.text());
         const data = await res.json();
-        setCategorias(data);
+        setCategorias(Array.isArray(data) ? data : []);
       } catch (err) {
         console.error('Error al cargar categorías:', err);
+        setCategorias([]);
       }
     };
     cargarCategorias();
@@ -30,14 +35,16 @@ const Catalogo = () => {
     const cargarProductos = async () => {
       try {
         const url = categoriaSeleccionada
-          ? `http://localhost:3001/api/productos/categoria/${categoriaSeleccionada}`
-          : 'http://localhost:3001/api/productos';
+          ? `${API_APP}/api/productos/categoria/${categoriaSeleccionada}`
+          : `${API_APP}/api/productos`;
 
-        const res = await fetch(url);
+        const res = await fetch(url, { cache: 'no-store' });
+        if (!res.ok) throw new Error(await res.text());
         const data = await res.json();
-        setProductos(data);
+        setProductos(Array.isArray(data) ? data : []);
       } catch (err) {
         console.error('Error al cargar productos:', err);
+        setProductos([]);
       }
     };
     cargarProductos();
@@ -54,27 +61,22 @@ const Catalogo = () => {
 
   return (
     <div className="min-h-screen bg-purple-900 text-white px-4 sm:px-6 py-6">
-      {/* Título: tamaño y separación responsive */}
+      {/* Título */}
       <h1
         className="
-          koko-page-title
-          font-extrabold
-          text-white
-          flex items-center gap-2
-          text-2xl sm:text-3xl md:text-4xl
-          mb-4 sm:mb-5 md:mb-6 lg:mb-8
+          koko-page-title font-extrabold text-white flex items-center gap-2
+          text-2xl sm:text-3xl md:text-4xl mb-4 sm:mb-5 md:mb-6 lg:mb-8
         "
       >
         <span className="text-2xl sm:text-3xl">🛒</span>
         Catálogo de Productos
       </h1>
 
-      {/* Filtros: combo + buscador */}
+      {/* Filtros */}
       <div
         className="
           flex flex-col md:flex-row md:items-center md:justify-between
-          gap-3 sm:gap-4 md:gap-5
-          mb-5 sm:mb-6 md:mb-8
+          gap-3 sm:gap-4 md:gap-5 mb-5 sm:mb-6 md:mb-8
         "
       >
         {/* Categorías */}
@@ -83,12 +85,8 @@ const Catalogo = () => {
           <select
             aria-label="Filtrar por categoría"
             className="
-              w-full md:w-[280px]
-              h-11 sm:h-12
-              px-4 pr-10
-              rounded-full
-              bg-white text-purple-900
-              shadow-sm ring-1 ring-white/20
+              w-full md:w-[280px] h-11 sm:h-12 px-4 pr-10 rounded-full
+              bg-white text-purple-900 shadow-sm ring-1 ring-white/20
               focus:outline-none focus:ring-2 focus:ring-pink-400
             "
             value={categoriaSeleccionada}
@@ -113,10 +111,7 @@ const Catalogo = () => {
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
             className="
-              w-full
-              h-11 sm:h-12
-              pl-4 pr-11
-              rounded-full
+              w-full h-11 sm:h-12 pl-4 pr-11 rounded-full
               bg-white text-purple-900 placeholder-purple-400
               shadow-sm ring-1 ring-white/20
               focus:outline-none focus:ring-2 focus:ring-pink-400
@@ -125,8 +120,7 @@ const Catalogo = () => {
           <FaSearch
             className="
               absolute right-4 top-1/2 -translate-y-1/2
-              text-purple-600/80
-              pointer-events-none
+              text-purple-600/80 pointer-events-none
             "
             aria-hidden="true"
           />
@@ -148,12 +142,9 @@ const Catalogo = () => {
       <Motion.button
         onClick={() => navigate('/')}
         className="
-          fixed bottom-6 left-6
-          bg-pink-500 hover:bg-pink-600
-          text-white
-          px-5 py-4 rounded-full shadow-lg
-          flex items-center justify-center text-xl
-          z-50
+          fixed bottom-6 left-6 bg-pink-500 hover:bg-pink-600
+          text-white px-5 py-4 rounded-full shadow-lg
+          flex items-center justify-center text-xl z-50
         "
         title="Regresar a la tienda"
         animate={{

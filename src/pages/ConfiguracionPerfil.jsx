@@ -3,6 +3,9 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 
+// 🔑 Base de la API desde .env (.env.development / .env.production)
+const API_APP = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
 const ConfiguracionPerfil = () => {
   const navigate = useNavigate();
   const usuario_id = localStorage.getItem('usuario_id');
@@ -25,7 +28,7 @@ const ConfiguracionPerfil = () => {
   useEffect(() => {
     const fetchPerfil = async () => {
       try {
-        const res = await fetch(`http://localhost:3001/api/usuarios/${usuario_id}`, {
+        const res = await fetch(`${API_APP}/api/usuarios/${usuario_id}`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -77,7 +80,7 @@ const ConfiguracionPerfil = () => {
     delete datosActualizados.confirmPassword;
 
     try {
-      const res = await fetch(`http://localhost:3001/api/usuarios/${usuario_id}`, {
+      const res = await fetch(`${API_APP}/api/usuarios/${usuario_id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
