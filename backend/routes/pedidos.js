@@ -328,4 +328,57 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
+
+// 🟢 Confirmar pago manualmente (solo admin)
+router.put('/:id/confirmar-pago', verificarToken, async (req, res) => {
+  const pedidoId = Number(req.params.id || 0);
+  try {
+    // Seguridad básica: solo admin confirma pago
+    if (!req.usuario?.es_admin) {
+      return res.status(403).json({ message: 'Solo un administrador puede confirmar pagos' });
+    }
+
+    // Actualiza flags de pago y fecha; si estado está vacío/pendiente, lo marcamos
+    const upd = await dbQuery(
+      `UPDATE pedidos
+         SET pago_confirmado = TRUE,
+             fecha_confirmacion_pago = NOW(),
+             estado = CASE
+                        WHEN estado IS NULL OR estado = '' OR estado = 'pendiente'
+                        THEN 'pago confirmado'
+                        ELSE estado
+                      END
+       WHERE id = $1
+       RETURNING id, usuario_id`,
+      [pedidoId]
+    );
+
+    if (upd.rowCount === 0) {
+      return res.status(404).json({ message: 'Pedido no encontrado' });
+    }
+
+    // Datos para notificar (no hacemos fallar la respuesta si las notificaciones fallan)
+    const info = await dbQuery(
+      `SELECT p.id AS numero_pedido,
+              u.nombre_completo AS nombre_cliente,
+              u.correo AS correo_cliente,
+              u.telefono
+         FROM pedidos p
+         JOIN usuarios u ON u.id = p.usuario_id
+        WHERE p.id = $1`,
+      [pedidoId]
+    );
+    const payload = info.rows[0];
+
+    try { await enviarNotificacionConfirmacionPago(payload); }
+    catch (e) { console.warn('⚠️ No se pudo enviar notificación de confirmación:', e.message); }
+
+    return res.json({ message: 'Pago confirmado', pedido_id: pedidoId });
+  } catch (error) {
+    console.error('❌ Error al confirmar pago:', error);
+    return res.status(500).json({ message: 'Error interno del servidor', detail: error.message });
+  }
+});
+
+
 module.exports = router;
