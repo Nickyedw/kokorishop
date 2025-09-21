@@ -1,7 +1,9 @@
-//backend/routes/pedidos.js
+// backend/routes/pedidos.js
 const express = require('express');
 const router = express.Router();
-const db = require('../db');
+
+// ✅ Usamos getClient() para transacciones y query() para lecturas simples
+const { getClient, query: dbQuery } = require('../db');
 const { verificarToken } = require('../middlewares/auth');
 
 const {
@@ -11,11 +13,15 @@ const {
   enviarNotificacionListoParaEntrega,
   enviarNotificacionPedidoEnviado,
   enviarNotificacionPedidoEntregado,
-  enviarAlertaStockBajo
+  enviarAlertaStockBajo,
 } = require('../services/notificaciones');
+
 const { ESTADOS_PEDIDO } = require('../utils/constants');
 
-// 🟢 Crear nuevo pedido
+/* =========================
+   Crear nuevo pedido
+   ========================= */
+// (si quieres exigir login, añade verificarToken como 2º arg)
 router.post('/', async (req, res) => {
   const {
     usuario_id,
@@ -24,151 +30,185 @@ router.post('/', async (req, res) => {
     zona_entrega_id,
     horario_entrega_id,
     productos,
-    comentario_pago
+    comentario_pago,
   } = req.body;
 
-  const client = await db.connect();
+  if (!Array.isArray(productos) || productos.length === 0) {
+    return res.status(400).json({ error: 'Carrito vacío' });
+  }
+
+  const client = await getClient(); // ⬅️ reemplaza db.connect()
   try {
     await client.query('BEGIN');
 
-    // 🔒 Validar stock suficiente por cada producto antes de continuar
-    for (const producto of productos) {
+    // Validar stock
+    for (const prod of productos) {
       const check = await client.query(
-        `SELECT nombre, stock_actual FROM productos WHERE id = $1`,
-        [producto.producto_id]
+        'SELECT nombre, stock_actual FROM productos WHERE id = $1',
+        [prod.producto_id]
       );
       const existente = check.rows[0];
       if (!existente) {
-        throw new Error(`Producto ID ${producto.producto_id} no existe`);
+        throw new Error(`Producto ID ${prod.producto_id} no existe`);
       }
-      if (existente.stock_actual < producto.cantidad) {
-        throw new Error(`Stock insuficiente para "${existente.nombre}". Stock disponible: ${existente.stock_actual}`);
+      if (existente.stock_actual < prod.cantidad) {
+        throw new Error(
+          `Stock insuficiente para "${existente.nombre}". Stock disponible: ${existente.stock_actual}`
+        );
       }
     }
 
+    // Total
     let total = 0;
-    productos.forEach(p => {
-      total += p.precio_unitario * p.cantidad;
-    });
+    for (const p of productos) total += Number(p.precio_unitario) * Number(p.cantidad);
 
-    const pedidoResult = await client.query(
-      `INSERT INTO pedidos (usuario_id, metodo_pago_id, metodo_entrega_id, zona_entrega_id, horario_entrega_id, total, comentario_pago)
-       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
-      [usuario_id, metodo_pago_id, metodo_entrega_id, zona_entrega_id, horario_entrega_id, total, comentario_pago]
+    // Crear pedido
+    const pedidoIns = await client.query(
+      `INSERT INTO pedidos
+        (usuario_id, metodo_pago_id, metodo_entrega_id, zona_entrega_id, horario_entrega_id, total, comentario_pago, fecha, estado)
+       VALUES
+        ($1,$2,$3,$4,$5,$6,$7, NOW(), 'pendiente')
+       RETURNING id`,
+      [
+        usuario_id,
+        metodo_pago_id || null,
+        metodo_entrega_id || null,
+        zona_entrega_id || null,
+        horario_entrega_id || null,
+        total,
+        comentario_pago || null,
+      ]
     );
+    const pedido_id = pedidoIns.rows[0].id;
 
-    const pedido_id = pedidoResult.rows[0].id;
-
-    for (const producto of productos) {
-      const subtotal = producto.precio_unitario * producto.cantidad;
+    // Detalle + stock
+    for (const prod of productos) {
+      const subtotal = Number(prod.precio_unitario) * Number(prod.cantidad);
 
       await client.query(
         `INSERT INTO detalle_pedido (pedido_id, producto_id, cantidad, precio_unitario, subtotal)
-         VALUES ($1, $2, $3, $4, $5)`,
-        [pedido_id, producto.producto_id, producto.cantidad, producto.precio_unitario, subtotal]
+         VALUES ($1,$2,$3,$4,$5)`,
+        [pedido_id, prod.producto_id, prod.cantidad, prod.precio_unitario, subtotal]
       );
 
       await client.query(
         `UPDATE productos
-         SET stock_actual = stock_actual - $1
+           SET stock_actual = stock_actual - $1
          WHERE id = $2`,
-        [producto.cantidad, producto.producto_id]
+        [prod.cantidad, prod.producto_id]
       );
 
       const stockCheck = await client.query(
-        `SELECT nombre, stock_actual, stock_minimo FROM productos WHERE id = $1`,
-        [producto.producto_id]
+        `SELECT nombre, stock_actual, stock_minimo
+           FROM productos
+          WHERE id = $1`,
+        [prod.producto_id]
       );
 
       const { nombre, stock_actual, stock_minimo } = stockCheck.rows[0];
       if (stock_actual < stock_minimo) {
         console.warn(`⚠️ Producto con poco stock: ${nombre} (Stock actual: ${stock_actual})`);
-        await enviarAlertaStockBajo(nombre, stock_actual, stock_minimo);
+        try {
+          await enviarAlertaStockBajo(nombre, stock_actual, stock_minimo);
+        } catch (nerr) {
+          console.warn('⚠️ No se pudo enviar alerta de stock bajo:', nerr.message);
+        }
       }
     }
 
-    const usuarioResult = await client.query(
+    // Datos de usuario para notificaciones
+    const usuarioRes = await client.query(
       'SELECT nombre_completo, correo, telefono FROM usuarios WHERE id = $1',
       [usuario_id]
     );
-
-    const usuario = usuarioResult.rows[0];
+    const usuario = usuarioRes.rows[0] || { nombre_completo: '', correo: '', telefono: '' };
     const fecha = new Date().toLocaleDateString();
 
-    await enviarCorreoPedido(usuario.correo, usuario.nombre_completo, pedido_id);
-    await enviarWhatsappPedidoInicial(usuario.telefono, usuario.nombre_completo, pedido_id, fecha, total);
+    // Notificaciones (no bloquean la transacción si fallan)
+    try {
+      await enviarCorreoPedido(usuario.correo, usuario.nombre_completo, pedido_id);
+    } catch (e) {
+      console.warn('⚠️ No se pudo enviar correo de pedido:', e.message);
+    }
+    try {
+      await enviarWhatsappPedidoInicial(
+        usuario.telefono,
+        usuario.nombre_completo,
+        pedido_id,
+        fecha,
+        total
+      );
+    } catch (e) {
+      console.warn('⚠️ No se pudo enviar WhatsApp inicial:', e.message);
+    }
 
     await client.query('COMMIT');
     res.status(201).json({ mensaje: 'Pedido registrado correctamente', pedido_id });
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('❌ Error al registrar pedido:', error);
-    res.status(400).json({ error: error.message });
+    res.status(500).json({ error: 'Error del servidor', detail: error.message });
   } finally {
     client.release();
   }
 });
 
-// 🟢 Listar pedidos (por usuario o por estado si se desea)
+/* =========================
+   Listar pedidos (por usuario/estado)
+   ========================= */
 router.get('/', verificarToken, async (req, res) => {
   const { estado } = req.query;
   const usuario_id = req.usuario.usuario_id;
   const es_admin = req.usuario.es_admin;
 
-  let filtros = [];
-  let valores = [];
+  const filtros = [];
+  const valores = [];
 
-  // Solo filtrar por usuario si NO es admin
   if (!es_admin) {
-    filtros.push(`p.usuario_id = $1`);
+    filtros.push('p.usuario_id = $1');
     valores.push(usuario_id);
   }
-
-  // Si hay estado, agregarlo al filtro
   if (estado) {
     filtros.push(`p.estado = $${valores.length + 1}`);
     valores.push(estado);
   }
 
-  const where = filtros.length > 0 ? `WHERE ${filtros.join(' AND ')}` : '';
+  const where = filtros.length ? `WHERE ${filtros.join(' AND ')}` : '';
 
-    try {
-    const pedidosRes = await db.query(
+  try {
+    const pedidosRes = await dbQuery(
       `SELECT p.*, u.nombre_completo AS cliente, m.nombre AS metodo_pago
-       FROM pedidos p
-       JOIN usuarios u ON p.usuario_id = u.id
-       JOIN metodos_pago m ON p.metodo_pago_id = m.id
-       ${where}
-       ORDER BY p.fecha DESC`,
+         FROM pedidos p
+         JOIN usuarios u ON p.usuario_id = u.id
+         JOIN metodos_pago m ON p.metodo_pago_id = m.id
+         ${where}
+        ORDER BY p.fecha DESC`,
       valores
     );
 
     const pedidos = pedidosRes.rows;
-    if (pedidos.length === 0) return res.json([]);
+    if (!pedidos.length) return res.json([]);
 
-    // ids de los pedidos devueltos
-    const ids = pedidos.map(p => p.id);
+    const ids = pedidos.map((p) => p.id);
 
-    // 👉 Trae SOLO los detalles de esos pedidos + imagen
-    const detallesRes = await db.query(
+    const detallesRes = await dbQuery(
       `SELECT d.*, pr.nombre AS producto_nombre, pr.imagen_url AS producto_imagen_url
-       FROM detalle_pedido d
-       JOIN productos pr ON d.producto_id = pr.id
-       WHERE d.pedido_id = ANY($1::int[])
-       ORDER BY d.pedido_id, d.id`,
+         FROM detalle_pedido d
+         JOIN productos pr ON d.producto_id = pr.id
+        WHERE d.pedido_id = ANY($1::int[])
+        ORDER BY d.pedido_id, d.id`,
       [ids]
     );
 
-    // agrupar por pedido
     const detallesPorPedido = new Map();
     for (const d of detallesRes.rows) {
       if (!detallesPorPedido.has(d.pedido_id)) detallesPorPedido.set(d.pedido_id, []);
       detallesPorPedido.get(d.pedido_id).push(d);
     }
 
-    const respuesta = pedidos.map(p => ({
+    const respuesta = pedidos.map((p) => ({
       ...p,
-      productos: detallesPorPedido.get(p.id) || []
+      productos: detallesPorPedido.get(p.id) || [],
     }));
 
     res.json(respuesta);
@@ -178,29 +218,30 @@ router.get('/', verificarToken, async (req, res) => {
   }
 });
 
-
-// 🟢 Obtener pedido por ID
+/* =========================
+   Obtener pedido por ID
+   ========================= */
 router.get('/:id', async (req, res) => {
   const pedidoId = parseInt(req.params.id, 10);
 
   try {
-    const pedidoRes = await db.query(
+    const pedidoRes = await dbQuery(
       `SELECT p.*, u.nombre_completo AS cliente
-       FROM pedidos p
-       JOIN usuarios u ON p.usuario_id = u.id
-       WHERE p.id = $1`,
+         FROM pedidos p
+         JOIN usuarios u ON p.usuario_id = u.id
+        WHERE p.id = $1`,
       [pedidoId]
     );
-    if (pedidoRes.rows.length === 0) {
+    if (!pedidoRes.rows.length) {
       return res.status(404).json({ error: 'Pedido no encontrado' });
     }
 
-    const detallesRes = await db.query(
+    const detallesRes = await dbQuery(
       `SELECT d.*, pr.nombre AS producto_nombre, pr.imagen_url AS producto_imagen_url
-       FROM detalle_pedido d
-       JOIN productos pr ON d.producto_id = pr.id
-       WHERE d.pedido_id = $1
-       ORDER BY d.id`,
+         FROM detalle_pedido d
+         JOIN productos pr ON d.producto_id = pr.id
+        WHERE d.pedido_id = $1
+        ORDER BY d.id`,
       [pedidoId]
     );
 
@@ -211,21 +252,23 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-
-// 🟢 Actualizar estado de pedido
+/* =========================
+   Actualizar estado de pedido
+   ========================= */
 router.put('/:id/estado', async (req, res) => {
   const { id } = req.params;
   const { estado } = req.body;
 
   try {
-    await db.query('UPDATE pedidos SET estado = $1 WHERE id = $2', [estado, id]);
+    await dbQuery('UPDATE pedidos SET estado = $1 WHERE id = $2', [estado, id]);
 
-    const resultado = await db.query(`
+    const resultado = await dbQuery(
+      `
       SELECT 
-        p.*, 
+        p.*,
         p.id AS numero_pedido,
-        u.nombre_completo AS nombre_cliente, 
-        u.correo AS correo_cliente, 
+        u.nombre_completo AS nombre_cliente,
+        u.correo AS correo_cliente,
         u.telefono,
         z.nombre_zona AS zona_entrega_nombre,
         h.hora_inicio AS horario_entrega_texto,
@@ -236,29 +279,32 @@ router.put('/:id/estado', async (req, res) => {
       LEFT JOIN horarios_entrega h ON p.horario_entrega_id = h.id
       LEFT JOIN metodos_entrega me ON p.metodo_entrega_id = me.id
       WHERE p.id = $1
-    `, [id]);
+    `,
+      [id]
+    );
 
     const pedido = resultado.rows[0];
+    if (!pedido) return res.status(404).json({ error: 'Pedido no encontrado' });
 
-    if (!pedido) {
-      return res.status(404).json({ error: 'Pedido no encontrado' });
-    }
-
-    switch (estado) {
-      case ESTADOS_PEDIDO.PAGO_CONFIRMADO:
-        await enviarNotificacionConfirmacionPago(pedido);
-        break;
-      case ESTADOS_PEDIDO.LISTO_ENTREGA:
-        await enviarNotificacionListoParaEntrega(pedido);
-        break;
-      case ESTADOS_PEDIDO.ENVIADO:
-        await enviarNotificacionPedidoEnviado(pedido);
-        break;
-      case ESTADOS_PEDIDO.ENTREGADO:
-        await enviarNotificacionPedidoEntregado(pedido);
-        break;
-      default:
-        console.log('🔔 Estado sin acción especial');
+    try {
+      switch (estado) {
+        case ESTADOS_PEDIDO.PAGO_CONFIRMADO:
+          await enviarNotificacionConfirmacionPago(pedido);
+          break;
+        case ESTADOS_PEDIDO.LISTO_ENTREGA:
+          await enviarNotificacionListoParaEntrega(pedido);
+          break;
+        case ESTADOS_PEDIDO.ENVIADO:
+          await enviarNotificacionPedidoEnviado(pedido);
+          break;
+        case ESTADOS_PEDIDO.ENTREGADO:
+          await enviarNotificacionPedidoEntregado(pedido);
+          break;
+        default:
+          console.log('🔔 Estado sin acción especial');
+      }
+    } catch (nerr) {
+      console.warn('⚠️ Error al enviar notificación de estado:', nerr.message);
     }
 
     res.json({ mensaje: 'Estado actualizado correctamente' });
@@ -268,45 +314,13 @@ router.put('/:id/estado', async (req, res) => {
   }
 });
 
-// 🟢 Confirmar pago manualmente
-router.put('/:id/confirmar-pago', async (req, res) => {
-  const pedidoId = req.params.id;
-  const fecha = new Date();
-
-  try {
-    const updateResult = await db.query(
-      `UPDATE pedidos SET pago_confirmado = TRUE, fecha_confirmacion_pago = $1 
-       WHERE id = $2 RETURNING *`,
-      [fecha, pedidoId]
-    );
-
-    if (updateResult.rowCount === 0) {
-      return res.status(404).json({ message: 'Pedido no encontrado' });
-    }
-
-    const infoResult = await db.query(
-      `SELECT p.id AS numero_pedido, u.nombre_completo AS nombre_cliente, u.correo AS correo_cliente, u.telefono
-       FROM pedidos p
-       JOIN usuarios u ON u.id = p.usuario_id
-       WHERE p.id = $1`,
-      [pedidoId]
-    );
-
-    const pedido = infoResult.rows[0];
-
-    await enviarNotificacionConfirmacionPago(pedido);
-    res.json({ message: 'Pago confirmado y cliente notificado', pedido });
-  } catch (error) {
-    console.error('❌ Error al confirmar pago:', error);
-    res.status(500).json({ message: 'Error interno del servidor' });
-  }
-});
-
-// 🟢 Eliminar pedido
+/* =========================
+   Eliminar pedido
+   ========================= */
 router.delete('/:id', async (req, res) => {
   const { id } = req.params;
   try {
-    await db.query('DELETE FROM pedidos WHERE id = $1', [id]);
+    await dbQuery('DELETE FROM pedidos WHERE id = $1', [id]);
     res.json({ mensaje: 'Pedido eliminado correctamente' });
   } catch (error) {
     console.error('❌ Error al eliminar pedido:', error);
