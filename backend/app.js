@@ -4,7 +4,7 @@ const path = require('path');
 const cors = require('cors');
 const morgan = require('morgan');
 require('dotenv').config();
-
+const { query } = require('./db');
 const app = express();
 
 // Routers
@@ -99,6 +99,14 @@ app.use('/api/metodos_pago', metodosPago);
 app.get('/', (_req, res) => res.send('🚀 API funcionando correctamente'));
 app.get('/health', (_req, res) => res.status(200).json({ ok: true, ts: Date.now() }));
 
+app.get('/health/db', async (_req, res) => {
+  try {
+    const { rows } = await query('SELECT NOW() as now');
+    res.json({ ok: true, now: rows[0].now });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
 /* =========================
    404 y errores
    ========================= */

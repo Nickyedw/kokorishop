@@ -5,7 +5,9 @@
   "description": "API de KokoriShop",
   "main": "app.js",
   "type": "commonjs",
-  "engines": { "node": ">=18 <=22" },
+  "engines": {
+    "node": ">=18 <=22"
+  },
   "scripts": {
     "start": "node app.js",
     "dev": "nodemon app.js"
@@ -13,14 +15,14 @@
   "dependencies": {
     "bcrypt": "^6.0.0",
     "cors": "^2.8.5",
-    "dotenv": "^16.5.0",
+    "dotenv": "^16.6.1",
     "express": "^5.1.0",
-    "morgan": "^1.10.0",
+    "morgan": "^1.10.1",
     "multer": "^2.0.2",
     "nodemailer": "^7.0.3",
-    "qr-image": "^3.2.0",
     "pdfkit": "^0.17.1",
-    "pg": "^8.16.0",
+    "pg": "^8.16.3",
+    "qr-image": "^3.2.0",
     "qrcode": "^1.5.4",
     "twilio": "^5.7.0"
   },
@@ -28,4 +30,3 @@
     "nodemon": "^3.1.10"
   }
 }
-
