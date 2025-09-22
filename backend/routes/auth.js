@@ -29,7 +29,7 @@ router.post('/login', async (req, res) => {
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(401).json({ error: 'Contraseña incorrecta' });
 
-    const token = jwt.sign({ usuario_id: user.id, es_admin: user.es_admin }, process.env.JWT_SECRET, {
+    const token = jwt.sign({ usuario_id: user.id, es_admin: user.es_admin, email: user.correo }, process.env.JWT_SECRET, {
       expiresIn: '2h'
     });
 
@@ -60,7 +60,7 @@ router.post('/register', async (req, res) => {
 
     const user = result.rows[0];
     const token = jwt.sign(
-      { usuario_id: user.id, es_admin: user.es_admin },
+      { usuario_id: user.id, es_admin: user.es_admin, email: user.correo },
       process.env.JWT_SECRET,
       { expiresIn: '2h' }
     );
@@ -97,7 +97,8 @@ router.post('/recuperar', async (req, res) => {
     // ENVÍO por consola o Gmail
     console.log(`📩 Código de recuperación para ${correo}: ${codigo}`);
     await transporter.sendMail({
-      from: process.env.GMAIL_USER,
+      //from: process.env.GMAIL_USER,
+      from: process.env.EMAIL_FROM,
       to: correo,
       subject: 'Código de recuperación de contraseña',
       text: `Tu código es: ${codigo}. Válido por 15 minutos.`

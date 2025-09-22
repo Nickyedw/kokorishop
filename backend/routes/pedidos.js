@@ -4,7 +4,7 @@ const router = express.Router();
 
 // ✅ Usamos getClient() para transacciones y query() para lecturas simples
 const { getClient, query: dbQuery } = require('../db');
-const { verificarToken } = require('../middlewares/auth');
+const { verificarTokenAdmin } = require('../middlewares/auth');
 
 const {
   enviarCorreoPedido,
@@ -156,7 +156,7 @@ router.post('/', async (req, res) => {
 /* =========================
    Listar pedidos (por usuario/estado)
    ========================= */
-router.get('/', verificarToken, async (req, res) => {
+router.get('/', verificarTokenAdmin, async (req, res) => {
   const { estado } = req.query;
   const usuario_id = req.usuario.usuario_id;
   const es_admin = req.usuario.es_admin;
@@ -330,14 +330,9 @@ router.delete('/:id', async (req, res) => {
 
 
 // 🟢 Confirmar pago manualmente (solo admin)
-router.put('/:id/confirmar-pago', verificarToken, async (req, res) => {
+router.put('/:id/confirmar-pago', verificarTokenAdmin, async (req, res) => {
   const pedidoId = Number(req.params.id || 0);
   try {
-    // Seguridad básica: solo admin confirma pago
-    if (!req.usuario?.es_admin) {
-      return res.status(403).json({ message: 'Solo un administrador puede confirmar pagos' });
-    }
-
     // Actualiza flags de pago y fecha; si estado está vacío/pendiente, lo marcamos
     const upd = await dbQuery(
       `UPDATE pedidos
@@ -357,7 +352,7 @@ router.put('/:id/confirmar-pago', verificarToken, async (req, res) => {
       return res.status(404).json({ message: 'Pedido no encontrado' });
     }
 
-    // Datos para notificar (no hacemos fallar la respuesta si las notificaciones fallan)
+    // Datos para notificar (no hace fallar si falla)
     const info = await dbQuery(
       `SELECT p.id AS numero_pedido,
               u.nombre_completo AS nombre_cliente,
@@ -379,6 +374,5 @@ router.put('/:id/confirmar-pago', verificarToken, async (req, res) => {
     return res.status(500).json({ message: 'Error interno del servidor', detail: error.message });
   }
 });
-
 
 module.exports = router;
