@@ -1,23 +1,26 @@
-// backend/app.js
 const express = require('express');
 const path = require('path');
 const cors = require('cors');
 const morgan = require('morgan');
 require('dotenv').config();
 const { query } = require('./db');
+
+// ⬇️ NEW: rate limit
+const rateLimit = require('express-rate-limit');
+
 const app = express();
 
-// Routers
-const authRoutes = require('./routes/auth');
-const productosRouter = require('./routes/productos');
-const pedidosRouter = require('./routes/pedidos');
-const comprobanteRoutes = require('./routes/comprobantes');
-const categoriaRoutes = require('./routes/categoriaRoutes');
-const opcionesEntregaRoutes = require('./routes/opcionesEntrega');
-const usuariosRouter = require('./routes/usuarios');
-const metodosPago = require('./routes/metodosPago');
+// Render/NGINX está detrás de proxy → necesario para que el IP real se detecte
+app.set('trust proxy', 1);
 
-const PORT = process.env.PORT || 3001;
+// ⬇️ NEW: limitador solo para rutas de autenticación
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,          // 15 minutos
+  max: 100,                          // 100 intentos/ventana por IP
+  standardHeaders: true,             // X-RateLimit-*
+  legacyHeaders: false,              // desactiva X-RateLimit-* antiguos
+  message: { error: 'Demasiadas solicitudes de autenticación. Intenta más tarde.' },
+});
 
 /* =========================
    CORS (seguro por dominio)
@@ -78,6 +81,19 @@ app.use((req, _res, next) => {
 /* =========================
    Rutas API
    ========================= */
+// ⬇️ NEW: aplica el limitador SOLO a /api/auth/*
+app.use('/api/auth/', authLimiter);
+
+// Routers
+const authRoutes = require('./routes/auth');
+const productosRouter = require('./routes/productos');
+const pedidosRouter = require('./routes/pedidos');
+const comprobanteRoutes = require('./routes/comprobantes');
+const categoriaRoutes = require('./routes/categoriaRoutes');
+const opcionesEntregaRoutes = require('./routes/opcionesEntrega');
+const usuariosRouter = require('./routes/usuarios');
+const metodosPago = require('./routes/metodosPago');
+
 app.use('/api/auth', authRoutes);
 app.use('/api/usuarios', usuariosRouter);
 
@@ -107,6 +123,7 @@ app.get('/health/db', async (_req, res) => {
     res.status(500).json({ ok: false, error: e.message });
   }
 });
+
 /* =========================
    404 y errores
    ========================= */
@@ -128,6 +145,7 @@ app.use((err, req, res, _next) => {
 /* =========================
    Arranque
    ========================= */
+const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`✅ Servidor backend corriendo en puerto ${PORT}`);
 });

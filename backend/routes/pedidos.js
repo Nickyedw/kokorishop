@@ -336,20 +336,23 @@ router.put('/:id/confirmar-pago', verificarTokenAdmin, async (req, res) => {
     // Actualiza flags de pago y fecha; si estado está vacío/pendiente, lo marcamos
     const upd = await dbQuery(
       `UPDATE pedidos
-         SET pago_confirmado = TRUE,
-             fecha_confirmacion_pago = NOW(),
-             estado = CASE
+        SET pago_confirmado = TRUE,
+            fecha_confirmacion_pago = NOW(),
+            estado = CASE
                         WHEN estado IS NULL OR estado = '' OR estado = 'pendiente'
-                        THEN 'pago confirmado'
-                        ELSE estado
+                        THEN 'pago confirmado' ELSE estado
                       END
-       WHERE id = $1
-       RETURNING id, usuario_id`,
+      WHERE id = $1
+        AND (pago_confirmado IS DISTINCT FROM TRUE)
+      RETURNING id, usuario_id`,
       [pedidoId]
     );
 
     if (upd.rowCount === 0) {
-      return res.status(404).json({ message: 'Pedido no encontrado' });
+      // ya estaba confirmado o no existe
+      const exists = await dbQuery('SELECT id, pago_confirmado FROM pedidos WHERE id=$1',[pedidoId]);
+      if (!exists.rowCount) return res.status(404).json({ message: 'Pedido no encontrado' });
+      return res.status(409).json({ message: 'El pago ya estaba confirmado' });
     }
 
     // Datos para notificar (no hace fallar si falla)
