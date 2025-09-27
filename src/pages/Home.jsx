@@ -17,7 +17,6 @@ const base = import.meta.env.BASE_URL; // "/" en dev, "/kokorishop/" en prod si 
 const API_APP = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 const API_BASE = `${API_APP}/api`;
 
-/** HERO VIDEO – limpio, centrado y sin overlay */
 function HeroVideo() {
   const PUB = import.meta.env.BASE_URL || "/";
 
@@ -42,10 +41,23 @@ function HeroVideo() {
 
           {/* layout interno: cinta arriba, CTA abajo */}
           <div className="absolute inset-0 z-10 flex flex-col">
+            {/* 🔒 ribbon: una sola línea + tamaño fluido */}
             <div className="pt-3 px-3 self-center">
-              <SloganRibbon variant="ribbon" text="Donde todo es Cute" />
+              <span
+                className="
+                  inline-flex items-center rounded-full
+                  px-3 sm:px-4 py-1
+                  bg-black/50 text-white shadow-md backdrop-blur-sm
+                  leading-none whitespace-nowrap tracking-tight
+                  text-[clamp(12px,3vw,16px)]
+                "
+              >
+                Donde todo es Cute
+              </span>
             </div>
+
             <div className="flex-1" />
+
             <div className="pb-0 sm:pb-4 self-center">
               <Link
                 to="/catalogo"

@@ -4,5 +4,7 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig(({ command }) => ({
   plugins: [react()],
-  base: command === 'build' ? '/kokorishop/' : '/', // ✅ build sí, dev no
+  // ✅ en build usa /kokorishop/, en dev sirve en /
+  base: command === 'build' ? '/kokorishop/' : '/',
+  build: { outDir: 'docs' } // 👈 compila a /docs para GitHub Pages
 }))
