@@ -5,6 +5,9 @@ const morgan = require('morgan');
 require('dotenv').config();
 const { query } = require('./db');
 
+const { verifyMailer } = require('./services/mailer');
+verifyMailer(); // loguea si SMTP está OK en el arranque
+
 // ⬇️ NEW: rate limit
 const rateLimit = require('express-rate-limit');
 
