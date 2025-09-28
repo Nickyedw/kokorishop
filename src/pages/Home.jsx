@@ -231,17 +231,17 @@ const Home = () => {
         </div>
       </div>
 
-      {/* Barra de slogan full-width */}
-      <SloganBar
-        messages={[
-          "Donde todo es Cute",
-          "Envíos punto a punto",
-          "Nuevos productos Kawaii, Tenología y más...",
-        ]}
-        interval={4500}
-        fade={0.45}
-      />
-
+        {/* 🔔 SloganBar – elige el estilo que prefieras */}
+        <SloganBar
+          variant="full"           // "full" (toda la pantalla), "contained" o "chip"
+          className="mt-1"         // separa del saludo
+          messages={[
+            "Envíos punto a punto",
+            "Donde Todo es Cute ✨",
+            "Atención por WhatsApp 📲",
+            "Retiro en estación de bus 🚌",
+          ]}
+        />
       {/* Hero (solo video) */}
       <HeroVideo />
 
