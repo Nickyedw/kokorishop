@@ -231,17 +231,21 @@ const Home = () => {
         </div>
       </div>
 
-        {/* 🔔 SloganBar – elige el estilo que prefieras */}
-        <SloganBar
-          variant="full"           // "full" (toda la pantalla), "contained" o "chip"
-          className="mt-1"         // separa del saludo
-          messages={[
-            "Envíos punto a punto",
-            "Donde Todo es Cute ✨",
-            "Atención por WhatsApp 📲",
-            "Retiro en estación de bus 🚌",
-          ]}
-        />
+      <SloganBar
+        variant="contained"
+        className="mt-1 mb-3"                 // margen externo
+        barClass="bg-black/25 backdrop-blur-sm border border-white/10"  // ⬅️ nuevo fondo
+        maxW="max-w-5xl"
+        messages={[
+          "Envíos punto a punto",
+          "Donde Todo es Cute ✨",
+          "Atención por WhatsApp 📲",
+          "Retiro en estación de bus 🚌",
+        ]}
+        interval={4500}
+        fade={450}
+      />
+
       {/* Hero (solo video) */}
       <HeroVideo />
 

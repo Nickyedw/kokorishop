@@ -12,6 +12,7 @@ export default function SloganBar({
   pauseOnHover = true,
   variant = "full",         // "full" | "contained" | "chip"
   className = "",           // para márgenes externos (mt-2, etc.)
+  barClass,                 // ⬅️ NUEVO: clases para el fondo de la banda
   maxW = "max-w-6xl",       // ancho interno cuando no es full bleed
 }) {
   const [idx, setIdx] = useState(0);
@@ -99,7 +100,7 @@ export default function SloganBar({
   if (variant === "contained") {
     return (
       <div className={`${maxW} mx-auto px-4 ${className}`}>
-        <div className="rounded-xl bg-gradient-to-r from-purple-700 to-fuchsia-700 shadow-inner">
+        <div className={`rounded-xl ${barClass ?? "bg-gradient-to-r from-purple-700 to-fuchsia-700"} shadow-inner`}>
           <div className="px-4 py-2 flex justify-center">{Chip}</div>
         </div>
       </div>
@@ -108,7 +109,7 @@ export default function SloganBar({
 
   // default: full (ocupa todo el ancho)
   return (
-    <div className={`w-full bg-gradient-to-r from-purple-700 to-fuchsia-700 shadow-inner ${className}`}>
+    <div className={`w-full ${barClass ?? "bg-gradient-to-r from-purple-700 to-fuchsia-700"} shadow-inner ${className}`}>
       <div className={`${maxW} mx-auto px-4 py-2 flex justify-center`}>{Chip}</div>
     </div>
   );
