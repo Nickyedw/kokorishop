@@ -1,34 +1,33 @@
 // backend/services/mailer.js
 const nodemailer = require('nodemailer');
 
+const {
+  SMTP_HOST = 'smtp.gmail.com',
+  SMTP_PORT = 465,
+  SMTP_USER,
+  SMTP_PASS,
+  EMAIL_FROM = SMTP_USER,
+  EMAIL_FROM_NAME = 'KokoriShop',
+} = process.env;
+
+// ⚠️ Gmail -> usa “App password” (no tu password normal).
+// En Render: SMTP_HOST=smtp.gmail.com, SMTP_PORT=465, SMTP_USER=tu_correo, SMTP_PASS=app_password
+//            EMAIL_FROM=tu_correo, EMAIL_FROM_NAME=KokoriShop
 const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,                       // p.ej. smtp.gmail.com o sandbox smtp de Mailtrap
-  port: Number(process.env.SMTP_PORT || 587),        // 465 si usas SSL; 587 STARTTLS
-  secure: process.env.SMTP_SECURE === 'true' || Number(process.env.SMTP_PORT) === 465,
-  auth: (process.env.SMTP_USER && process.env.SMTP_PASS)
-    ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
-    : undefined,
-  pool: true,
-  maxConnections: 3,
-  maxMessages: 50,
-  connectionTimeout: 15000,
-  greetingTimeout: 10000,
-  socketTimeout: 20000,
+  host: SMTP_HOST,
+  port: Number(SMTP_PORT),
+  secure: Number(SMTP_PORT) === 465, // true para 465 (SSL), false para 587 (STARTTLS)
+  auth: { user: SMTP_USER, pass: SMTP_PASS },
 });
 
-function buildFrom() {
-  const name = process.env.EMAIL_FROM_NAME || 'KokoriShop';
-  const addr = process.env.EMAIL_FROM_ADDR || process.env.EMAIL_FROM || process.env.SMTP_USER;
-  return `"${name}" <${addr}>`;
-}
-
+// Verificación opcional al arranque o desde /health/email
 async function verifyMailer() {
-  try {
-    await transporter.verify();
-    console.log('📬 SMTP OK: conexión verificada');
-  } catch (e) {
-    console.error('❌ SMTP verify falló:', e.message);
-  }
+  await transporter.verify();
+  console.log('✅ SMTP listo para enviar correos');
 }
 
-module.exports = { transporter, buildFrom, verifyMailer };
+module.exports = {
+  transporter,
+  verifyMailer,
+  emailDefaults: { from: `"${EMAIL_FROM_NAME}" <${EMAIL_FROM}>` },
+};

@@ -4,8 +4,7 @@ const cors = require('cors');
 const morgan = require('morgan');
 require('dotenv').config();
 const { query } = require('./db');
-
-const { verifyMailer } = require('./services/mailer');
+const { transporter, verifyMailer } = require('./services/mailer');
 verifyMailer(); // loguea si SMTP está OK en el arranque
 
 // ⬇️ NEW: rate limit
@@ -127,6 +126,15 @@ app.get('/health/db', async (_req, res) => {
   }
 });
 
+app.get('/health/email', async (_req, res) => {
+  try {
+    await transporter.verify();
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
 /* =========================
    404 y errores
    ========================= */
@@ -149,6 +157,10 @@ app.use((err, req, res, _next) => {
    Arranque
    ========================= */
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`✅ Servidor backend corriendo en puerto ${PORT}`);
+
+  // (opcional) verifica SMTP al arrancar sin tumbar el servicio si falla
+  try { await verifyMailer(); }
+  catch (e) { console.warn('⚠️ SMTP verify falló:', e.message); }
 });

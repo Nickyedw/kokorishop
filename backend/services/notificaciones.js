@@ -1,6 +1,6 @@
 // backend/services/notificaciones.js
-// Usa el transporter centralizado (pool, timeouts) y un helper para el "from"
-const { transporter, buildFrom } = require('./mailer');
+// Reutiliza el transporter centralizado y un "from" por defecto
+const { transporter, emailDefaults } = require('./mailer');
 const twilio = require('twilio');
 
 const {
@@ -13,7 +13,7 @@ const {
    ========================= */
 async function sendMailSafe(options, label = 'correo') {
   try {
-    await transporter.sendMail({ from: buildFrom(), ...options });
+    await transporter.sendMail({ ...emailDefaults, ...options });
     return true;
   } catch (e) {
     console.error(`❌ Error al enviar ${label}:`, e.message);
@@ -54,12 +54,16 @@ async function waSend(opts, label = 'WhatsApp') {
    Correo: Alerta de stock bajo
    ========================= */
 async function enviarAlertaStockBajo(nombreProducto, stock_actual, stock_minimo) {
-  const emailDestino = process.env.EMAIL_STOCK_ALERT || process.env.EMAIL_FROM || process.env.SMTP_USER;
+  const emailDestino =
+    process.env.EMAIL_STOCK_ALERT ||
+    process.env.EMAIL_FROM ||
+    process.env.SMTP_USER;
 
   const asunto = `⚠️ Stock Bajo: ${nombreProducto}`;
   const html = `
     <h2>Alerta de Stock</h2>
-    <p>El producto <strong>${nombreProducto}</strong> tiene un stock actual de <strong>${stock_actual}</strong>, por debajo del mínimo (<strong>${stock_minimo}</strong>).</p>
+    <p>El producto <strong>${nombreProducto}</strong> tiene un stock actual de
+    <strong>${stock_actual}</strong>, por debajo del mínimo (<strong>${stock_minimo}</strong>).</p>
     <p>Se recomienda reponer el stock lo antes posible.</p>
   `;
 
@@ -101,8 +105,10 @@ async function enviarWhatsappPedidoInicial(numeroCliente, nombreCliente, pedidoI
     {
       from: FROM_WA,
       to: `whatsapp:${numeroCliente}`,
-      // Si usas Content API, deja tu contentSid:
-      contentSid: process.env.TWILIO_CONTENT_SID_PEDIDO || 'HXa593da9b7b9af6744360afeb03d0995d',
+      // Si usas Content API, define TWILIO_CONTENT_SID_PEDIDO en el entorno
+      contentSid:
+        process.env.TWILIO_CONTENT_SID_PEDIDO ||
+        'HXa593da9b7b9af6744360afeb03d0995d',
       contentVariables: JSON.stringify({
         '1': String(nombreCliente || ''),
         '2': String(pedidoId || ''),
@@ -160,7 +166,9 @@ async function enviarNotificacionConfirmacionPago(pedido) {
     {
       from: FROM_WA,
       to: `whatsapp:${pedido.telefono}`,
-      contentSid: process.env.TWILIO_CONTENT_SID_PAGO || 'HX78a37ca3b3e9c498f462e6645e86ebe5',
+      contentSid:
+        process.env.TWILIO_CONTENT_SID_PAGO ||
+        'HX78a37ca3b3e9c498f462e6645e86ebe5',
       contentVariables: JSON.stringify({
         '1': String(nombre || ''),
         '2': String(numero || ''),
@@ -206,7 +214,9 @@ async function enviarNotificacionListoParaEntrega(pedido) {
     {
       from: FROM_WA,
       to: `whatsapp:${pedido.telefono}`,
-      contentSid: process.env.TWILIO_CONTENT_SID_LISTO || 'HX93829977fd17342545b9d5252bfee0b5',
+      contentSid:
+        process.env.TWILIO_CONTENT_SID_LISTO ||
+        'HX93829977fd17342545b9d5252bfee0b5',
       contentVariables: JSON.stringify({
         '1': String(nombre || ''),
         '2': String(numero || ''),
@@ -262,7 +272,9 @@ async function enviarNotificacionPedidoEnviado(pedido) {
     {
       from: FROM_WA,
       to: `whatsapp:${pedido.telefono}`,
-      contentSid: process.env.TWILIO_CONTENT_SID_ENVIADO || 'HX4dba10226f529c87b1e79f636f4a3990',
+      contentSid:
+        process.env.TWILIO_CONTENT_SID_ENVIADO ||
+        'HX4dba10226f529c87b1e79f636f4a3990',
       contentVariables: JSON.stringify({
         '1': String(nombre || ''),
         '2': String(numero || ''),
@@ -307,7 +319,9 @@ async function enviarNotificacionPedidoEntregado(pedido) {
     {
       from: FROM_WA,
       to: `whatsapp:${pedido.telefono}`,
-      contentSid: process.env.TWILIO_CONTENT_SID_ENTREGADO || 'HXc726b006ab3c8a833765a3c959abcb6f',
+      contentSid:
+        process.env.TWILIO_CONTENT_SID_ENTREGADO ||
+        'HXc726b006ab3c8a833765a3c959abcb6f',
       contentVariables: JSON.stringify({
         '1': String(nombre || ''),
         '2': String(numero || ''),
