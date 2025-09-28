@@ -21,7 +21,6 @@ const { ESTADOS_PEDIDO } = require('../utils/constants');
 /* =========================
    Crear nuevo pedido
    ========================= */
-// (si quieres exigir login, añade verificarToken como 2º arg)
 router.post('/', async (req, res) => {
   const {
     usuario_id,
@@ -37,7 +36,10 @@ router.post('/', async (req, res) => {
     return res.status(400).json({ error: 'Carrito vacío' });
   }
 
-  const client = await getClient(); // ⬅️ reemplaza db.connect()
+  const client = await getClient();
+  let pedido_id;
+  let total = 0;
+
   try {
     await client.query('BEGIN');
 
@@ -48,19 +50,17 @@ router.post('/', async (req, res) => {
         [prod.producto_id]
       );
       const existente = check.rows[0];
-      if (!existente) {
-        throw new Error(`Producto ID ${prod.producto_id} no existe`);
-      }
+      if (!existente) throw new Error(`Producto ID ${prod.producto_id} no existe`);
       if (existente.stock_actual < prod.cantidad) {
-        throw new Error(
-          `Stock insuficiente para "${existente.nombre}". Stock disponible: ${existente.stock_actual}`
-        );
+        throw new Error(`Stock insuficiente para "${existente.nombre}". Stock disponible: ${existente.stock_actual}`);
       }
     }
 
     // Total
-    let total = 0;
-    for (const p of productos) total += Number(p.precio_unitario) * Number(p.cantidad);
+    total = productos.reduce(
+      (acc, p) => acc + Number(p.precio_unitario) * Number(p.cantidad),
+      0
+    );
 
     // Crear pedido
     const pedidoIns = await client.query(
@@ -79,7 +79,7 @@ router.post('/', async (req, res) => {
         comentario_pago || null,
       ]
     );
-    const pedido_id = pedidoIns.rows[0].id;
+    pedido_id = pedidoIns.rows[0].id;
 
     // Detalle + stock
     for (const prod of productos) {
@@ -98,60 +98,56 @@ router.post('/', async (req, res) => {
         [prod.cantidad, prod.producto_id]
       );
 
-      const stockCheck = await client.query(
-        `SELECT nombre, stock_actual, stock_minimo
-           FROM productos
-          WHERE id = $1`,
-        [prod.producto_id]
-      );
-
-      const { nombre, stock_actual, stock_minimo } = stockCheck.rows[0];
-      if (stock_actual < stock_minimo) {
-        console.warn(`⚠️ Producto con poco stock: ${nombre} (Stock actual: ${stock_actual})`);
-        try {
+      // alerta de stock bajo (permitimos dentro de la tx, pero capturamos errores)
+      try {
+        const stockCheck = await client.query(
+          `SELECT nombre, stock_actual, stock_minimo FROM productos WHERE id = $1`,
+          [prod.producto_id]
+        );
+        const { nombre, stock_actual, stock_minimo } = stockCheck.rows[0] || {};
+        if (stock_actual < stock_minimo) {
           await enviarAlertaStockBajo(nombre, stock_actual, stock_minimo);
-        } catch (nerr) {
-          console.warn('⚠️ No se pudo enviar alerta de stock bajo:', nerr.message);
         }
+      } catch (nerr) {
+        console.warn('⚠️ No se pudo enviar alerta de stock bajo:', nerr.message);
       }
     }
 
-    // Datos de usuario para notificaciones
-    const usuarioRes = await client.query(
-      'SELECT nombre_completo, correo, telefono FROM usuarios WHERE id = $1',
-      [usuario_id]
-    );
-    const usuario = usuarioRes.rows[0] || { nombre_completo: '', correo: '', telefono: '' };
-    const fecha = new Date().toLocaleDateString();
-
-    // Notificaciones (no bloquean la transacción si fallan)
-    try {
-      await enviarCorreoPedido(usuario.correo, usuario.nombre_completo, pedido_id);
-    } catch (e) {
-      console.warn('⚠️ No se pudo enviar correo de pedido:', e.message);
-    }
-    try {
-      await enviarWhatsappPedidoInicial(
-        usuario.telefono,
-        usuario.nombre_completo,
-        pedido_id,
-        fecha,
-        total
-      );
-    } catch (e) {
-      console.warn('⚠️ No se pudo enviar WhatsApp inicial:', e.message);
-    }
-
+    // ✅ Cerramos la transacción antes de notificar
     await client.query('COMMIT');
+
+    // ✅ Respondemos al cliente inmediatamente
     res.status(201).json({ mensaje: 'Pedido registrado correctamente', pedido_id });
+
+    // 🔔 Notificaciones fuera de banda (no bloquean la respuesta)
+    setImmediate(async () => {
+      try {
+        const usuarioRes = await dbQuery(
+          'SELECT nombre_completo, correo, telefono FROM usuarios WHERE id = $1',
+          [usuario_id]
+        );
+        const usuario = usuarioRes.rows[0] || { nombre_completo: '', correo: '', telefono: '' };
+        const fecha = new Date().toLocaleDateString();
+
+        try { await enviarCorreoPedido(usuario.correo, usuario.nombre_completo, pedido_id); }
+        catch (e) { console.warn('⚠️ No se pudo enviar correo de pedido:', e.message); }
+
+        try { await enviarWhatsappPedidoInicial(usuario.telefono, usuario.nombre_completo, pedido_id, fecha, total); }
+        catch (e) { console.warn('⚠️ No se pudo enviar WhatsApp inicial:', e.message); }
+      } catch (postErr) {
+        console.warn('⚠️ Error en notificaciones post-commit:', postErr.message);
+      }
+    });
+
   } catch (error) {
-    await client.query('ROLLBACK');
+    try { await client.query('ROLLBACK'); } catch {/* noop */ }
     console.error('❌ Error al registrar pedido:', error);
     res.status(500).json({ error: 'Error del servidor', detail: error.message });
   } finally {
     client.release();
   }
 });
+
 
 /* =========================
    Listar pedidos (por usuario/estado)

@@ -2,6 +2,7 @@
 
 const API_APP = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 const API_URL = `${API_APP}/api/pedidos`;
+const TIMEOUT_MS = 30000; // ⬅️ 30s
 
 /** Headers con token si existe */
 function authHeaders() {
@@ -12,8 +13,8 @@ function authHeaders() {
   };
 }
 
-/** Helper de timeout */
-function withTimeout(promise, ms = 15000) {
+/** Envuelve una promesa con timeout */
+function withTimeout(promise, ms = TIMEOUT_MS) {
   return new Promise((resolve, reject) => {
     const id = setTimeout(() => reject(new Error('Tiempo de espera excedido')), ms);
     promise.then(
@@ -42,11 +43,14 @@ async function manejarRespuesta(res, msgDefecto = 'Error en la solicitud') {
    Crear pedido
    ========================= */
 export async function crearPedido(pedidoData) {
-  const res = await withTimeout(fetch(API_URL, {
-    method: 'POST',
-    headers: authHeaders(),
-    body: JSON.stringify(pedidoData),
-  }));
+  const res = await withTimeout(
+    fetch(API_URL, {
+      method: 'POST',
+      headers: authHeaders(),      
+      body: JSON.stringify(pedidoData),
+    }),
+    TIMEOUT_MS
+  );
   return manejarRespuesta(res, 'Error al crear pedido');
 }
 
