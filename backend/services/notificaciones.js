@@ -56,7 +56,7 @@ async function waSend(opts, label = 'WhatsApp') {
 async function enviarAlertaStockBajo(nombreProducto, stock_actual, stock_minimo) {
   const emailDestino =
     process.env.EMAIL_STOCK_ALERT ||
-    process.env.EMAIL_FROM ||
+    process.env.EMAIL_FROM_ADDR ||
     process.env.SMTP_USER;
 
   const asunto = `⚠️ Stock Bajo: ${nombreProducto}`;

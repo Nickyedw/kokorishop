@@ -4,7 +4,7 @@ const cors = require('cors');
 const morgan = require('morgan');
 require('dotenv').config();
 const { query } = require('./db');
-const { transporter, verifyMailer } = require('./services/mailer');
+const { transporter, verifyMailer} = require('./services/mailer');
 verifyMailer(); // loguea si SMTP está OK en el arranque
 
 // ⬇️ NEW: rate limit
@@ -126,7 +126,8 @@ app.get('/health/db', async (_req, res) => {
   }
 });
 
-app.get('/health/email', async (_req, res) => {
+// Verificación SMTP (alias /health/smtp)
+app.get('/health/smtp', async (_req, res) => {
   try {
     await transporter.verify();
     res.json({ ok: true });
