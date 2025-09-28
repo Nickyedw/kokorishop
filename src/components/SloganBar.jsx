@@ -13,6 +13,7 @@ export default function SloganBar({
   variant = "full",         // "full" | "contained" | "chip"
   className = "",           // para márgenes externos (mt-2, etc.)
   barClass,                 // ⬅️ NUEVO: clases para el fondo de la banda
+  chipClass,                // ⬅️ NUEVO: clases para la pastilla (chip)
   maxW = "max-w-6xl",       // ancho interno cuando no es full bleed
 }) {
   const [idx, setIdx] = useState(0);
@@ -74,11 +75,10 @@ export default function SloganBar({
   // Contenido (la “pastilla”)
   const Chip = (
     <div
-      className="inline-flex items-center rounded-full px-4 py-1
-                 bg-black/35 text-white shadow-md backdrop-blur-sm
-                 leading-none whitespace-nowrap tracking-tight
-                 text-[clamp(12px,3.2vw,16px)]
-                 transition-opacity ease-in-out"
+      className={`inline-flex items-center rounded-full px-4 py-1
++                 leading-none whitespace-nowrap tracking-tight text-white
++                 text-[clamp(12px,3.2vw,16px)] transition-opacity ease-in-out
++                 ${chipClass ?? "bg-black/35 shadow-md backdrop-blur-sm"}`}
       style={{ opacity: visible ? 1 : 0, transitionDuration: `${fade}ms` }}
       aria-live="polite"
       onMouseEnter={onMouseEnter}

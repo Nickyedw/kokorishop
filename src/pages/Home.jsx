@@ -233,8 +233,9 @@ const Home = () => {
 
       <SloganBar
         variant="contained"
-        className="mt-1 mb-3"                 // margen externo
-        barClass="bg-black/25 backdrop-blur-sm border border-white/10"  // ⬅️ nuevo fondo
+        className="mt-2 mb-4"                 // margen externo
+        barClass="bg-purple-900/35 ring-1 ring-white/10 shadow-inner"  // ⬅️ nuevo fondo
+        chipClass="bg-white/10 backdrop-blur-sm border border-white/10 shadow-[0_0_12px_rgba(255,255,255,.08)]" // o prueba "bg-transparent"
         maxW="max-w-5xl"
         messages={[
           "Envíos punto a punto",
