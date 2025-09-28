@@ -8,7 +8,7 @@ import { CartContext } from '../context/CartContext';
 import { FavoritesContext } from '../context/FavoritesContext';
 import MiniCart from '../components/MiniCart';
 import MobileMenu from '../components/MobileMenu';
-import SloganRibbon from "../components/SloganRibbon";
+import SloganBar from "../components/SloganBar";
 
 // Nombre de la tienda (se muestra en el header)
 const STORE_NAME = 'Kokorishop';
@@ -41,21 +41,7 @@ function HeroVideo() {
 
           {/* layout interno: cinta arriba, CTA abajo */}
           <div className="absolute inset-0 z-10 flex flex-col">
-            {/* 🔒 ribbon: una sola línea + tamaño fluido */}
-            <div className="pt-3 px-3 self-center">
-              <span
-                className="
-                  inline-flex items-center rounded-full
-                  px-3 sm:px-4 py-1
-                  bg-black/50 text-white shadow-md backdrop-blur-sm
-                  leading-none whitespace-nowrap tracking-tight
-                  text-[clamp(12px,3vw,16px)]
-                "
-              >
-                Donde todo es Cute
-              </span>
-            </div>
-
+           
             <div className="flex-1" />
 
             <div className="pb-0 sm:pb-4 self-center">
@@ -244,6 +230,17 @@ const Home = () => {
           )}
         </div>
       </div>
+
+      {/* Barra de slogan full-width */}
+      <SloganBar
+        messages={[
+          "Donde todo es Cute",
+          "Envíos punto a punto",
+          "Nuevos productos Kawaii, Tenología y más...",
+        ]}
+        interval={4500}
+        fade={0.45}
+      />
 
       {/* Hero (solo video) */}
       <HeroVideo />
