@@ -3,31 +3,50 @@ const nodemailer = require('nodemailer');
 
 const {
   SMTP_HOST = 'smtp.gmail.com',
-  SMTP_PORT = 465,
+  SMTP_PORT = '587',
   SMTP_USER,
   SMTP_PASS,
-  EMAIL_FROM = SMTP_USER,
+  SMTP_SECURE,                // "true" o "false" (opcional)
+  EMAIL_FROM,
   EMAIL_FROM_NAME = 'KokoriShop',
 } = process.env;
 
-// ⚠️ Gmail -> usa “App password” (no tu password normal).
-// En Render: SMTP_HOST=smtp.gmail.com, SMTP_PORT=465, SMTP_USER=tu_correo, SMTP_PASS=app_password
-//            EMAIL_FROM=tu_correo, EMAIL_FROM_NAME=KokoriShop
+const port = Number(SMTP_PORT) || 587;
+const secure =
+  (String(SMTP_SECURE || '').toLowerCase() === 'true') || port === 465;
+
 const transporter = nodemailer.createTransport({
   host: SMTP_HOST,
-  port: Number(SMTP_PORT),
-  secure: Number(SMTP_PORT) === 465, // true para 465 (SSL), false para 587 (STARTTLS)
-  auth: { user: SMTP_USER, pass: SMTP_PASS },
+  port,
+  secure,                     // false en 587 (STARTTLS), true en 465
+  auth: {
+    user: SMTP_USER || EMAIL_FROM,
+    pass: SMTP_PASS,
+  },
+  pool: true,
+  maxConnections: 3,
+  maxMessages: 100,
+  connectionTimeout: 15000,
+  socketTimeout: 15000,
+  greetingTimeout: 8000,
+  tls: {
+    // STARTTLS en 587
+    rejectUnauthorized: true,
+    servername: SMTP_HOST,
+  },
 });
 
-// Verificación opcional al arranque o desde /health/email
 async function verifyMailer() {
-  await transporter.verify();
-  console.log('✅ SMTP listo para enviar correos');
+  try {
+    await transporter.verify();
+    console.log('✅ SMTP OK');
+  } catch (e) {
+    console.error('❌ SMTP verify falló:', e.message);
+  }
 }
 
-module.exports = {
-  transporter,
-  verifyMailer,
-  emailDefaults: { from: `"${EMAIL_FROM_NAME}" <${EMAIL_FROM}>` },
+const emailDefaults = {
+  from: `"${EMAIL_FROM_NAME}" <${EMAIL_FROM || SMTP_USER}>`,
 };
+
+module.exports = { transporter, emailDefaults, verifyMailer };
