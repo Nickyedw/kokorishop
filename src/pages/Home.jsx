@@ -231,21 +231,7 @@ const Home = () => {
         </div>
       </div>
 
-      <SloganBar
-        variant="contained"
-        className="mt-2 mb-4"                 // margen externo
-        barClass="bg-purple-900/35 ring-1 ring-white/10 shadow-inner"  // ⬅️ nuevo fondo
-        chipClass="bg-white/10 backdrop-blur-sm border border-white/10 shadow-[0_0_12px_rgba(255,255,255,.08)]" // o prueba "bg-transparent"
-        maxW="max-w-5xl"
-        messages={[
-          "Envíos punto a punto",
-          "Donde Todo es Cute ✨",
-          "Atención por WhatsApp 📲",
-          "Retiro en estación de bus 🚌",
-        ]}
-        interval={4500}
-        fade={450}
-      />
+     <SloganBar variant="contained" className="mt-1" />
 
       {/* Hero (solo video) */}
       <HeroVideo />
