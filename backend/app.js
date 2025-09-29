@@ -1,43 +1,42 @@
+// app.js
 const express = require('express');
 const path = require('path');
 const cors = require('cors');
 const morgan = require('morgan');
 require('dotenv').config();
 const { query } = require('./db');
-const { transporter, verifyMailer} = require('./services/mailer');
-verifyMailer(); // loguea si SMTP está OK en el arranque
+
+// IMPORTA el façade de correo
+const { verifyMailer, sendMail } = require('./services/mailer');
 
 // ⬇️ NEW: rate limit
 const rateLimit = require('express-rate-limit');
 
 const app = express();
+app.set('trust proxy', 1); // Render/NGINX
 
-// Render/NGINX está detrás de proxy → necesario para que el IP real se detecte
-app.set('trust proxy', 1);
-
-// ⬇️ NEW: limitador solo para rutas de autenticación
 const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,          // 15 minutos
-  max: 100,                          // 100 intentos/ventana por IP
-  standardHeaders: true,             // X-RateLimit-*
-  legacyHeaders: false,              // desactiva X-RateLimit-* antiguos
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
   message: { error: 'Demasiadas solicitudes de autenticación. Intenta más tarde.' },
 });
 
 /* =========================
-   CORS (seguro por dominio)
+   CORS
    ========================= */
 const allowedOrigins =
   (process.env.CORS_ORIGIN || '')
     .split(',')
     .map(s => s.trim())
-    .filter(Boolean); // ej: "https://nickyedw.github.io, http://localhost:5173"
+    .filter(Boolean);
 
 app.use(
   cors({
     origin: (origin, cb) => {
-      if (!origin) return cb(null, true);               // curl / health
-      if (allowedOrigins.length === 0) return cb(null, true); // sin restricción
+      if (!origin) return cb(null, true);
+      if (allowedOrigins.length === 0) return cb(null, true);
       if (allowedOrigins.includes(origin)) return cb(null, true);
       return cb(new Error('CORS: origin no permitido: ' + origin));
     },
@@ -47,7 +46,6 @@ app.use(
     exposedHeaders: ['Content-Disposition'],
   })
 );
-// Preflight universal sin '*' (Express 5)
 app.options(/.*/, cors());
 
 /* =========================
@@ -58,7 +56,7 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 /* =========================
-   Estáticos (producción)
+   Estáticos
    ========================= */
 app.use(
   '/uploads',
@@ -67,8 +65,6 @@ app.use(
     setHeaders: (res) => res.setHeader('X-Content-Type-Options', 'nosniff'),
   })
 );
-
-// Sirve PDF generados y assets del servidor (logos, etc.)
 app.use('/pdfs', express.static(path.join(__dirname, 'pdfs'), { maxAge: '1d' }));
 app.use('/assets', express.static(path.join(__dirname, 'assets'), { maxAge: '30d' }));
 
@@ -83,7 +79,6 @@ app.use((req, _res, next) => {
 /* =========================
    Rutas API
    ========================= */
-// ⬇️ NEW: aplica el limitador SOLO a /api/auth/*
 app.use('/api/auth/', authLimiter);
 
 // Routers
@@ -98,17 +93,13 @@ const metodosPago = require('./routes/metodosPago');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/usuarios', usuariosRouter);
-
 app.use('/api/productos', productosRouter);
-app.use('/productos', productosRouter); // alias si lo usas en el front
-
+app.use('/productos', productosRouter);
 app.use('/api/pedidos', pedidosRouter);
 app.use('/comprobantes', comprobanteRoutes);
-
 app.use('/api/categorias', categoriaRoutes);
-app.use('/categorias', categoriaRoutes); // alias
-
-app.use('/api', opcionesEntregaRoutes);  // mantiene tu prefijo actual
+app.use('/categorias', categoriaRoutes);
+app.use('/api', opcionesEntregaRoutes);
 app.use('/api/metodos_pago', metodosPago);
 
 /* =========================
@@ -126,13 +117,67 @@ app.get('/health/db', async (_req, res) => {
   }
 });
 
-// Verificación SMTP (alias /health/smtp)
-app.get('/health/smtp', async (_req, res) => {
+// Health email: si usas brevo_api responde OK; si no, verifica SMTP
+app.get('/health/email', async (_req, res) => {
   try {
-    await transporter.verify();
-    res.json({ ok: true });
+    const prefer = (process.env.EMAIL_TRANSPORT || 'auto').toLowerCase();
+    if (prefer === 'brevo_api') {
+      return res.json({ ok: true, transport: 'brevo_api' });
+    }
+    const ok = await verifyMailer();
+    if (ok) return res.json({ ok: true, transport: 'smtp' });
+    return res.status(500).json({ ok: false, transport: 'smtp' });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+/* =========================
+   📧 PRUEBA DE CORREO
+   ========================= */
+// GET /test/email?to=correo@dominio
+app.get('/test/email', async (req, res) => {
+  const to =
+    req.query.to ||
+    process.env.EMAIL_TEST_TO ||
+    process.env.EMAIL_FROM_ADDR ||
+    process.env.SMTP_USER;
+
+  try {
+    await sendMail({
+      to,
+      subject: '🔔 Prueba de correo (KokoriShop)',
+      html: `<h2>Prueba OK</h2>
+             <p>Transport: <b>${(process.env.EMAIL_TRANSPORT || 'auto').toLowerCase()}</b></p>
+             <small>${new Date().toISOString()}</small>`,
+      text: `Prueba OK - ${new Date().toISOString()}`,
+    });
+    res.json({ ok: true, to });
+  } catch (e) {
+    console.error('❌ Test email error:', e.response?.data || e.message);
+    res.status(500).json({ ok: false, error: e.message, details: e.response?.data });
+  }
+});
+
+// (opcional) versión POST: { "to": "correo@dominio" }
+app.post('/test/email', async (req, res) => {
+  const to =
+    req.body?.to ||
+    process.env.EMAIL_TEST_TO ||
+    process.env.EMAIL_FROM_ADDR ||
+    process.env.SMTP_USER;
+
+  try {
+    await sendMail({
+      to,
+      subject: '🔔 Prueba de correo (KokoriShop)',
+      html: `<p>Prueba OK por POST</p><small>${new Date().toISOString()}</small>`,
+      text: `Prueba OK por POST - ${new Date().toISOString()}`,
+    });
+    res.json({ ok: true, to });
+  } catch (e) {
+    console.error('❌ Test email POST error:', e.response?.data || e.message);
+    res.status(500).json({ ok: false, error: e.message, details: e.response?.data });
   }
 });
 
@@ -161,7 +206,11 @@ const PORT = process.env.PORT || 3001;
 app.listen(PORT, async () => {
   console.log(`✅ Servidor backend corriendo en puerto ${PORT}`);
 
-  // (opcional) verifica SMTP al arrancar sin tumbar el servicio si falla
-  try { await verifyMailer(); }
-  catch (e) { console.warn('⚠️ SMTP verify falló:', e.message); }
+  // Verifica solo si no estás forzando brevo_api
+  try {
+    const prefer = (process.env.EMAIL_TRANSPORT || 'auto').toLowerCase();
+    if (prefer !== 'brevo_api') await verifyMailer();
+  } catch (e) {
+    console.warn('⚠️ Verificación de correo falló:', e.message);
+  }
 });

@@ -5,15 +5,17 @@ const fs = require('fs');
 const path = require('path');
 
 const {
-  SMTP_HOST = 'smtp-relay.brevo.com',   // ✅ Brevo SMTP por defecto
+  SMTP_HOST = 'smtp-relay.brevo.com',
   SMTP_PORT = '587',
   SMTP_USER,
   SMTP_PASS,
-  SMTP_SECURE,                           // "true" | "false"
-  EMAIL_FROM_ADDR,                       // remitente visible
+  SMTP_SECURE,                          // "true" | "false"
+  EMAIL_FROM_ADDR,                      // remitente visible
   EMAIL_FROM_NAME = 'KokoriShop',
-  BREVO_API_KEY,                         // ✅ tu API Key de Brevo
-  EMAIL_TRANSPORT,                       // 'brevo_api' para forzar API
+  REPLY_TO_ADDR,                        // opcional
+  BREVO_API_KEY,                        // API Key Brevo
+  EMAIL_TRANSPORT,                      // 'brevo_api' | 'smtp' | 'auto'
+  NODE_ENV = 'production',
 } = process.env;
 
 const port = Number(SMTP_PORT) || 587;
@@ -26,36 +28,47 @@ function buildFrom() {
   return `"${name}" <${addr}>`;
 }
 
-// --- Transport SMTP (se queda por compatibilidad/fallback)
+// ------- SMTP transporter (queda como fallback/compat) -------
 const transporter = nodemailer.createTransport({
   pool: true,
   host: SMTP_HOST,
   port,
-  secure,                      // false en 587 (STARTTLS), true en 465
-  auth: { user: SMTP_USER, pass: SMTP_PASS },
-  family: 4,                   // fuerza IPv4
-  connectionTimeout: 25000,
-  greetingTimeout: 12000,
-  socketTimeout: 25000,
-  dnsTimeout: 8000,
+  secure,                               // false en 587 (STARTTLS), true en 465
+  auth: SMTP_USER && SMTP_PASS ? { user: SMTP_USER, pass: SMTP_PASS } : undefined,
+
+  // timeouts bajos para evitar cuelgues largos
+  family: 4,                            // fuerza IPv4
+  connectionTimeout: 6000,
+  greetingTimeout: 6000,
+  socketTimeout: 6000,
+  dnsTimeout: 4000,
+
   requireTLS: !secure,
   tls: { servername: SMTP_HOST, rejectUnauthorized: true },
 });
 
 async function verifyMailer() {
-  console.log('🔎 Verificando SMTP…', { host: SMTP_HOST, port, secure });
+  // Si estamos forzando API, consideramos OK sin probar SMTP
+  if ((EMAIL_TRANSPORT || '').toLowerCase() === 'brevo_api') {
+    return true;
+  }
   try {
     await transporter.verify();
-    console.log('✅ SMTP listo (Brevo): OK');
+    console.log('✅ SMTP listo:', SMTP_HOST);
+    return true;
   } catch (e) {
-    console.error('❌ SMTP verify falló:', e.code || e.name, e.message);
+    console.warn('⚠️ SMTP verify falló:', e.code || e.name, e.message);
+    return false;
   }
 }
 
-const emailDefaults = { from: buildFrom() };
+const emailDefaults = {
+  from: buildFrom(),
+  ...(REPLY_TO_ADDR ? { replyTo: REPLY_TO_ADDR } : {}),
+};
 
-// --- Envío vía SMTP (se usará solo si está disponible)
-async function sendViaSMTP({ to, subject, html, text, attachments }) {
+// ------- Envío por SMTP -------
+async function sendViaSMTP({ to, subject, html, text, attachments, headers }) {
   return transporter.sendMail({
     ...emailDefaults,
     to,
@@ -63,21 +76,26 @@ async function sendViaSMTP({ to, subject, html, text, attachments }) {
     html,
     text,
     attachments, // [{ filename, path }] o { content }
+    headers,
   });
 }
 
-// --- Envío vía API HTTP de Brevo (puerto 443, evita bloqueos SMTP)
-async function sendViaBrevoAPI({ to, subject, html, text, attachments }) {
+// ------- Envío por API HTTP de Brevo (puerto 443) -------
+async function sendViaBrevoAPI({ to, subject, html, text, attachments, headers }) {
   if (!BREVO_API_KEY) throw new Error('Falta BREVO_API_KEY');
 
   const toList = Array.isArray(to) ? to : [to];
+
   const payload = {
     sender: { email: EMAIL_FROM_ADDR || SMTP_USER, name: EMAIL_FROM_NAME },
     to: toList.map((email) => ({ email })),
     subject,
     htmlContent: html,
     textContent: text,
+    headers,
   };
+
+  if (REPLY_TO_ADDR) payload.replyTo = [{ email: REPLY_TO_ADDR }];
 
   if (attachments?.length) {
     payload.attachment = attachments
@@ -101,21 +119,26 @@ async function sendViaBrevoAPI({ to, subject, html, text, attachments }) {
   });
 }
 
-// --- Facade: elige API o SMTP automáticamente
+// ------- Facade: decide transporte -------
 async function sendMail(options) {
-  const prefer = (EMAIL_TRANSPORT || '').toLowerCase();
-  if (prefer === 'brevo_api') {
-    return sendViaBrevoAPI(options); // fuerza API
-  }
+  const prefer = (EMAIL_TRANSPORT || 'auto').toLowerCase();
 
-  // intenta SMTP; si Render lo bloquea (ETIMEDOUT), usa API
-  try {
-    await transporter.verify();
-    return sendViaSMTP(options);
-  } catch (e) {
-    console.warn('SMTP no disponible, usando Brevo API:', e.message);
-    return sendViaBrevoAPI(options);
+  // Forzado
+  if (prefer === 'brevo_api') return sendViaBrevoAPI(options);
+  if (prefer === 'smtp')      return sendViaSMTP(options);
+
+  // Auto: en desarrollo intenta SMTP si está vivo, en prod usa API
+  if (NODE_ENV === 'development') {
+    const ok = await verifyMailer();
+    if (ok) return sendViaSMTP(options);
   }
+  return sendViaBrevoAPI(options);
 }
 
-module.exports = { transporter, buildFrom, emailDefaults, verifyMailer, sendMail };
+module.exports = {
+  transporter,
+  buildFrom,
+  emailDefaults,
+  verifyMailer,
+  sendMail,
+};

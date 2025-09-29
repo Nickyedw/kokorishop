@@ -1,5 +1,5 @@
 // backend/services/notificaciones.js
-// Reutiliza el transporter centralizado y un "from" por defecto
+const fs = require('fs');
 const { sendMail } = require('./mailer');
 const twilio = require('twilio');
 
@@ -11,9 +11,25 @@ const {
 /* =========================
    Helpers comunes
    ========================= */
+const toText = (html = '') =>
+  String(html)
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/\s+\n/g, '\n')
+    .trim();
+
 async function sendMailSafe(options, label = 'correo') {
   try {
-    await sendMail(options);
+    if (!options?.to) {
+      console.warn(`⚠️ ${label} omitido: falta 'to'`);
+      return false;
+    }
+    const payload = {
+      ...options,
+      // Fallback de texto sencillo
+      text: options.text || toText(options.html || ''),
+    };
+    await sendMail(payload);
     return true;
   } catch (e) {
     console.error(`❌ Error al enviar ${label}:`, e.message);
@@ -30,7 +46,7 @@ function hasPlusPhone(n) {
    ========================= */
 const TWILIO_SID = process.env.TWILIO_ACCOUNT_SID || '';
 const TWILIO_TOKEN = process.env.TWILIO_AUTH_TOKEN || '';
-const FROM_WA = process.env.TWILIO_WA_FROM || 'whatsapp:+14155238886'; // sandbox por defecto
+const FROM_WA = process.env.TWILIO_WA_FROM || 'whatsapp:+14155238886'; // sandbox
 
 const WA_ENABLED = Boolean(TWILIO_SID && TWILIO_TOKEN);
 const waClient = WA_ENABLED ? twilio(TWILIO_SID, TWILIO_TOKEN) : null;
@@ -67,7 +83,7 @@ async function enviarAlertaStockBajo(nombreProducto, stock_actual, stock_minimo)
     <p>Se recomienda reponer el stock lo antes posible.</p>
   `;
 
-  await sendMailSafe(
+  return sendMailSafe(
     { to: emailDestino, subject: asunto, html },
     'alerta de stock bajo'
   );
@@ -93,7 +109,7 @@ async function enviarCorreoPedido(destinatario, nombreCliente, pedidoId) {
 }
 
 /* =========================
-   WhatsApp: Pedido creado (plantilla)
+   WhatsApp: Pedido creado
    ========================= */
 async function enviarWhatsappPedidoInicial(numeroCliente, nombreCliente, pedidoId, fecha, total) {
   if (!hasPlusPhone(numeroCliente)) {
@@ -105,7 +121,6 @@ async function enviarWhatsappPedidoInicial(numeroCliente, nombreCliente, pedidoI
     {
       from: FROM_WA,
       to: `whatsapp:${numeroCliente}`,
-      // Si usas Content API, define TWILIO_CONTENT_SID_PEDIDO en el entorno
       contentSid:
         process.env.TWILIO_CONTENT_SID_PEDIDO ||
         'HXa593da9b7b9af6744360afeb03d0995d',
@@ -121,7 +136,7 @@ async function enviarWhatsappPedidoInicial(numeroCliente, nombreCliente, pedidoI
 }
 
 /* =========================
-   Correo + WA: Pago confirmado (adjunta comprobante)
+   Correo + WA: Pago confirmado
    ========================= */
 async function enviarNotificacionConfirmacionPago(pedido) {
   const email = pedido.correo_cliente;
@@ -130,7 +145,7 @@ async function enviarNotificacionConfirmacionPago(pedido) {
 
   if (!email || !nombre || !numero) {
     console.warn('⚠️ Notificación pago: datos incompletos', { email, nombre, numero });
-    return;
+    return false;
   }
 
   let pdfPath;
@@ -139,6 +154,10 @@ async function enviarNotificacionConfirmacionPago(pedido) {
   } catch (e) {
     console.error('❌ Error generando comprobante PDF:', e.message);
   }
+  const attachments =
+    pdfPath && fs.existsSync(pdfPath)
+      ? [{ filename: `comprobante_${numero}.pdf`, path: pdfPath }]
+      : undefined;
 
   await sendMailSafe(
     {
@@ -150,19 +169,17 @@ async function enviarNotificacionConfirmacionPago(pedido) {
         <p>Muy pronto prepararemos tu pedido para su entrega.</p>
         <p>Gracias por confiar en KokoriShop 🐼💖</p>
       `,
-      attachments: pdfPath
-        ? [{ filename: `comprobante_${numero}.pdf`, path: pdfPath }]
-        : undefined,
+      attachments,
     },
     'confirmación de pago'
   );
 
   if (!hasPlusPhone(pedido.telefono)) {
     console.warn('⚠️ WhatsApp pago: número inválido', pedido.telefono);
-    return;
+    return false;
   }
 
-  await waSend(
+  return waSend(
     {
       from: FROM_WA,
       to: `whatsapp:${pedido.telefono}`,
@@ -188,7 +205,7 @@ async function enviarNotificacionListoParaEntrega(pedido) {
 
   if (!email || !nombre || !numero) {
     console.warn('⚠️ Notificación listo para entrega: datos incompletos', { email, nombre, numero });
-    return;
+    return false;
   }
 
   await sendMailSafe(
@@ -207,10 +224,10 @@ async function enviarNotificacionListoParaEntrega(pedido) {
 
   if (!hasPlusPhone(pedido.telefono)) {
     console.warn('⚠️ WhatsApp listo para entrega: número inválido', pedido.telefono);
-    return;
+    return false;
   }
 
-  await waSend(
+  return waSend(
     {
       from: FROM_WA,
       to: `whatsapp:${pedido.telefono}`,
@@ -227,7 +244,7 @@ async function enviarNotificacionListoParaEntrega(pedido) {
 }
 
 /* =========================
-   Correo + WA: Pedido enviado (adjunta ticket)
+   Correo + WA: Pedido enviado
    ========================= */
 async function enviarNotificacionPedidoEnviado(pedido) {
   const email = pedido.correo_cliente;
@@ -236,7 +253,7 @@ async function enviarNotificacionPedidoEnviado(pedido) {
 
   if (!email || !nombre || !numero) {
     console.warn('⚠️ Notificación envío: datos incompletos', { email, nombre, numero });
-    return;
+    return false;
   }
 
   let pdfPath;
@@ -245,6 +262,10 @@ async function enviarNotificacionPedidoEnviado(pedido) {
   } catch (e) {
     console.error('❌ Error generando ticket PDF:', e.message);
   }
+  const attachments =
+    pdfPath && fs.existsSync(pdfPath)
+      ? [{ filename: `ticket_${numero}.pdf`, path: pdfPath }]
+      : undefined;
 
   await sendMailSafe(
     {
@@ -256,19 +277,17 @@ async function enviarNotificacionPedidoEnviado(pedido) {
         <p>Te notificaremos cuando llegue al punto de entrega.</p>
         <p>Gracias por confiar en KokoriShop 🐼💖</p>
       `,
-      attachments: pdfPath
-        ? [{ filename: `ticket_${numero}.pdf`, path: pdfPath }]
-        : undefined,
+      attachments,
     },
     'pedido enviado'
   );
 
   if (!hasPlusPhone(pedido.telefono)) {
     console.warn('⚠️ WhatsApp enviado: número inválido', pedido.telefono);
-    return;
+    return false;
   }
 
-  await waSend(
+  return waSend(
     {
       from: FROM_WA,
       to: `whatsapp:${pedido.telefono}`,
@@ -294,7 +313,7 @@ async function enviarNotificacionPedidoEntregado(pedido) {
 
   if (!email || !nombre || !numero) {
     console.warn('⚠️ Notificación entregado: datos incompletos', { email, nombre, numero });
-    return;
+    return false;
   }
 
   await sendMailSafe(
@@ -312,10 +331,10 @@ async function enviarNotificacionPedidoEntregado(pedido) {
 
   if (!hasPlusPhone(pedido.telefono)) {
     console.warn('⚠️ WhatsApp entregado: número inválido', pedido.telefono);
-    return;
+    return false;
   }
 
-  await waSend(
+  return waSend(
     {
       from: FROM_WA,
       to: `whatsapp:${pedido.telefono}`,
