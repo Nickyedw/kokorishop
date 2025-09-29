@@ -1,6 +1,6 @@
 // backend/services/notificaciones.js
 // Reutiliza el transporter centralizado y un "from" por defecto
-const { transporter, emailDefaults } = require('./mailer');
+const { sendMail } = require('./mailer');
 const twilio = require('twilio');
 
 const {
@@ -13,7 +13,7 @@ const {
    ========================= */
 async function sendMailSafe(options, label = 'correo') {
   try {
-    await transporter.sendMail({ ...emailDefaults, ...options });
+    await sendMail(options);
     return true;
   } catch (e) {
     console.error(`❌ Error al enviar ${label}:`, e.message);
