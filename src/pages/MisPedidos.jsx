@@ -1,5 +1,5 @@
 // src/pages/MisPedidos.jsx
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 const API_APP = import.meta.env.VITE_API_URL || "http://localhost:3001";
@@ -101,55 +101,42 @@ export default function MisPedidos() {
     localStorage.setItem("mispedidos_page", String(page));
   }, [page]);
 
-const cargarPedidos = useCallback(async () => {
-  try {
-    setLoading(true);
-    setErrorMsg("");
-
-    const token = localStorage.getItem("token");
-    const res = await fetch(`${API_APP}/api/pedidos/mis`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-
-    if (!res.ok) {
-      let msg = "Error al obtener pedidos";
-      try {
-        const errData = await res.json();
-        msg = errData?.error || errData?.message || msg;
-      } catch {
-        const text = await res.text();
-        if (text) msg = text;
-      }
-      throw new Error(msg);
-    }
-
-    const data = await res.json();
-    if (!Array.isArray(data)) throw new Error("El servidor devolvió un formato inesperado.");
-
-    const normData = data
-      .map((p) => ({
-        ...p,
-        total: Number(p.total || 0),
-        productos: (p.productos || []).map((d) => ({
-          ...d,
-          subtotal: Number(d.subtotal || 0),
-        })),
-      }))
-      .sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
-
-    setPedidos(normData);
-  } catch (err) {
-    console.error(err);
-    setErrorMsg(err.message || "Error al obtener pedidos");
-  } finally {
-    setLoading(false);
-  }
-}, []); // <- sin dependencias (las setters son estables)
-
-
 useEffect(() => {
-  cargarPedidos();
-}, [cargarPedidos]);
+  let cancel = false;
+  (async () => {
+    try {
+      setLoading(true);
+      setErrorMsg("");
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${API_APP}/api/pedidos/mis`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error("Error al obtener pedidos");
+      const data = await res.json();
+      if (!Array.isArray(data)) throw new Error("El servidor devolvió un formato inesperado.");
+      if (cancel) return;
+
+      const normData = data
+        .map((p) => ({
+          ...p,
+          total: Number(p.total || 0),
+          productos: (p.productos || []).map((d) => ({
+            ...d,
+            subtotal: Number(d.subtotal || 0),
+          })),
+        }))
+        .sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+
+      setPedidos(normData);
+    } catch (err) {
+      if (!cancel) setErrorMsg(err.message || "Error al obtener pedidos");
+    } finally {
+      if (!cancel) setLoading(false);
+    }
+  })();
+  return () => { cancel = true; };
+}, []);
+
 
   // ---- filtro + paginación
   const pedidosFiltrados = useMemo(() => {
