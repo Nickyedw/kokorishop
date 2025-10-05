@@ -102,35 +102,55 @@ export default function MisPedidos() {
   }, [page]);
 
   const cargarPedidos = async () => {
-    try {
-      setLoading(true);
-      setErrorMsg("");
-      const token = localStorage.getItem("token");
-      const usuario_id = localStorage.getItem("usuario_id");
-      const res = await fetch(
-        `${API_APP}/api/pedidos?usuario_id=${usuario_id}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      const data = await res.json();
-      if (!Array.isArray(data)) throw new Error("Formato de datos inválido");
-      const normData = data
-        .map((p) => ({
-          ...p,
-          total: Number(p.total || 0),
-          productos: (p.productos || []).map((d) => ({
-            ...d,
-            subtotal: Number(d.subtotal || 0),
-          })),
-        }))
-        .sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
-      setPedidos(normData);
-    } catch (err) {
-      console.error(err);
-      setErrorMsg(err.message || "Error al obtener pedidos");
-    } finally {
-      setLoading(false);
+  try {
+    setLoading(true);
+    setErrorMsg("");
+
+    const token = localStorage.getItem("token");
+
+    const res = await fetch(`${API_APP}/api/pedidos`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    // Si el backend devolvió error, lo mostramos tal cual
+    if (!res.ok) {
+      let msg = "Error al obtener pedidos";
+      try {
+        const errData = await res.json();
+        msg = errData?.error || errData?.message || msg;
+      } catch {
+        const text = await res.text();
+        if (text) msg = text;
+      }
+      throw new Error(msg);
     }
-  };
+
+    const data = await res.json();
+    if (!Array.isArray(data)) {
+      // Por si algo raro llega, mejor mostrar mensaje explícito:
+      throw new Error("El servidor devolvió un formato inesperado.");
+    }
+
+    const normData = data
+      .map((p) => ({
+        ...p,
+        total: Number(p.total || 0),
+        productos: (p.productos || []).map((d) => ({
+          ...d,
+          subtotal: Number(d.subtotal || 0),
+        })),
+      }))
+      .sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+
+    setPedidos(normData);
+  } catch (err) {
+    console.error(err);
+    setErrorMsg(err.message || "Error al obtener pedidos");
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   useEffect(() => {
     cargarPedidos();

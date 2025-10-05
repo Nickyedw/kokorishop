@@ -150,49 +150,77 @@ router.post('/', async (req, res) => {
 
 
 /* =========================
-   Listar pedidos (por usuario/estado)
+   Listar pedidos (tolerante a filtros vacíos)
+   - Usuario normal: usa usuario_id del token
+   - Admin: puede pasar usuario_id por query
+   Filtros opcionales: estado, zona_entrega_id, horario_entrega_id
    ========================= */
 router.get('/', verificarTokenAdmin, async (req, res) => {
-  const { estado } = req.query;
-  const usuario_id = req.usuario.usuario_id;
-  const es_admin = req.usuario.es_admin;
-
-  const filtros = [];
-  const valores = [];
-
-  if (!es_admin) {
-    filtros.push('p.usuario_id = $1');
-    valores.push(usuario_id);
-  }
-  if (estado) {
-    filtros.push(`p.estado = $${valores.length + 1}`);
-    valores.push(estado);
-  }
-
-  const where = filtros.length ? `WHERE ${filtros.join(' AND ')}` : '';
-
   try {
+    // Helpers para normalizar
+    const q = (k) => {
+      const v = (req.query[k] ?? '').toString().trim();
+      return v === '' ? null : v;
+    };
+    const toInt = (v) => (v == null ? null : Number.parseInt(v, 10));
+
+    const ctx = req.usuario || {};
+    const esAdmin = !!ctx.es_admin;
+    const tokenUserId = Number(ctx.usuario_id) || null;
+
+    // Si es admin puede consultar otro usuario; si no, se fuerza el del token
+    let usuarioId = toInt(q('usuario_id'));
+    if (!esAdmin) usuarioId = tokenUserId;
+
+    // usuario_id debe existir y ser válido
+    if (!Number.isInteger(usuarioId) || usuarioId <= 0) {
+      return res.status(400).json({ error: 'usuario_id requerido o inválido' });
+    }
+
+    const estado = q('estado');
+    const zonaEntregaId = toInt(q('zona_entrega_id'));
+    const horarioEntregaId = toInt(q('horario_entrega_id'));
+
+    const params = [usuarioId];
+    let where = `WHERE p.usuario_id = $1`;
+
+    if (Number.isInteger(zonaEntregaId)) {
+      params.push(zonaEntregaId);
+      where += ` AND p.zona_entrega_id = $${params.length}`;
+    }
+    if (Number.isInteger(horarioEntregaId)) {
+      params.push(horarioEntregaId);
+      where += ` AND p.horario_entrega_id = $${params.length}`;
+    }
+    if (estado) {
+      params.push(estado);
+      where += ` AND p.estado = $${params.length}`;
+    }
+
     const pedidosRes = await dbQuery(
-      `SELECT p.*, u.nombre_completo AS cliente, m.nombre AS metodo_pago
+      `SELECT p.*,
+              u.nombre_completo AS cliente,
+              m.nombre AS metodo_pago
          FROM pedidos p
          JOIN usuarios u ON p.usuario_id = u.id
-         JOIN metodos_pago m ON p.metodo_pago_id = m.id
-         ${where}
-        ORDER BY p.fecha DESC`,
-      valores
+    LEFT JOIN metodos_pago m ON p.metodo_pago_id = m.id
+        ${where}
+     ORDER BY p.fecha DESC`,
+      params
     );
 
     const pedidos = pedidosRes.rows;
     if (!pedidos.length) return res.json([]);
 
     const ids = pedidos.map((p) => p.id);
-
     const detallesRes = await dbQuery(
-      `SELECT d.*, pr.nombre AS producto_nombre, pr.imagen_url AS producto_imagen_url
+      `SELECT d.*,
+              pr.nombre      AS producto_nombre,
+              pr.imagen_url  AS producto_imagen_url
          FROM detalle_pedido d
          JOIN productos pr ON d.producto_id = pr.id
         WHERE d.pedido_id = ANY($1::int[])
-        ORDER BY d.pedido_id, d.id`,
+     ORDER BY d.pedido_id, d.id`,
       [ids]
     );
 
@@ -210,7 +238,7 @@ router.get('/', verificarTokenAdmin, async (req, res) => {
     res.json(respuesta);
   } catch (error) {
     console.error('❌ Error al obtener pedidos:', error);
-    res.status(500).json({ error: 'Error interno del servidor' });
+    res.status(500).json({ error: 'Error interno del servidor', detail: error.message });
   }
 });
 
@@ -324,12 +352,10 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
-
 // 🟢 Confirmar pago manualmente (solo admin)
 router.put('/:id/confirmar-pago', verificarTokenAdmin, async (req, res) => {
   const pedidoId = Number(req.params.id || 0);
   try {
-    // Actualiza flags de pago y fecha; si estado está vacío/pendiente, lo marcamos
     const upd = await dbQuery(
       `UPDATE pedidos
         SET pago_confirmado = TRUE,
@@ -345,13 +371,11 @@ router.put('/:id/confirmar-pago', verificarTokenAdmin, async (req, res) => {
     );
 
     if (upd.rowCount === 0) {
-      // ya estaba confirmado o no existe
-      const exists = await dbQuery('SELECT id, pago_confirmado FROM pedidos WHERE id=$1',[pedidoId]);
+      const exists = await dbQuery('SELECT id, pago_confirmado FROM pedidos WHERE id=$1', [pedidoId]);
       if (!exists.rowCount) return res.status(404).json({ message: 'Pedido no encontrado' });
       return res.status(409).json({ message: 'El pago ya estaba confirmado' });
     }
 
-    // Datos para notificar (no hace fallar si falla)
     const info = await dbQuery(
       `SELECT p.id AS numero_pedido,
               u.nombre_completo AS nombre_cliente,
