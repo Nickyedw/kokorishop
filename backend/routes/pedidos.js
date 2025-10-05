@@ -4,7 +4,7 @@ const router = express.Router();
 
 // ✅ Usamos getClient() para transacciones y query() para lecturas simples
 const { getClient, query: dbQuery } = require('../db');
-const { verificarTokenAdmin } = require('../middlewares/auth');
+const { verificarTokenAdmin, verificarToken } = require('../middlewares/auth');
 
 const {
   enviarCorreoPedido,
@@ -239,6 +239,48 @@ router.get('/', verificarTokenAdmin, async (req, res) => {
   } catch (error) {
     console.error('❌ Error al obtener pedidos:', error);
     res.status(500).json({ error: 'Error interno del servidor', detail: error.message });
+  }
+});
+
+// 👇 NUEVO: pedidos del usuario autenticado
+router.get('/mis', verificarToken, async (req, res) => {
+  const usuario_id = req.usuario.usuario_id;
+
+  try {
+    const pedidosRes = await dbQuery(
+      `SELECT p.*, u.nombre_completo AS cliente, m.nombre AS metodo_pago
+         FROM pedidos p
+         JOIN usuarios u ON p.usuario_id = u.id
+         JOIN metodos_pago m ON p.metodo_pago_id = m.id
+        WHERE p.usuario_id = $1
+        ORDER BY p.fecha DESC`,
+      [usuario_id]
+    );
+
+    const pedidos = pedidosRes.rows;
+    if (!pedidos.length) return res.json([]);
+
+    const ids = pedidos.map(p => p.id);
+
+    const detallesRes = await dbQuery(
+      `SELECT d.*, pr.nombre AS producto_nombre, pr.imagen_url AS producto_imagen_url
+         FROM detalle_pedido d
+         JOIN productos pr ON d.producto_id = pr.id
+        WHERE d.pedido_id = ANY($1::int[])
+        ORDER BY d.pedido_id, d.id`,
+      [ids]
+    );
+
+    const map = new Map();
+    for (const d of detallesRes.rows) {
+      if (!map.has(d.pedido_id)) map.set(d.pedido_id, []);
+      map.get(d.pedido_id).push(d);
+    }
+
+    res.json(pedidos.map(p => ({ ...p, productos: map.get(p.id) || [] })));
+  } catch (e) {
+    console.error('❌ Error al obtener mis pedidos:', e);
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
 

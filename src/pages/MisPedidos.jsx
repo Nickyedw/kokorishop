@@ -1,5 +1,5 @@
 // src/pages/MisPedidos.jsx
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 const API_APP = import.meta.env.VITE_API_URL || "http://localhost:3001";
@@ -101,18 +101,16 @@ export default function MisPedidos() {
     localStorage.setItem("mispedidos_page", String(page));
   }, [page]);
 
-  const cargarPedidos = async () => {
+const cargarPedidos = useCallback(async () => {
   try {
     setLoading(true);
     setErrorMsg("");
 
     const token = localStorage.getItem("token");
-
-    const res = await fetch(`${API_APP}/api/pedidos`, {
+    const res = await fetch(`${API_APP}/api/pedidos/mis`, {
       headers: { Authorization: `Bearer ${token}` },
     });
 
-    // Si el backend devolvió error, lo mostramos tal cual
     if (!res.ok) {
       let msg = "Error al obtener pedidos";
       try {
@@ -126,10 +124,7 @@ export default function MisPedidos() {
     }
 
     const data = await res.json();
-    if (!Array.isArray(data)) {
-      // Por si algo raro llega, mejor mostrar mensaje explícito:
-      throw new Error("El servidor devolvió un formato inesperado.");
-    }
+    if (!Array.isArray(data)) throw new Error("El servidor devolvió un formato inesperado.");
 
     const normData = data
       .map((p) => ({
@@ -149,12 +144,12 @@ export default function MisPedidos() {
   } finally {
     setLoading(false);
   }
-};
+}, []); // <- sin dependencias (las setters son estables)
 
 
-  useEffect(() => {
-    cargarPedidos();
-  }, []);
+useEffect(() => {
+  cargarPedidos();
+}, [cargarPedidos]);
 
   // ---- filtro + paginación
   const pedidosFiltrados = useMemo(() => {
@@ -206,7 +201,9 @@ export default function MisPedidos() {
     try {
       setCargandoModal(true);
       setModalAbierto(true);
-      const res = await fetch(`${API_APP}/api/pedidos/${pedidoId}`);
+      const res = await fetch(`${API_APP}/api/pedidos/${pedidoId}`, {
+      headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+    });
       const data = await res.json();
       const normData = {
         ...data,
