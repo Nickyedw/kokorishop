@@ -150,52 +150,45 @@ router.post('/', async (req, res) => {
 
 
 /* =========================
-   Listar pedidos (tolerante a filtros vacíos)
-   - Usuario normal: usa usuario_id del token
-   - Admin: puede pasar usuario_id por query
-   Filtros opcionales: estado, zona_entrega_id, horario_entrega_id
+   Listar pedidos (ADMIN)
+   - opcionales: ?usuario_id=, ?estado=,
+                 ?zona_entrega_id=, ?horario_entrega_id=
+   - si no mandas usuario_id, lista TODOS
    ========================= */
-router.get('/', verificarTokenAdmin, async (req, res) => {
+const adminListHandler = async (req, res) => {
   try {
-    // Helpers para normalizar
     const q = (k) => {
       const v = (req.query[k] ?? '').toString().trim();
       return v === '' ? null : v;
     };
     const toInt = (v) => (v == null ? null : Number.parseInt(v, 10));
 
-    const ctx = req.usuario || {};
-    const esAdmin = !!ctx.es_admin;
-    const tokenUserId = Number(ctx.usuario_id) || null;
-
-    // Si es admin puede consultar otro usuario; si no, se fuerza el del token
-    let usuarioId = toInt(q('usuario_id'));
-    if (!esAdmin) usuarioId = tokenUserId;
-
-    // usuario_id debe existir y ser válido
-    if (!Number.isInteger(usuarioId) || usuarioId <= 0) {
-      return res.status(400).json({ error: 'usuario_id requerido o inválido' });
-    }
-
-    const estado = q('estado');
-    const zonaEntregaId = toInt(q('zona_entrega_id'));
+    const usuarioId        = toInt(q('usuario_id'));
+    const estado           = q('estado');
+    const zonaEntregaId    = toInt(q('zona_entrega_id'));
     const horarioEntregaId = toInt(q('horario_entrega_id'));
 
-    const params = [usuarioId];
-    let where = `WHERE p.usuario_id = $1`;
+    const whereParts = [];
+    const params = [];
 
+    if (Number.isInteger(usuarioId)) {
+      params.push(usuarioId);
+      whereParts.push(`p.usuario_id = $${params.length}`);
+    }
     if (Number.isInteger(zonaEntregaId)) {
       params.push(zonaEntregaId);
-      where += ` AND p.zona_entrega_id = $${params.length}`;
+      whereParts.push(`p.zona_entrega_id = $${params.length}`);
     }
     if (Number.isInteger(horarioEntregaId)) {
       params.push(horarioEntregaId);
-      where += ` AND p.horario_entrega_id = $${params.length}`;
+      whereParts.push(`p.horario_entrega_id = $${params.length}`);
     }
     if (estado) {
       params.push(estado);
-      where += ` AND p.estado = $${params.length}`;
+      whereParts.push(`p.estado = $${params.length}`);
     }
+
+    const where = whereParts.length ? `WHERE ${whereParts.join(' AND ')}` : '';
 
     const pedidosRes = await dbQuery(
       `SELECT p.*,
@@ -215,8 +208,8 @@ router.get('/', verificarTokenAdmin, async (req, res) => {
     const ids = pedidos.map((p) => p.id);
     const detallesRes = await dbQuery(
       `SELECT d.*,
-              pr.nombre      AS producto_nombre,
-              pr.imagen_url  AS producto_imagen_url
+              pr.nombre     AS producto_nombre,
+              pr.imagen_url AS producto_imagen_url
          FROM detalle_pedido d
          JOIN productos pr ON d.producto_id = pr.id
         WHERE d.pedido_id = ANY($1::int[])
@@ -237,12 +230,17 @@ router.get('/', verificarTokenAdmin, async (req, res) => {
 
     res.json(respuesta);
   } catch (error) {
-    console.error('❌ Error al obtener pedidos:', error);
-    res.status(500).json({ error: 'Error interno del servidor', detail: error.message });
+    console.error('❌ Error (admin) al obtener pedidos:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
-});
+};
 
-// 👇 NUEVO: pedidos del usuario autenticado
+// Montaje de rutas admin (compat + explícita)
+router.get('/',      verificarTokenAdmin, adminListHandler);
+router.get('/admin', verificarTokenAdmin, adminListHandler);
+
+
+// 👇 Pedidos del usuario autenticado (cliente)
 router.get('/mis', verificarToken, async (req, res) => {
   const usuario_id = req.usuario.usuario_id;
 
@@ -284,6 +282,7 @@ router.get('/mis', verificarToken, async (req, res) => {
   }
 });
 
+
 /* =========================
    Obtener pedido por ID
    ========================= */
@@ -317,6 +316,7 @@ router.get('/:id', async (req, res) => {
     res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
+
 
 /* =========================
    Actualizar estado de pedido
@@ -380,6 +380,7 @@ router.put('/:id/estado', async (req, res) => {
   }
 });
 
+
 /* =========================
    Eliminar pedido
    ========================= */
@@ -393,6 +394,7 @@ router.delete('/:id', async (req, res) => {
     res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
+
 
 // 🟢 Confirmar pago manualmente (solo admin)
 router.put('/:id/confirmar-pago', verificarTokenAdmin, async (req, res) => {
