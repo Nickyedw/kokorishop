@@ -5,7 +5,7 @@ import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
 // ⬇️ Layout global que pinta MiniCart + CartFab en toda la app
-import { CartLayout } from "./layouts/CartLayout";
+import CartLayout from "./layouts/CartLayout";
 
 // Páginas principales
 import Home from "./pages/Home";
