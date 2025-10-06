@@ -1,21 +1,21 @@
 // src/layouts/CartLayout.jsx
-import MiniCart from "../components/MiniCart";
+import React from "react";
 import CartFab from "../components/CartFab";
-import useCartTotals from "../hooks/useCartTotals";
+import MiniCart from "../components/MiniCart";
 
 export default function CartLayout({ children }) {
-  // Si tu key de localStorage no es "cart", cámbiala aquí
-  const { count, subtotal } = useCartTotals("cart");
-
-  const openCart = () => {
-    window.dispatchEvent(new Event("cart:open"));
+  const openMini = () => {
+    window.dispatchEvent(new CustomEvent("minicart:open"));
   };
 
   return (
     <>
       {children}
-      <MiniCart />
-      <CartFab count={count} subtotal={subtotal} onOpenCart={openCart} />
+      {/* Botón flotante (arrastrable) */}
+      <CartFab onOpenCart={openMini} />
+
+      {/* Barra breve que aparece cuando se abre el mini-cart */}
+      <MiniCart cartPath="/Cart" />
     </>
   );
 }

@@ -1,26 +1,35 @@
 // src/components/CartFab.jsx
 import React, { useEffect, useRef, useState } from "react";
+import { FaShoppingCart } from "react-icons/fa";
 import useCartTotals from "../hooks/useCartTotals";
 
+/**
+ * FAB flotante del carrito:
+ * - Arrastrable (touch/mouse) con "touch-action: none" para que no haga scroll
+ * - Tap abre el MiniCart
+ * - Recuerda posición en localStorage (porcentual)
+ */
 export default function CartFab({ onOpenCart }) {
   const { count, subtotal } = useCartTotals();
-  const [expanded, setExpanded] = useState(false);
-  const [dragging, setDragging] = useState(false);
+
+  // pos guardada en % (viewport), para que funcione en distintas pantallas
   const [pos, setPos] = useState(() => {
     try {
       const s = localStorage.getItem("cartfab_pos");
-      return s ? JSON.parse(s) : { xPerc: 84, yPerc: 78 };
+      return s ? JSON.parse(s) : { xPerc: 84, yPerc: 70 }; // por defecto, a media altura derecha
     } catch {
-      return { xPerc: 84, yPerc: 78 };
+      return { xPerc: 84, yPerc: 70 };
     }
   });
 
-  const holdRef = useRef(null);
-  const timerRef = useRef(null);
-  const startRef = useRef({ startX: 0, startY: 0, baseXP: 0, baseYP: 0 });
-  const movedRef = useRef(false);
+  const [expanded, setExpanded] = useState(false);
+  const [dragging, setDragging] = useState(false);
 
-  // Mostrar por 2.5s cuando se agrega al carrito
+  const holderRef = useRef(null);
+  const timerRef = useRef(null);
+  const startRef = useRef({ sx: 0, sy: 0, dx: 0, dy: 0, moved: false });
+
+  // Mostrar breve “toast” con subtotal al agregar
   useEffect(() => {
     const handler = () => {
       setExpanded(true);
@@ -34,97 +43,100 @@ export default function CartFab({ onOpenCart }) {
     };
   }, []);
 
-  // Drag (pointer events, táctil y mouse)
+  // Guardar posición cuando cambie
   useEffect(() => {
-    const el = holdRef.current;
-    if (!el) return;
+    try {
+      localStorage.setItem("cartfab_pos", JSON.stringify(pos));
+    } catch {/* noop */}
+  }, [pos]);
 
-    function onDown(e) {
-      e.preventDefault();
-      setDragging(true);
-      movedRef.current = false;
-      startRef.current.startX = e.clientX;
-      startRef.current.startY = e.clientY;
-      startRef.current.baseXP = pos.xPerc;
-      startRef.current.baseYP = pos.yPerc;
-      window.addEventListener("pointermove", onMove, { passive: false });
-      window.addEventListener("pointerup", onUp, { passive: false });
-    }
-
-    function onMove(e) {
-      if (!dragging) return;
-      e.preventDefault();
-      const dx = e.clientX - startRef.current.startX;
-      const dy = e.clientY - startRef.current.startY;
-      if (Math.abs(dx) + Math.abs(dy) > 6) movedRef.current = true;
-
-      const vw = Math.max(320, window.innerWidth);
-      const vh = Math.max(480, window.innerHeight);
-      const xPerc = Math.min(96, Math.max(4, startRef.current.baseXP + (dx / vw) * 100));
-      const yPerc = Math.min(96, Math.max(4, startRef.current.baseYP + (dy / vh) * 100));
-      const next = { xPerc, yPerc };
-      setPos(next);
-      try {
-        localStorage.setItem("cartfab_pos", JSON.stringify(next));
-      } catch {/* noop */}
-    }
-
-    function onUp(e) {
-      e.preventDefault();
-      setDragging(false);
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
-    }
-
-    el.addEventListener("pointerdown", onDown, { passive: false });
-    return () => el.removeEventListener("pointerdown", onDown);
-  }, [dragging, pos]);
-
-  const openCart = () => {
-    if (dragging || movedRef.current) return;
-    if (onOpenCart) onOpenCart();
-    else window.dispatchEvent(new CustomEvent("minicart:open"));
+  // Drag (pointer events)
+  const onPointerDown = (e) => {
+    // evita scroll mientras arrastras
+    e.preventDefault();
+    const r = holderRef.current?.getBoundingClientRect();
+    startRef.current = {
+      sx: e.clientX,
+      sy: e.clientY,
+      dx: r ? e.clientX - r.left : 0,
+      dy: r ? e.clientY - r.top : 0,
+      moved: false,
+    };
+    setDragging(true);
+    holderRef.current?.setPointerCapture?.(e.pointerId);
   };
 
-  // No muestres el FAB si el carrito está vacío
+  const onPointerMove = (e) => {
+    if (!dragging) return;
+    const { sx, sy, dx, dy } = startRef.current;
+
+    const moveX = Math.abs(e.clientX - sx);
+    const moveY = Math.abs(e.clientY - sy);
+    if (moveX > 4 || moveY > 4) startRef.current.moved = true;
+
+    const vw = Math.max(320, window.innerWidth || 320);
+    const vh = Math.max(480, window.innerHeight || 480);
+
+    // posición “top/left” en px, limitada a la pantalla
+    let x = e.clientX - dx;
+    let y = e.clientY - dy;
+
+    const size = 64; // aprox tamaño del botón
+    x = Math.max(8, Math.min(vw - size - 8, x));
+    y = Math.max(8, Math.min(vh - size - 8, y));
+
+    setPos({ xPerc: (x / vw) * 100, yPerc: (y / vh) * 100 });
+  };
+
+  const onPointerUp = (e) => {
+    if (!dragging) return;
+    holderRef.current?.releasePointerCapture?.(e.pointerId);
+    setDragging(false);
+
+    // Si no hubo movimiento real, lo consideramos un tap → abrir carrito
+    if (!startRef.current.moved) {
+      if (typeof onOpenCart === "function") onOpenCart();
+      else window.dispatchEvent(new CustomEvent("minicart:open"));
+    }
+  };
+
   if (!count) return null;
+
+  // estilos inline para posicionar y permitir drag correcto en móvil
+  const style = {
+    left: `calc(${pos.xPerc}vw)`,
+    top: `calc(${pos.yPerc}vh)`,
+    touchAction: "none",        // ¡muy importante para drag en mobile!
+    userSelect: "none",
+  };
 
   return (
     <div
-      ref={holdRef}
-      role="button"
-      aria-label="Carrito"
-      onClick={openCart}
-      className="fixed z-[70] select-none cursor-pointer touch-none"
-      style={{
-        left: `${pos.xPerc}vw`,
-        top: `${pos.yPerc}vh`,
-        transform: "translate(-50%, -50%)",
-        touchAction: "none",
-      }}
+      ref={holderRef}
+      className="fixed z-[9999] -translate-x-1/2 -translate-y-1/2"
+      style={style}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
     >
-      <div className="relative">
-        {/* Badge de cantidad */}
-        <span className="absolute -top-2 -right-2 grid place-items-center w-5 h-5 rounded-full bg-yellow-400 text-purple-900 text-xs font-extrabold shadow">
+      {/* Botón principal */}
+      <button
+        type="button"
+        className="relative grid place-items-center w-14 h-14 rounded-full bg-pink-500 text-white shadow-lg active:scale-95 transition"
+        aria-label="Abrir carrito"
+      >
+        <FaShoppingCart className="text-xl" />
+        <span className="absolute -top-1 -right-1 w-6 h-6 grid place-items-center text-xs rounded-full bg-yellow-300 text-purple-900 font-bold shadow">
           {count}
         </span>
+      </button>
 
-        {/* Botón redondo */}
-        <div className={`w-12 h-12 grid place-items-center rounded-full shadow-lg
-                         ${expanded ? "bg-pink-500" : "bg-purple-700"} text-white`}>
-          🛒
+      {/* Globito de subtotal (solo cuando 'expanded' = true) */}
+      {expanded && (
+        <div className="absolute -left-2 -top-6 translate-y-[-100%] bg-black/80 text-white text-xs px-2 py-1 rounded-md whitespace-nowrap pointer-events-none">
+          Subtotal: S/ {Number(subtotal || 0).toFixed(2)}
         </div>
-
-        {/* Subtotal expandible */}
-        <div
-          className={`absolute left-1/2 -translate-x-1/2 mt-2 px-3 py-1
-                      rounded-full bg-purple-800 text-white text-xs shadow
-                      transition-all duration-300
-                      ${expanded ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-2 pointer-events-none"}`}
-        >
-          Subtotal: S/ {Number(subtotal).toFixed(2)}
-        </div>
-      </div>
+      )}
     </div>
   );
 }

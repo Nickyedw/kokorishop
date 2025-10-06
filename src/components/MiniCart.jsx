@@ -13,7 +13,7 @@ export default function MiniCart({ cartPath = "/Cart" }) {
     const onOpen = () => {
       setOpen(true);
       clearTimeout(timerRef.current);
-      timerRef.current = setTimeout(() => setOpen(false), 2600);
+      timerRef.current = setTimeout(() => setOpen(false), 2400);
     };
     window.addEventListener("minicart:open", onOpen);
     return () => {
@@ -22,26 +22,27 @@ export default function MiniCart({ cartPath = "/Cart" }) {
     };
   }, []);
 
-  if (!count) return null;
+  if (!count || !open) return null;
 
   return (
-    <div
-      className={`fixed bottom-3 left-0 right-0 z-[60] mx-auto w-[92%] max-w-md transition-all duration-300
-      ${open ? "opacity-100 translate-y-0" : "opacity-0 translate-y-6 pointer-events-none"}`}
-    >
-      <button
-        onClick={() => navigate(cartPath, { replace: false })}
-        className="w-full rounded-full bg-purple-700/95 hover:bg-purple-700 text-white shadow-lg px-4 py-3 flex items-center justify-between"
-        aria-label="Ver carrito"
-      >
-        <div className="flex items-center gap-2">
-          <span className="inline-grid place-items-center w-7 h-7 bg-pink-500 rounded-full text-xs font-bold">
+    <div className="fixed bottom-3 left-0 right-0 z-[60] mx-auto w-[92%] max-w-md">
+      <div className="rounded-2xl bg-white/95 text-purple-900 shadow-xl backdrop-blur border border-white/40 px-3 py-2 flex items-center justify-between">
+        <div className="flex items-center gap-2 font-semibold">
+          <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-pink-500 text-white text-xs">
             {count}
           </span>
-          <span className="font-semibold">Ver carrito</span>
+          <span>Ver carrito</span>
         </div>
-        <span className="text-sm opacity-90">Subtotal: S/ {Number(subtotal).toFixed(2)}</span>
-      </button>
+        <div className="text-sm text-purple-700">
+          Subtotal: <strong>S/ {Number(subtotal || 0).toFixed(2)}</strong>
+        </div>
+        <button
+          onClick={() => navigate(cartPath, { replace: false })}
+          className="ml-3 rounded-full bg-pink-500 hover:bg-pink-600 text-white px-3 py-1.5 text-sm font-medium"
+        >
+          Abrir
+        </button>
+      </div>
     </div>
   );
 }
