@@ -1,20 +1,21 @@
 // src/pages/Home.jsx
-import React, { useEffect, useState, useContext } from 'react';
-import { FaHeart, FaShoppingBag, FaBars } from 'react-icons/fa';
-import { Link } from 'react-router-dom';
+import React, { useEffect, useState, useContext } from "react";
+import { FaHeart, FaShoppingBag, FaBars } from "react-icons/fa";
+import { Link } from "react-router-dom";
 
-import ProductCard from '../components/ProductCard';
-import { CartContext } from '../context/CartContext';
-import { FavoritesContext } from '../context/FavoritesContext';
-import MiniCart from '../components/MiniCart';
-import MobileMenu from '../components/MobileMenu';
+import ProductCard from "../components/ProductCard";
+import { CartContext } from "../context/CartContext";
+import { FavoritesContext } from "../context/FavoritesContext";
+// ⛔️ MiniCart YA NO se importa aquí; lo pinta CartLayout de forma global
+// import MiniCart from "../components/MiniCart";
+import MobileMenu from "../components/MobileMenu";
 import SloganBar from "../components/SloganBar";
 
 // Nombre de la tienda (se muestra en el header)
-const STORE_NAME = 'Kokorishop';
+const STORE_NAME = "Kokorishop";
 
 const base = import.meta.env.BASE_URL; // "/" en dev, "/kokorishop/" en prod si usas subcarpeta
-const API_APP = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const API_APP = import.meta.env.VITE_API_URL || "http://localhost:3001";
 const API_BASE = `${API_APP}/api`;
 
 function HeroVideo() {
@@ -41,7 +42,6 @@ function HeroVideo() {
 
           {/* layout interno: cinta arriba, CTA abajo */}
           <div className="absolute inset-0 z-10 flex flex-col">
-           
             <div className="flex-1" />
 
             <div className="pb-0 sm:pb-4 self-center">
@@ -89,7 +89,7 @@ function HeroVideo() {
 }
 
 const Home = () => {
-  const usuario_nombre = localStorage.getItem('usuario_nombre') || 'Invitado';
+  const usuario_nombre = localStorage.getItem("usuario_nombre") || "Invitado";
   const { cartItems } = useContext(CartContext);
   const { favorites } = useContext(FavoritesContext);
 
@@ -98,37 +98,46 @@ const Home = () => {
   const [oferta, setOferta] = useState([]);
   const [menuOpen, setMenuOpen] = useState(false);
 
-  const totalItems = (cartItems || []).reduce((sum, item) => sum + (item?.quantity || 0), 0);
+  const totalItems = (cartItems || []).reduce(
+    (sum, item) => sum + (item?.quantity || 0),
+    0
+  );
 
   // helpers rol admin
   const readBool = (k) => {
-    const v = (localStorage.getItem(k) || '').toString().trim().toLowerCase();
-    return v === '1' || v === 'true' || v === 'yes';
+    const v = (localStorage.getItem(k) || "").toString().trim().toLowerCase();
+    return v === "1" || v === "true" || v === "yes";
   };
   const readRoleIsAdmin = (...keys) =>
-    keys.some((k) => (localStorage.getItem(k) || '').toString().trim().toLowerCase() === 'admin');
+    keys.some(
+      (k) =>
+        (localStorage.getItem(k) || "").toString().trim().toLowerCase() ===
+        "admin"
+    );
 
   try {
     const qs = new URLSearchParams(window.location.search);
-    if (qs.get('admin') === '1') localStorage.setItem('is_admin', 'true');
-  } catch {/* noop */}
+    if (qs.get("admin") === "1") localStorage.setItem("is_admin", "true");
+  } catch {
+    /* noop */
+  }
 
   const isAdmin =
-    readRoleIsAdmin('usuario_rol', 'rol', 'role') ||
-    readBool('usuario_is_admin') ||
-    readBool('is_admin') ||
-    readBool('es_admin') ||
-    readBool('admin') ||
-    readBool('isAdmin');
+    readRoleIsAdmin("usuario_rol", "rol", "role") ||
+    readBool("usuario_is_admin") ||
+    readBool("is_admin") ||
+    readBool("es_admin") ||
+    readBool("admin") ||
+    readBool("isAdmin");
 
   useEffect(() => {
     const cargarSecciones = async () => {
       try {
         const bust = `?bust=${Date.now()}`;
         const [resDestacados, resMasVendidos, resOferta] = await Promise.all([
-          fetch(`${API_BASE}/productos/destacados${bust}`, { cache: 'no-store' }),
-          fetch(`${API_BASE}/productos/mas-vendidos${bust}`, { cache: 'no-store' }),
-          fetch(`${API_BASE}/productos/oferta${bust}`, { cache: 'no-store' }),
+          fetch(`${API_BASE}/productos/destacados${bust}`, { cache: "no-store" }),
+          fetch(`${API_BASE}/productos/mas-vendidos${bust}`, { cache: "no-store" }),
+          fetch(`${API_BASE}/productos/oferta${bust}`, { cache: "no-store" }),
         ]);
 
         const [dataDestacados, dataMasVendidos, dataOferta] = await Promise.all([
@@ -141,14 +150,26 @@ const Home = () => {
         setMasVendidos(Array.isArray(dataMasVendidos) ? dataMasVendidos : []);
         setOferta(Array.isArray(dataOferta) ? dataOferta : []);
       } catch (err) {
-        console.error('Error al cargar secciones del home:', err);
+        console.error("Error al cargar secciones del home:", err);
       }
     };
     cargarSecciones();
   }, []);
 
+  // handler para abrir MiniCart global
+  const openMiniCart = () => {
+    window.dispatchEvent(new Event("cart:open"));
+  };
+
+  // handler reutilizable cuando se agrega al carrito
+  const handleAddedToCart = () => {
+    window.dispatchEvent(new CustomEvent("cart:add", { detail: { amount: 1 } }));
+    window.dispatchEvent(new Event("cart:changed"));
+    window.dispatchEvent(new Event("cart:open"));
+  };
+
   // Si hay footer admin, reservamos espacio
-  const pagePaddingBottom = isAdmin ? 'pb-[88px]' : 'pb-6';
+  const pagePaddingBottom = isAdmin ? "pb-[88px]" : "pb-6";
 
   return (
     <div className={`min-h-screen bg-purple-900 text-white ${pagePaddingBottom}`}>
@@ -168,7 +189,7 @@ const Home = () => {
         <div className="flex justify-center">
           <img
             src={`${base}img/logo_kokorishop.png`}
-            alt="KokoriShop"
+            alt="Kokorishop"
             className="h-16 sm:h-20 md:h-24 lg:h-28 xl:h-32 w-[min(85vw,820px)] object-contain mx-auto drop-shadow-[0_0_6px_rgba(255,255,255,.55)]"
             loading="eager"
             decoding="async"
@@ -186,14 +207,20 @@ const Home = () => {
             )}
           </Link>
 
-          <Link to="/Cart" className="relative" aria-label="Carrito">
+          {/* Botón que abre el MiniCart global */}
+          <button
+            type="button"
+            className="relative"
+            aria-label="Abrir carrito"
+            onClick={openMiniCart}
+          >
             <FaShoppingBag />
             {totalItems > 0 && (
               <span className="absolute -top-2 -right-2 bg-yellow-400 text-purple-900 text-xs w-5 h-5 grid place-items-center rounded-full">
                 {totalItems}
               </span>
             )}
-          </Link>
+          </button>
 
           <button
             type="button"
@@ -231,7 +258,7 @@ const Home = () => {
         </div>
       </div>
 
-     <SloganBar variant="contained" className="mt-1" />
+      <SloganBar variant="contained" className="mt-1" />
 
       {/* Hero (solo video) */}
       <HeroVideo />
@@ -240,7 +267,9 @@ const Home = () => {
       {destacados.length > 0 && (
         <section className="px-6 mt-8">
           <h2 className="flex items-center gap-2 mb-4 text-xl sm:text-2xl lg:text-3xl font-bold text-yellow-300 drop-shadow-[0_1px_0_rgba(0,0,0,.25)]">
-            <span className="text-lg sm:text-xl lg:text-2xl" aria-hidden>⭐</span>
+            <span className="text-lg sm:text-xl lg:text-2xl" aria-hidden>
+              ⭐
+            </span>
             Productos Destacados
           </h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
@@ -248,7 +277,7 @@ const Home = () => {
               <ProductCard
                 key={producto.id}
                 producto={producto}
-                onAddedToCart={() => window.dispatchEvent(new CustomEvent('minicart:open'))}
+                onAddedToCart={handleAddedToCart}
               />
             ))}
           </div>
@@ -258,13 +287,15 @@ const Home = () => {
       {/* 🔥 Más Vendidos */}
       {masVendidos.length > 0 && (
         <section className="px-6 mt-10">
-          <h2 className="flex items-center gap-2 text-xl sm:text-2xl lg:text-3xl font-bold text-orange-300 mb-4">🔥 Más Vendidos</h2>
+          <h2 className="flex items-center gap-2 text-xl sm:text-2xl lg:text-3xl font-bold text-orange-300 mb-4">
+            🔥 Más Vendidos
+          </h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
             {masVendidos.map((producto) => (
               <ProductCard
                 key={producto.id}
                 producto={producto}
-                onAddedToCart={() => window.dispatchEvent(new CustomEvent('minicart:open'))}
+                onAddedToCart={handleAddedToCart}
               />
             ))}
           </div>
@@ -274,13 +305,15 @@ const Home = () => {
       {/* 💥 Productos en Oferta */}
       {oferta.length > 0 && (
         <section className="px-6 mt-10">
-          <h2 className="flex items-center gap-2 text-xl sm:text-2xl lg:text-3xl font-bold text-red-300 mb-4">💥 Productos en Oferta</h2>
+          <h2 className="flex items-center gap-2 text-xl sm:text-2xl lg:text-3xl font-bold text-red-300 mb-4">
+            💥 Productos en Oferta
+          </h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
             {oferta.map((producto) => (
               <ProductCard
                 key={producto.id}
                 producto={producto}
-                onAddedToCart={() => window.dispatchEvent(new CustomEvent('minicart:open'))}
+                onAddedToCart={handleAddedToCart}
               />
             ))}
           </div>
@@ -319,7 +352,7 @@ const Home = () => {
         </footer>
       )}
 
-      <MiniCart cartPath="/Cart" checkoutMode="query" />
+      {/* ⛔️ Eliminado: <MiniCart .../> — ahora lo muestra CartLayout */}
       <MobileMenu
         isOpen={menuOpen}
         onClose={() => setMenuOpen(false)}

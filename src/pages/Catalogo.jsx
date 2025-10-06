@@ -1,30 +1,29 @@
 // src/pages/Catalogo.jsx
-import React, { useEffect, useState } from 'react';
-import ProductCard from '../components/ProductCard';
-import { FaSearch, FaHome } from 'react-icons/fa';
-import { useNavigate } from 'react-router-dom';
-import { motion as Motion } from 'framer-motion';
-import MiniCart from '../components/MiniCart';
+import React, { useEffect, useState } from "react";
+import ProductCard from "../components/ProductCard";
+import { FaSearch, FaHome } from "react-icons/fa";
+import { useNavigate } from "react-router-dom";
+import { motion as Motion } from "framer-motion";
 
 // 🔑 Base de la API desde .env (.env.development / .env.production)
-const API_APP = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const API_APP = import.meta.env.VITE_API_URL || "http://localhost:3001";
 
 const Catalogo = () => {
   const [categorias, setCategorias] = useState([]);
   const [productos, setProductos] = useState([]);
-  const [categoriaSeleccionada, setCategoriaSeleccionada] = useState('');
-  const [busqueda, setBusqueda] = useState('');
+  const [categoriaSeleccionada, setCategoriaSeleccionada] = useState("");
+  const [busqueda, setBusqueda] = useState("");
   const navigate = useNavigate();
 
   useEffect(() => {
     const cargarCategorias = async () => {
       try {
-        const res = await fetch(`${API_APP}/api/categorias`, { cache: 'no-store' });
+        const res = await fetch(`${API_APP}/api/categorias`, { cache: "no-store" });
         if (!res.ok) throw new Error(await res.text());
         const data = await res.json();
         setCategorias(Array.isArray(data) ? data : []);
       } catch (err) {
-        console.error('Error al cargar categorías:', err);
+        console.error("Error al cargar categorías:", err);
         setCategorias([]);
       }
     };
@@ -38,12 +37,12 @@ const Catalogo = () => {
           ? `${API_APP}/api/productos/categoria/${categoriaSeleccionada}`
           : `${API_APP}/api/productos`;
 
-        const res = await fetch(url, { cache: 'no-store' });
+        const res = await fetch(url, { cache: "no-store" });
         if (!res.ok) throw new Error(await res.text());
         const data = await res.json();
         setProductos(Array.isArray(data) ? data : []);
       } catch (err) {
-        console.error('Error al cargar productos:', err);
+        console.error("Error al cargar productos:", err);
         setProductos([]);
       }
     };
@@ -53,11 +52,18 @@ const Catalogo = () => {
   const productosFiltrados = productos.filter((p) => {
     const termino = busqueda.toLowerCase();
     return (
-      p.nombre.toLowerCase().includes(termino) ||
-      p.descripcion.toLowerCase().includes(termino) ||
-      (p.categoria_nombre?.toLowerCase().includes(termino))
+      (p.nombre || "").toLowerCase().includes(termino) ||
+      (p.descripcion || "").toLowerCase().includes(termino) ||
+      (p.categoria_nombre || "").toLowerCase().includes(termino)
     );
   });
+
+  // 👉 igual que en Home: al agregar al carrito notificamos globalmente
+  const handleAddedToCart = () => {
+    window.dispatchEvent(new CustomEvent("cart:add", { detail: { amount: 1 } }));
+    window.dispatchEvent(new Event("cart:changed"));
+    window.dispatchEvent(new Event("cart:open"));
+  };
 
   return (
     <div className="min-h-screen bg-purple-900 text-white px-4 sm:px-6 py-6">
@@ -131,7 +137,11 @@ const Catalogo = () => {
       {productosFiltrados.length > 0 ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 sm:gap-5">
           {productosFiltrados.map((producto) => (
-            <ProductCard key={producto.id} producto={producto} />
+            <ProductCard
+              key={producto.id}
+              producto={producto}
+              onAddedToCart={handleAddedToCart}
+            />
           ))}
         </div>
       ) : (
@@ -140,7 +150,7 @@ const Catalogo = () => {
 
       {/* Botón flotante Home */}
       <Motion.button
-        onClick={() => navigate('/')}
+        onClick={() => navigate("/")}
         className="
           fixed bottom-6 left-6 bg-pink-500 hover:bg-pink-600
           text-white px-5 py-4 rounded-full shadow-lg
@@ -150,17 +160,17 @@ const Catalogo = () => {
         animate={{
           scale: [1, 1.05, 1],
           boxShadow: [
-            '0 0 0 rgba(0,0,0,0)',
-            '0 0 20px rgba(236,72,153,0.5)',
-            '0 0 0 rgba(0,0,0,0)',
+            "0 0 0 rgba(0,0,0,0)",
+            "0 0 20px rgba(236,72,153,0.5)",
+            "0 0 0 rgba(0,0,0,0)",
           ],
         }}
-        transition={{ repeat: Infinity, repeatType: 'loop', duration: 2 }}
+        transition={{ repeat: Infinity, repeatType: "loop", duration: 2 }}
       >
         <FaHome />
       </Motion.button>
 
-      <MiniCart cartPath="/Cart" checkoutMode="query" />
+      {/* ⛔️ Eliminado: <MiniCart .../> — lo renderiza CartLayout globalmente */}
     </div>
   );
 };

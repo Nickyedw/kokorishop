@@ -5,7 +5,6 @@ import { FavoritesContext } from "../context/FavoritesContext";
 import { CartContext } from "../context/CartContext";
 import { toast } from "react-toastify";
 import { FaShoppingCart, FaBars } from "react-icons/fa";
-import MiniCart from "../components/MiniCart";
 import MobileMenu from "../components/MobileMenu";
 import ImageZoom from "../components/ImageZoom";
 
@@ -93,13 +92,19 @@ export default function Favorites() {
 
     if (addToCart) {
       addToCart(item);
+
+      // ✅ Eventos globales para CartFab/MiniCart (CartLayout)
+      window.dispatchEvent(new CustomEvent("cart:add", { detail: { amount: 1, item } }));
+      window.dispatchEvent(new Event("cart:changed"));
+      window.dispatchEvent(new Event("cart:open"));
+      // compat heredada:
+      window.dispatchEvent(new Event("minicart:open"));
+
       if (en_oferta && ahorro > 0) {
         toast.success(`🎉 ¡Oferta agregada! Ahorras S/ ${ahorro.toFixed(2)} (${pct}%)`);
       } else {
         toast.success("🛒 Agregado al carrito");
       }
-      // abrir MiniCart
-      window.dispatchEvent(new CustomEvent("minicart:open"));
     } else {
       toast.info("Configura CartContext.addToCart para usar esta acción");
     }
@@ -240,7 +245,7 @@ export default function Favorites() {
                             <span className="text-gray-500 line-through">{fmt(regular_price)}</span>
                             <span className="font-extrabold text-purple-900">{fmt(price)}</span>
                           </div>
-                          <div className="text-emerald-600 font-semibold text-[12px] sm:text-[13px] mt-0.5">
+                          <div className="text-emerald-600 font-semibold text-[12px] sm:text[13px] mt-0.5">
                             Ahorras {fmt(ahorro)} ({pct}%)
                           </div>
                         </>
@@ -279,8 +284,7 @@ export default function Favorites() {
         )}
       </div>
 
-      {/* MiniCart */}
-      <MiniCart cartPath="/Cart" checkoutMode="query" />
+      {/* ⛔️ Eliminado: <MiniCart .../> — lo renderiza CartLayout globalmente */}
 
       {/* Mobile Menu */}
       <MobileMenu
