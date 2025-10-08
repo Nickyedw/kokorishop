@@ -79,7 +79,6 @@ export const CartProvider = ({ children }) => {
   const emitAdded = useCallback((amount = 1) => {
     try {
       window.dispatchEvent(new CustomEvent("cart:add", { detail: { amount } }));
-      window.dispatchEvent(new CustomEvent("minicart:open"));
     } catch {/* noop */}
   }, []);
 

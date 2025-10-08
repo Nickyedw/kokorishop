@@ -1,4 +1,3 @@
-// src/components/CartFab.jsx
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { FaShoppingCart } from "react-icons/fa";
 import useCartTotals from "../hooks/useCartTotals";
@@ -6,12 +5,9 @@ import useCartTotals from "../hooks/useCartTotals";
 export default function CartFab({ onOpenCart }) {
   const { count, subtotal } = useCartTotals("cart");
 
-  // popover visible?
   const [expanded, setExpanded] = useState(false);
-  // arrastre
   const [dragging, setDragging] = useState(false);
 
-  // posición del FAB en % del viewport (se guarda en localStorage)
   const [pos, setPos] = useState(() => {
     try {
       const s = localStorage.getItem("cartfab_pos");
@@ -21,16 +17,13 @@ export default function CartFab({ onOpenCart }) {
     }
   });
 
-  // refs
   const sizeRef = useRef({ w: 0, h: 0 });
   const wrapRef = useRef(null);
   const fabRef = useRef(null);
   const timerRef = useRef(null);
 
-  // formateador
   const fmt = (n) => `S/ ${Number(n || 0).toFixed(2)}`;
 
-  // clamp posición a viewport (en %)
   const clampToViewport = useCallback((p) => {
     const { w = 0, h = 0 } = sizeRef.current || {};
     const maxX = Math.max(0, window.innerWidth - w);
@@ -45,12 +38,10 @@ export default function CartFab({ onOpenCart }) {
     };
   }, []);
 
-  // medir tamaños para que el clamp funcione bien
   useEffect(() => {
     const el = wrapRef.current;
-    if (el) {
-      sizeRef.current = { w: el.offsetWidth, h: el.offsetHeight };
-    }
+    if (el) sizeRef.current = { w: el.offsetWidth, h: el.offsetHeight };
+
     const onResize = () => {
       if (!fabRef.current || !wrapRef.current) return;
       sizeRef.current = {
@@ -63,12 +54,10 @@ export default function CartFab({ onOpenCart }) {
     return () => window.removeEventListener("resize", onResize);
   }, [clampToViewport]);
 
-  // guardar posición cuando cambia
   useEffect(() => {
     localStorage.setItem("cartfab_pos", JSON.stringify(pos));
   }, [pos]);
 
-  // mostrar popover automáticamente al agregar
   useEffect(() => {
     const onAdd = () => {
       setExpanded(true);
@@ -82,7 +71,7 @@ export default function CartFab({ onOpenCart }) {
     };
   }, []);
 
-  // === Drag ================================================================
+  // === drag
   const startRef = useRef({
     down: false,
     x: 0,
@@ -93,7 +82,6 @@ export default function CartFab({ onOpenCart }) {
   });
 
   const onPointerDown = (e) => {
-    // capturamos sólo “toque primario”
     if (e.button !== undefined && e.button !== 0) return;
     startRef.current = {
       down: true,
@@ -132,26 +120,21 @@ export default function CartFab({ onOpenCart }) {
     const { moved } = startRef.current;
     startRef.current.down = false;
     setDragging(false);
-    if (!moved) {
-      // click => alterna popover
-      setExpanded((v) => !v);
-    }
+    if (!moved) setExpanded((v) => !v); // ← solo acá alternamos el popover
   };
-  // ========================================================================
+  // === /drag
 
-  // anclaje del popover según la X (si está a la derecha, lo mostramos a la izquierda)
   const anchorRight = pos.xPerc > 50;
 
   return (
     <div
       ref={wrapRef}
       className="fixed z-[1000]"
-      // usamos vw/vh para que funcione sin leer window en el render
       style={{
         left: `${pos.xPerc}vw`,
         top: `${pos.yPerc}vh`,
         transform: "translate(-50%, -50%)",
-        touchAction: "none", // arrastre fluido en móvil
+        touchAction: "none",
       }}
     >
       {/* Popover */}
@@ -162,8 +145,8 @@ export default function CartFab({ onOpenCart }) {
             top: "50%",
             transform: "translateY(-50%)",
             ...(anchorRight
-              ? { right: "calc(100% + 12px)" } // si el FAB está a la derecha, popover a la izquierda
-              : { left: "calc(100% + 12px)" }), // si está a la izquierda, popover a la derecha
+              ? { right: "calc(100% + 12px)" }
+              : { left: "calc(100% + 12px)" }),
           }}
           onClick={(e) => e.stopPropagation()}
         >
@@ -181,7 +164,7 @@ export default function CartFab({ onOpenCart }) {
                 onClick={(e) => {
                   e.stopPropagation();
                   setExpanded(false);
-                  onOpenCart?.(); // 🔔 abre QuickView (evento lo lanza CartLayout)
+                  onOpenCart?.();
                 }}
               >
                 Abrir
@@ -198,21 +181,16 @@ export default function CartFab({ onOpenCart }) {
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
-        onClick={(e) => {
-          // si arrastraste, evitamos considerar click
-          if (startRef.current.moved) {
-            e.preventDefault();
-            e.stopPropagation();
-            return;
-          }
-          setExpanded((v) => !v);
+        // el click ya NO alterna; lo hace onPointerUp
+        onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") setExpanded((v) => !v);
         }}
         className={`relative grid place-items-center w-[56px] h-[56px] rounded-full bg-pink-500 shadow-2xl border-2 border-yellow-300
           ${dragging ? "cursor-grabbing" : "cursor-grab"} select-none`}
         aria-label="Carrito"
       >
         <FaShoppingCart className="text-white text-xl drop-shadow" />
-        {/* badge */}
         {count > 0 && (
           <span className="absolute -top-2 -right-2 w-6 h-6 grid place-items-center rounded-full bg-yellow-300 text-purple-900 text-xs font-extrabold border border-white">
             {count}
