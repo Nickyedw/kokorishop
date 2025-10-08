@@ -1,21 +1,19 @@
 // src/layouts/CartLayout.jsx
 import React from "react";
 import CartFab from "../components/CartFab";
-import MiniCart from "../components/MiniCart";
+import CartQuickView from "../components/CartQuickView";
 
 export default function CartLayout({ children }) {
   const openMini = () => {
-    window.dispatchEvent(new CustomEvent("minicart:open"));
+    // ya no usamos la barrita; abrimos el quick-view cuando haga falta
+    window.dispatchEvent(new CustomEvent("cart:quick:open"));
   };
 
   return (
     <>
       {children}
-      {/* Botón flotante (arrastrable) */}
       <CartFab onOpenCart={openMini} />
-
-      {/* Barra breve que aparece cuando se abre el mini-cart */}
-      <MiniCart cartPath="/Cart" />
+      <CartQuickView />
     </>
   );
 }

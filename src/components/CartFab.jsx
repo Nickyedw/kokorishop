@@ -3,33 +3,30 @@ import React, { useEffect, useRef, useState } from "react";
 import { FaShoppingCart } from "react-icons/fa";
 import useCartTotals from "../hooks/useCartTotals";
 
-/**
- * FAB flotante del carrito:
- * - Arrastrable (touch/mouse) con "touch-action: none" para que no haga scroll
- * - Tap abre el MiniCart
- * - Recuerda posición en localStorage (porcentual)
- */
-export default function CartFab({ onOpenCart }) {
-  const { count, subtotal } = useCartTotals();
+export default function CartFab() {
+  const { count, subtotal } = useCartTotals("cart");
 
-  // pos guardada en % (viewport), para que funcione en distintas pantallas
+  const [expanded, setExpanded] = useState(false);
+  const [dragging, setDragging] = useState(false);
   const [pos, setPos] = useState(() => {
     try {
       const s = localStorage.getItem("cartfab_pos");
-      return s ? JSON.parse(s) : { xPerc: 84, yPerc: 70 }; // por defecto, a media altura derecha
+      return s ? JSON.parse(s) : { xPerc: 84, yPerc: 70 };
     } catch {
       return { xPerc: 84, yPerc: 70 };
     }
   });
 
-  const [expanded, setExpanded] = useState(false);
-  const [dragging, setDragging] = useState(false);
-
-  const holderRef = useRef(null);
+  const wrapRef = useRef(null);
+  const holdRef = useRef(null);
   const timerRef = useRef(null);
-  const startRef = useRef({ sx: 0, sy: 0, dx: 0, dy: 0, moved: false });
 
-  // Mostrar breve “toast” con subtotal al agregar
+  // Guardar posición
+  useEffect(() => {
+    localStorage.setItem("cartfab_pos", JSON.stringify(pos));
+  }, [pos]);
+
+  // Mostrar popover automáticamente al agregar al carrito
   useEffect(() => {
     const handler = () => {
       setExpanded(true);
@@ -43,100 +40,106 @@ export default function CartFab({ onOpenCart }) {
     };
   }, []);
 
-  // Guardar posición cuando cambie
-  useEffect(() => {
-    try {
-      localStorage.setItem("cartfab_pos", JSON.stringify(pos));
-    } catch {/* noop */}
-  }, [pos]);
-
   // Drag (pointer events)
-  const onPointerDown = (e) => {
-    // evita scroll mientras arrastras
-    e.preventDefault();
-    const r = holderRef.current?.getBoundingClientRect();
-    startRef.current = {
-      sx: e.clientX,
-      sy: e.clientY,
-      dx: r ? e.clientX - r.left : 0,
-      dy: r ? e.clientY - r.top : 0,
-      moved: false,
+  useEffect(() => {
+    const el = holdRef.current;
+    if (!el) return;
+
+    let moved = false;
+
+    const onDown = () => {
+      moved = false;
+      setDragging(true);
+      document.addEventListener("pointermove", onMove);
+      document.addEventListener("pointerup", onUp);
     };
-    setDragging(true);
-    holderRef.current?.setPointerCapture?.(e.pointerId);
-  };
 
-  const onPointerMove = (e) => {
-    if (!dragging) return;
-    const { sx, sy, dx, dy } = startRef.current;
+    const onMove = (e) => {
+      const x = e.clientX;
+      const y = e.clientY;
+      if (x == null || y == null) return;
+      moved = true;
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const xPerc = Math.max(6, Math.min(94, (x / vw) * 100));
+      const yPerc = Math.max(10, Math.min(88, (y / vh) * 100));
+      setPos({ xPerc, yPerc });
+    };
 
-    const moveX = Math.abs(e.clientX - sx);
-    const moveY = Math.abs(e.clientY - sy);
-    if (moveX > 4 || moveY > 4) startRef.current.moved = true;
+    const onUp = () => {
+      document.removeEventListener("pointermove", onMove);
+      document.removeEventListener("pointerup", onUp);
+      setDragging(false);
+      // Si no se movió, considéralo click (toggle del popover)
+      if (!moved) setExpanded((v) => !v);
+    };
 
-    const vw = Math.max(320, window.innerWidth || 320);
-    const vh = Math.max(480, window.innerHeight || 480);
-
-    // posición “top/left” en px, limitada a la pantalla
-    let x = e.clientX - dx;
-    let y = e.clientY - dy;
-
-    const size = 64; // aprox tamaño del botón
-    x = Math.max(8, Math.min(vw - size - 8, x));
-    y = Math.max(8, Math.min(vh - size - 8, y));
-
-    setPos({ xPerc: (x / vw) * 100, yPerc: (y / vh) * 100 });
-  };
-
-  const onPointerUp = (e) => {
-    if (!dragging) return;
-    holderRef.current?.releasePointerCapture?.(e.pointerId);
-    setDragging(false);
-
-    // Si no hubo movimiento real, lo consideramos un tap → abrir carrito
-    if (!startRef.current.moved) {
-      if (typeof onOpenCart === "function") onOpenCart();
-      else window.dispatchEvent(new CustomEvent("minicart:open"));
-    }
-  };
+    el.addEventListener("pointerdown", onDown);
+    return () => {
+      el.removeEventListener("pointerdown", onDown);
+      document.removeEventListener("pointermove", onMove);
+      document.removeEventListener("pointerup", onUp);
+    };
+  }, []);
 
   if (!count) return null;
 
-  // estilos inline para posicionar y permitir drag correcto en móvil
-  const style = {
-    left: `calc(${pos.xPerc}vw)`,
-    top: `calc(${pos.yPerc}vh)`,
-    touchAction: "none",        // ¡muy importante para drag en mobile!
-    userSelect: "none",
+  const attachLeft = pos.xPerc > 50;
+  const subtotalStr = `S/ ${Number(subtotal || 0).toFixed(2)}`;
+
+  const openQuick = () => {
+    setExpanded(false);
+    window.dispatchEvent(new CustomEvent("cart:quick:open"));
   };
 
   return (
     <div
-      ref={holderRef}
-      className="fixed z-[9999] -translate-x-1/2 -translate-y-1/2"
-      style={style}
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={onPointerUp}
+      ref={wrapRef}
+      className="fixed z-[70] select-none"
+      style={{
+        left: `${pos.xPerc}vw`,
+        top: `${pos.yPerc}vh`,
+        transform: "translate(-50%, -50%)",
+      }}
     >
-      {/* Botón principal */}
+      {/* Popover pegado al FAB */}
+      {expanded && (
+        <div className={`absolute ${attachLeft ? "right-[64px]" : "left-[64px]"} -top-1`}>
+          <div className="bg-white text-purple-900 rounded-2xl shadow-lg border border-purple-200/60 px-3 py-2 w-[210px]">
+            <div className="text-[13px] font-semibold">🛒 Ver carrito</div>
+            <div className="text-[12px] text-gray-600 mt-0.5">
+              Subtotal: <b>{subtotalStr}</b>
+            </div>
+            <button
+              onClick={openQuick}
+              className="mt-2 w-full rounded-full bg-gradient-to-r from-pink-500 to-fuchsia-500 text-white text-sm py-1.5 font-semibold shadow hover:shadow-md"
+            >
+              Abrir
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* FAB */}
       <button
+        ref={holdRef}
         type="button"
-        className="relative grid place-items-center w-14 h-14 rounded-full bg-pink-500 text-white shadow-lg active:scale-95 transition"
-        aria-label="Abrir carrito"
+        aria-label="Carrito"
+        title="Carrito"
+        className={`relative grid place-items-center w-12 h-12 rounded-full
+          bg-gradient-to-br from-pink-500 to-fuchsia-500 text-white shadow-xl
+          border border-white/60 backdrop-blur
+          ${dragging ? "cursor-grabbing scale-95" : "cursor-grab hover:scale-105"}
+          transition`}
       >
-        <FaShoppingCart className="text-xl" />
-        <span className="absolute -top-1 -right-1 w-6 h-6 grid place-items-center text-xs rounded-full bg-yellow-300 text-purple-900 font-bold shadow">
+        <FaShoppingCart className="text-lg" />
+        <span
+          className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-yellow-400 text-purple-900 text-xs font-bold grid place-items-center border border-white"
+          aria-label={`Productos en el carrito: ${count}`}
+        >
           {count}
         </span>
       </button>
-
-      {/* Globito de subtotal (solo cuando 'expanded' = true) */}
-      {expanded && (
-        <div className="absolute -left-2 -top-6 translate-y-[-100%] bg-black/80 text-white text-xs px-2 py-1 rounded-md whitespace-nowrap pointer-events-none">
-          Subtotal: S/ {Number(subtotal || 0).toFixed(2)}
-        </div>
-      )}
     </div>
   );
 }
