@@ -26,6 +26,11 @@ export default function CartFab({ onOpenCart }) {
 
   const fmt = (n) => `S/ ${Number(n || 0).toFixed(2)}`;
 
+  // ⛔️ Si el carrito queda vacío: cierra el popover
+  useEffect(() => {
+    if (count === 0) setExpanded(false);
+  }, [count]);
+
   // evita que se salga de la pantalla al arrastrar o al redimensionar
   const clampToViewport = useCallback((p) => {
     const { w = 0, h = 0 } = sizeRef.current || {};
@@ -133,6 +138,9 @@ export default function CartFab({ onOpenCart }) {
   const anchorRight = pos.xPerc > 50; // si está a la derecha, abrimos el popover hacia la izquierda
   const side = anchorRight ? "left" : "right";
 
+  // 🚫 No renderizar FAB (ni popover) cuando el carrito está vacío
+  if (count === 0) return null;
+
   return (
     <div
       ref={wrapRef}
@@ -145,13 +153,11 @@ export default function CartFab({ onOpenCart }) {
       }}
     >
       {/* POPOVER COMPACTO */}
-      {expanded && (
+      {expanded && count > 0 && (
         <div
           className={[
             "absolute z-[60] select-none rounded-2xl bg-white text-purple-900 shadow-xl ring-1 ring-black/5",
-            expanded
-              ? "opacity-100 translate-y-0 pointer-events-auto"
-              : "opacity-0 translate-y-2 pointer-events-none",
+            "opacity-100 translate-y-0 pointer-events-auto",
             side === "left" ? "right-[calc(100%+10px)]" : "left-[calc(100%+10px)]",
           ].join(" ")}
           style={{ width: "min(72vw, 260px)", top: "50%", transform: "translateY(-50%)" }}
