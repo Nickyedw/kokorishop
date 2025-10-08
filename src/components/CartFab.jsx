@@ -1,3 +1,4 @@
+// src/components/CartFab.jsx
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { FaShoppingCart } from "react-icons/fa";
 import useCartTotals from "../hooks/useCartTotals";
@@ -8,6 +9,7 @@ export default function CartFab({ onOpenCart }) {
   const [expanded, setExpanded] = useState(false);
   const [dragging, setDragging] = useState(false);
 
+  // posición en porcentaje (funciona bien en distintos tamaños)
   const [pos, setPos] = useState(() => {
     try {
       const s = localStorage.getItem("cartfab_pos");
@@ -24,6 +26,7 @@ export default function CartFab({ onOpenCart }) {
 
   const fmt = (n) => `S/ ${Number(n || 0).toFixed(2)}`;
 
+  // evita que se salga de la pantalla al arrastrar o al redimensionar
   const clampToViewport = useCallback((p) => {
     const { w = 0, h = 0 } = sizeRef.current || {};
     const maxX = Math.max(0, window.innerWidth - w);
@@ -38,6 +41,7 @@ export default function CartFab({ onOpenCart }) {
     };
   }, []);
 
+  // medir tamaño del FAB y recolocar si hace falta
   useEffect(() => {
     const el = wrapRef.current;
     if (el) sizeRef.current = { w: el.offsetWidth, h: el.offsetHeight };
@@ -54,15 +58,17 @@ export default function CartFab({ onOpenCart }) {
     return () => window.removeEventListener("resize", onResize);
   }, [clampToViewport]);
 
+  // persistir posición
   useEffect(() => {
     localStorage.setItem("cartfab_pos", JSON.stringify(pos));
   }, [pos]);
 
+  // abrir popover automáticamente cuando se agrega algo al carrito
   useEffect(() => {
     const onAdd = () => {
       setExpanded(true);
       clearTimeout(timerRef.current);
-      timerRef.current = setTimeout(() => setExpanded(false), 2600);
+      timerRef.current = setTimeout(() => setExpanded(false), 2400);
     };
     window.addEventListener("cart:add", onAdd);
     return () => {
@@ -71,7 +77,7 @@ export default function CartFab({ onOpenCart }) {
     };
   }, []);
 
-  // === drag
+  // === drag (pointer events) ===
   const startRef = useRef({
     down: false,
     x: 0,
@@ -82,7 +88,7 @@ export default function CartFab({ onOpenCart }) {
   });
 
   const onPointerDown = (e) => {
-    if (e.button !== undefined && e.button !== 0) return;
+    if (e.button !== undefined && e.button !== 0) return; // solo click principal
     startRef.current = {
       down: true,
       x: e.clientX,
@@ -104,8 +110,8 @@ export default function CartFab({ onOpenCart }) {
       startRef.current.moved = true;
     }
 
-    const nx = ((startRef.current.startXPerc / 100) * window.innerWidth + dx);
-    const ny = ((startRef.current.startYPerc / 100) * window.innerHeight + dy);
+    const nx = (startRef.current.startXPerc / 100) * window.innerWidth + dx;
+    const ny = (startRef.current.startYPerc / 100) * window.innerHeight + dy;
 
     setPos(
       clampToViewport({
@@ -120,11 +126,12 @@ export default function CartFab({ onOpenCart }) {
     const { moved } = startRef.current;
     startRef.current.down = false;
     setDragging(false);
-    if (!moved) setExpanded((v) => !v); // ← solo acá alternamos el popover
+    if (!moved) setExpanded((v) => !v); // solo si no arrastró, alterna el popover
   };
-  // === /drag
+  // === /drag ===
 
-  const anchorRight = pos.xPerc > 50;
+  const anchorRight = pos.xPerc > 50; // si está a la derecha, abrimos el popover hacia la izquierda
+  const side = anchorRight ? "left" : "right";
 
   return (
     <div
@@ -137,39 +144,47 @@ export default function CartFab({ onOpenCart }) {
         touchAction: "none",
       }}
     >
-      {/* Popover */}
+      {/* POPOVER COMPACTO */}
       {expanded && (
         <div
-          className="absolute pointer-events-auto"
-          style={{
-            top: "50%",
-            transform: "translateY(-50%)",
-            ...(anchorRight
-              ? { right: "calc(100% + 12px)" }
-              : { left: "calc(100% + 12px)" }),
-          }}
+          className={[
+            "absolute z-[60] select-none rounded-2xl bg-white text-purple-900 shadow-xl ring-1 ring-black/5",
+            expanded
+              ? "opacity-100 translate-y-0 pointer-events-auto"
+              : "opacity-0 translate-y-2 pointer-events-none",
+            side === "left" ? "right-[calc(100%+10px)]" : "left-[calc(100%+10px)]",
+          ].join(" ")}
+          style={{ width: "min(72vw, 260px)", top: "50%", transform: "translateY(-50%)" }}
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="bg-white text-purple-900 rounded-2xl shadow-xl border border-purple-200 w-[280px] max-w-[78vw]">
-            <div className="px-4 py-3 flex items-center gap-2 border-b">
-              <span className="text-lg"><FaShoppingCart /></span>
-              <span className="font-semibold">Ver carrito</span>
-            </div>
-            <div className="px-4 py-3 text-sm">
-              <div className="text-gray-600">Subtotal: <strong>{fmt(subtotal)}</strong></div>
-            </div>
-            <div className="px-3 pb-3">
-              <button
-                className="w-full rounded-full bg-fuchsia-600 hover:bg-fuchsia-700 text-white font-semibold py-2.5 transition"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setExpanded(false);
-                  onOpenCart?.();
-                }}
-              >
-                Abrir
-              </button>
-            </div>
+          <div className="px-3 pt-2 pb-1.5 flex items-center gap-2">
+            <span className="inline-flex items-center gap-1 text-[13px] font-semibold">
+              <svg width="16" height="16" viewBox="0 0 24 24" className="opacity-80">
+                <path
+                  fill="currentColor"
+                  d="M7 18a2 2 0 1 0 0 4a2 2 0 0 0 0-4m10 0a2 2 0 1 0 0 4a2 2 0 0 0 0-4M6.2 6l.5 2H20a1 1 0 0 1 1 1c0 .1 0 .2-.1.3l-1.6 5.6c-.2.6-.8 1.1-1.5 1.1H8a1.9 1.9 0 0 1-1.9-1.5L4 4H2V2h2.6c.9 0 1.6.6 1.8 1.4L6.2 6z"
+                />
+              </svg>
+              Ver carrito
+            </span>
+          </div>
+
+          <div className="px-3 pb-2 text-[12px] text-gray-600">
+            Subtotal: <span className="font-semibold text-purple-800">{fmt(subtotal)}</span>
+          </div>
+
+          <div className="px-3 pb-3">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setExpanded(false);
+                if (typeof onOpenCart === "function") onOpenCart();
+                else window.dispatchEvent(new CustomEvent("cart:quick:open"));
+              }}
+              className="w-full h-9 rounded-full bg-gradient-to-r from-fuchsia-600 to-pink-500 text-white text-[13px] font-semibold shadow-md active:scale-[.98] transition"
+            >
+              Abrir
+            </button>
           </div>
         </div>
       )}
@@ -181,13 +196,17 @@ export default function CartFab({ onOpenCart }) {
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
-        // el click ya NO alterna; lo hace onPointerUp
-        onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+        onClick={(e) => {
+          // evitamos click “extra” cuando ya manejamos pointerUp
+          e.preventDefault();
+          e.stopPropagation();
+        }}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") setExpanded((v) => !v);
         }}
-        className={`relative grid place-items-center w-[56px] h-[56px] rounded-full bg-pink-500 shadow-2xl border-2 border-yellow-300
-          ${dragging ? "cursor-grabbing" : "cursor-grab"} select-none`}
+        className={`relative grid place-items-center w-[56px] h-[56px] rounded-full bg-pink-500 shadow-2xl border-2 border-yellow-300 ${
+          dragging ? "cursor-grabbing" : "cursor-grab"
+        } select-none`}
         aria-label="Carrito"
       >
         <FaShoppingCart className="text-white text-xl drop-shadow" />
