@@ -3,94 +3,61 @@ import React, { useEffect, useRef, useState } from "react";
 import { FaShoppingCart } from "react-icons/fa";
 import useCartTotals from "../hooks/useCartTotals";
 
-const SIZE = 58;          // diámetro del botón
-const MARGIN = 10;        // margen a los bordes
-const TAP_THRESHOLD = 8;  // px para diferenciar tap de drag
-
-function clamp(v, min, max) {
-  return Math.min(Math.max(v, min), max);
-}
-
-// Lee un “safe area” inferior aproximado (iOS notches, barras)
-function safeBottom() {
-  // valor mínimo 0, máx 24 aprox; deja de 12 si no hay soporte
-  try {
-    // usamos CSS env() via estilo temporal
-    const probe = document.createElement("div");
-    probe.style.position = "fixed";
-    probe.style.bottom = "env(safe-area-inset-bottom)";
-    probe.style.visibility = "hidden";
-    document.body.appendChild(probe);
-    const rect = probe.getBoundingClientRect();
-    document.body.removeChild(probe);
-    return Math.max(0, Math.min(24, rect.bottom));
-  } catch {
-    return 12;
-  }
-}
-
 export default function CartFab({ onOpenCart }) {
   const { count, subtotal } = useCartTotals("cart");
 
-  // Posición guardada como porcentaje (robusto entre pantallas)
+  // popover (lo que dice "Ver carrito / Subtotal / Abrir")
+  const [expanded, setExpanded] = useState(false);
+
+  // posición en píxeles (persistimos en % para que sobreviva a cambios de pantalla)
   const [pos, setPos] = useState(() => {
     try {
       const s = localStorage.getItem("cartfab_pos");
-      if (s) return JSON.parse(s);
+      if (s) {
+        const { xPerc, yPerc } = JSON.parse(s);
+        return {
+          x: Math.round((xPerc / 100) * (window.innerWidth - 56)),
+          y: Math.round((yPerc / 100) * (window.innerHeight - 56)),
+        };
+      }
     } catch {/* noop */}
-    // por defecto abajo-derecha
-    return { xPerc: 84, yPerc: 78 };
+    return { x: window.innerWidth - 80, y: Math.round(window.innerHeight * 0.65) };
   });
 
-  const [expanded, setExpanded] = useState(false);
-  const [dragging, setDragging] = useState(false);
-
-  // refs para drag
-  const startRef = useRef({ x: 0, y: 0 });
-  const startPosRef = useRef({ x: 0, y: 0 });
-  const movedRef = useRef(false);
-  const wrapRef = useRef(null);
+  const fabRef = useRef(null);
+  const pointerIdRef = useRef(null);
+  const draggingRef = useRef(false);
+  const startOffsetRef = useRef({ dx: 0, dy: 0 });
+  const sizeRef = useRef({ w: 56, h: 56 });
   const timerRef = useRef(null);
 
-  // === helpers: px <-> %
-  const toPx = (xPerc, yPerc) => {
-    const W = window.innerWidth;
-    const H = window.innerHeight;
-    const sb = safeBottom();
-    const x = clamp((xPerc / 100) * W, MARGIN, W - SIZE - MARGIN);
-    const y = clamp((yPerc / 100) * H, MARGIN, H - SIZE - MARGIN - sb);
-    return { x, y };
-  };
-  const toPerc = (x, y) => {
-    const W = window.innerWidth;
-    const H = window.innerHeight;
-    const xPerc = clamp((x / W) * 100, 0, 100);
-    const yPerc = clamp((y / H) * 100, 0, 100);
-    return { xPerc, yPerc };
-  };
+  const S = (n) => `S/ ${Number(n || 0).toFixed(2)}`;
 
-  // posición en píxeles para estilo inline
-  const [posPx, setPosPx] = useState(() => toPx(pos.xPerc, pos.yPerc));
-
-  // Recalcular en resize/orientation
+  // medir tamaño del FAB y clamp de posición al cambiar viewport
   useEffect(() => {
-    const onResize = () => setPosPx(toPx(pos.xPerc, pos.yPerc));
+    const el = fabRef.current;
+    if (el) sizeRef.current = { w: el.offsetWidth, h: el.offsetHeight };
+
+    const onResize = () => {
+      if (fabRef.current) {
+        sizeRef.current = {
+          w: fabRef.current.offsetWidth,
+          h: fabRef.current.offsetHeight,
+        };
+      }
+      setPos((p) => clampToViewport(p));
+    };
+
     window.addEventListener("resize", onResize);
-    onResize();
     return () => window.removeEventListener("resize", onResize);
-  }, [pos.xPerc, pos.yPerc]);
+  }, []);
 
-  // Guardar posición en localStorage cuando cambia el % (debounce simple)
-  useEffect(() => {
-    localStorage.setItem("cartfab_pos", JSON.stringify(pos));
-  }, [pos]);
-
-  // Mostrar popover por 2.5s cuando se agrega algo al carrito
+  // mostrar popover automáticamente cuando se agrega algo
   useEffect(() => {
     const onAdd = () => {
       setExpanded(true);
       clearTimeout(timerRef.current);
-      timerRef.current = setTimeout(() => setExpanded(false), 2500);
+      timerRef.current = setTimeout(() => setExpanded(false), 2600);
     };
     window.addEventListener("cart:add", onAdd);
     return () => {
@@ -99,131 +66,139 @@ export default function CartFab({ onOpenCart }) {
     };
   }, []);
 
-  // === Drag con Pointer Events (tap vs drag)
+  const clampToViewport = (p) => {
+    const margin = 8;
+    const { w, h } = sizeRef.current;
+    const maxX = window.innerWidth - w - margin;
+    const maxY = window.innerHeight - h - margin;
+    return {
+      x: Math.max(margin, Math.min(p.x, maxX)),
+      y: Math.max(margin, Math.min(p.y, maxY)),
+    };
+  };
+
+  const persist = (p) => {
+    const { w, h } = sizeRef.current;
+    const maxX = Math.max(1, window.innerWidth - w);
+    const maxY = Math.max(1, window.innerHeight - h);
+    const xPerc = Math.round((p.x / maxX) * 100);
+    const yPerc = Math.round((p.y / maxY) * 100);
+    try {
+      localStorage.setItem("cartfab_pos", JSON.stringify({ xPerc, yPerc }));
+    } catch {/* noop */}
+  };
+
+  // —— Drag con pointer capture (arrastras fluido por toda la pantalla)
   const onPointerDown = (e) => {
-    if (!wrapRef.current) return;
-    movedRef.current = false;
-    setDragging(true);
-    // posición inicial del puntero y del botón
-    startRef.current = { x: e.clientX, y: e.clientY };
-    startPosRef.current = { x: posPx.x, y: posPx.y };
-    // ocultar popover si estaba abierto
-    setExpanded(false);
-    wrapRef.current.setPointerCapture?.(e.pointerId);
+    const el = fabRef.current;
+    if (!el) return;
+    el.setPointerCapture?.(e.pointerId);
+    pointerIdRef.current = e.pointerId;
+    draggingRef.current = true;
+
+    const rect = el.getBoundingClientRect();
+    startOffsetRef.current = { dx: e.clientX - rect.left, dy: e.clientY - rect.top };
+
+    // sin transición mientras arrastro
+    el.style.transition = "none";
+    e.preventDefault();
   };
 
   const onPointerMove = (e) => {
-    if (!dragging) return;
-    const dx = e.clientX - startRef.current.x;
-    const dy = e.clientY - startRef.current.y;
-    if (Math.abs(dx) > TAP_THRESHOLD || Math.abs(dy) > TAP_THRESHOLD) {
-      movedRef.current = true;
-    }
-    const W = window.innerWidth;
-    const H = window.innerHeight;
-    const sb = safeBottom();
-    const nextX = clamp(startPosRef.current.x + dx, MARGIN, W - SIZE - MARGIN);
-    const nextY = clamp(
-      startPosRef.current.y + dy,
-      MARGIN,
-      H - SIZE - MARGIN - sb
-    );
-    setPosPx({ x: nextX, y: nextY });
+    if (!draggingRef.current) return;
+    const { dx, dy } = startOffsetRef.current;
+    setPos(clampToViewport({ x: e.clientX - dx, y: e.clientY - dy }));
   };
 
-  const onPointerUp = (e) => {
-    if (!dragging) return;
-    setDragging(false);
-    wrapRef.current?.releasePointerCapture?.(e.pointerId);
-
-    // si no se movió -> tratar como TAP
-    if (!movedRef.current) {
-      setExpanded((v) => !v);
-      return;
+  const onPointerUp = () => {
+    const el = fabRef.current;
+    if (pointerIdRef.current != null) {
+      el?.releasePointerCapture?.(pointerIdRef.current);
+      pointerIdRef.current = null;
     }
-
-    // si se movió, persistimos %
-    const perc = toPerc(posPx.x, posPx.y);
-    setPos(perc);
+    draggingRef.current = false;
+    if (el) el.style.transition = "transform 200ms ease";
+    setPos((p) => {
+      persist(p);
+      return p;
+    });
   };
 
-  // Alineación del popover (si estás cerca del borde derecho, abre a la izquierda)
-  const openToLeft = posPx.x > window.innerWidth - 160;
+  // click: abre/cierra popover (se ignora si venimos arrastrando)
+  const onFabClick = () => {
+    if (draggingRef.current) return;
+    setExpanded((v) => !v);
+  };
 
-  // Abre QuickView (respeta prop opcional y evento global)
-  const openQuickView = () => {
+  // abrir quickview desde el popover
+  const openQuick = () => {
     setExpanded(false);
-    if (typeof onOpenCart === "function") {
-      onOpenCart();
-    } else {
-      window.dispatchEvent(new Event("cart:quickview:open"));
-    }
+    window.dispatchEvent(new CustomEvent("cart:quick:open"));
+    onOpenCart?.();
   };
 
-  if (!count) return null;
+  // estilos
+  const styleFab = {
+    transform: `translate3d(${pos.x}px, ${pos.y}px, 0)`,
+    touchAction: "none", // evita que el scroll robe el gesto en móvil
+    transition: "transform 200ms ease",
+  };
+
+  // si estamos muy a la derecha, que el popover se pegue a la derecha para no salirse
+  const nearRight = pos.x > window.innerWidth - 220;
+  const popStyle = {
+    left: nearRight ? "auto" : "-12px",
+    right: nearRight ? "-12px" : "auto",
+  };
 
   return (
     <>
-      {/* Wrapper fijo con pointer-events habilitados */}
-      <div
-        ref={wrapRef}
-        className="fixed z-[80] select-none"
-        style={{
-          left: Math.round(posPx.x),
-          top: Math.round(posPx.y),
-          width: SIZE,
-          height: SIZE,
-        }}
+      {/* FAB */}
+      <button
+        ref={fabRef}
+        className="fixed z-50 w-14 h-14 rounded-full bg-pink-500 shadow-lg text-white grid place-items-center"
+        style={styleFab}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
+        onClick={onFabClick}
+        aria-label="Abrir carrito"
       >
-        {/* Botón */}
-        <button
-          type="button"
-          className="relative w-full h-full rounded-full bg-pink-500 shadow-lg text-white grid place-items-center active:scale-[0.98] transition"
-          aria-label="Abrir carrito"
-        >
-          <FaShoppingCart className="text-lg" />
-          {/* Badge */}
-          <span className="absolute -top-2 -right-2 bg-yellow-400 text-purple-900 text-xs w-5 h-5 grid place-items-center rounded-full font-bold shadow">
-            {count}
+        <FaShoppingCart className="text-xl" />
+        {count > 0 && (
+          <span className="absolute -top-1 -right-1 text-[11px] font-bold bg-yellow-300 text-purple-900 min-w-[20px] h-[20px] rounded-full grid place-items-center px-1">
+            {count > 99 ? "99+" : count}
           </span>
-        </button>
-
-        {/* Popover */}
-        {expanded && (
-          <div
-            className="absolute top-1/2 -translate-y-1/2 w-[220px] max-w-[70vw] bg-white text-purple-900 rounded-2xl shadow-xl border border-purple-100 p-3"
-            style={
-              openToLeft
-                ? { right: SIZE + 8 } // a la izquierda del FAB
-                : { left: SIZE + 8 }  // a la derecha del FAB
-            }
-          >
-            <div className="text-[13px] font-semibold flex items-center gap-2">
-              <FaShoppingCart /> Ver carrito
-            </div>
-            <div className="text-xs text-gray-600 mt-1">
-              Subtotal: <strong>S/ {Number(subtotal || 0).toFixed(2)}</strong>
-            </div>
-            <button
-              onClick={openQuickView}
-              className="mt-2 w-full rounded-full bg-purple-600 hover:bg-purple-700 text-white py-1.5 text-sm font-semibold"
-            >
-              Abrir
-            </button>
-          </div>
         )}
-      </div>
+      </button>
 
-      {/* zona “tap-outside” para cerrar popover si quieres (opcional) */}
-      {expanded && (
+      {/* Popover anclado al FAB */}
+      <div
+        className={`fixed z-40 ${
+          expanded ? "opacity-100 scale-100" : "pointer-events-none opacity-0 scale-95"
+        } transition-[opacity,transform] duration-150`}
+        style={{ transform: `translate3d(${pos.x}px, ${pos.y - 80}px, 0)` }}
+        onMouseDown={(e) => e.stopPropagation()}
+      >
         <div
-          className="fixed inset-0 z-[70]"
-          onClick={() => setExpanded(false)}
-        />
-      )}
+          className="min-w-[240px] max-w-[280px] bg-white text-purple-900 rounded-2xl shadow-2xl border p-3"
+          style={popStyle}
+        >
+          <div className="text-sm font-semibold flex items-center gap-2 mb-1">
+            <FaShoppingCart /> Ver carrito
+          </div>
+          <div className="text-xs text-gray-600">
+            Subtotal: <b>{S(subtotal)}</b>
+          </div>
+          <button
+            onClick={openQuick}
+            className="mt-3 w-full rounded-full bg-pink-500 hover:bg-pink-600 text-white py-2 font-bold"
+          >
+            Abrir
+          </button>
+        </div>
+      </div>
     </>
   );
 }
