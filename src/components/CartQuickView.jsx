@@ -1,168 +1,152 @@
 // src/components/CartQuickView.jsx
-import React, { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
-import { useNavigate } from "react-router-dom";
+import React, { useContext, useEffect, useState } from "react";
 import { CartContext } from "../context/CartContext";
-import { useContext } from "react";
-
-const API_APP = import.meta.env.VITE_API_URL || "http://localhost:3001";
-
-function imgSrc(it) {
-  const raw = it.imagen_url || it.image || it.imagen || "";
-  if (!raw) return "/img/no-image.png";
-  if (/^https?:\/\//i.test(raw)) return raw;
-  if (raw.startsWith("/")) return `${API_APP}${raw}`;
-  return `${API_APP}/uploads/${raw}`;
-}
+import { useNavigate } from "react-router-dom";
 
 export default function CartQuickView() {
-  const navigate = useNavigate();
   const {
     cartItems,
     increaseQuantity,
     decreaseQuantity,
     removeFromCart,
     subtotal,
-  } = useContext(CartContext) || {};
-
+  } = useContext(CartContext);
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    const onOpen = () => setOpen(true);
-    const onClose = () => setOpen(false);
-    window.addEventListener("cart:quick:open", onOpen);
-    window.addEventListener("cart:quick:close", onClose);
-    const onEsc = (e) => e.key === "Escape" && setOpen(false);
-    document.addEventListener("keydown", onEsc);
+    const openEv = () => setOpen(true);
+    const toggleEv = () => setOpen((v) => !v);
+    const closeEv = () => setOpen(false);
+    window.addEventListener("cart:quickview:open", openEv);
+    window.addEventListener("cart:quickview:toggle", toggleEv);
+    window.addEventListener("cart:quickview:close", closeEv);
+    // retrocompatibilidad por si en algún lugar emites "cart:open"
+    window.addEventListener("cart:open", openEv);
     return () => {
-      window.removeEventListener("cart:quick:open", onOpen);
-      window.removeEventListener("cart:quick:close", onClose);
-      document.removeEventListener("keydown", onEsc);
+      window.removeEventListener("cart:quickview:open", openEv);
+      window.removeEventListener("cart:quickview:toggle", toggleEv);
+      window.removeEventListener("cart:quickview:close", closeEv);
+      window.removeEventListener("cart:open", openEv);
     };
   }, []);
 
   if (!open) return null;
 
-  const goCart = () => {
-    setOpen(false);
-    navigate("/Cart", { replace: false });
-  };
-  const goPay = () => {
-    setOpen(false);
-    navigate("/Cart?checkout=1", { replace: false });
-  };
+  return (
+    <>
+      {/* overlay */}
+      <div
+        className="fixed inset-0 z-[90] bg-black/40"
+        onClick={() => setOpen(false)}
+      />
 
-  return createPortal(
-    <div
-      className="fixed inset-0 z-[80]"
-      role="dialog"
-      aria-modal="true"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) setOpen(false);
-      }}
-    >
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/50" />
-
-      {/* Sheet */}
-      <div className="absolute left-1/2 -translate-x-1/2 bottom-0 w-[95%] max-w-md
-                      bg-white rounded-t-3xl shadow-2xl border border-purple-200
-                      overflow-hidden">
-        <div className="px-4 py-3 border-b flex items-center justify-between">
-          <h3 className="text-purple-900 font-semibold">Tu carrito</h3>
+      {/* sheet */}
+      <div
+        className="fixed left-0 right-0 z-[95] bg-white rounded-t-3xl shadow-2xl"
+        style={{
+          bottom: `calc(env(safe-area-inset-bottom, 0px))`,
+          maxHeight: "70vh",
+        }}
+      >
+        <div className="px-4 pt-3 pb-2 flex items-center justify-between">
+          <div className="text-purple-900 font-extrabold text-lg">Tu carrito</div>
           <button
+            className="text-purple-500 hover:text-purple-700 text-xl"
             onClick={() => setOpen(false)}
-            className="rounded-full px-2 py-1 hover:bg-gray-100"
             aria-label="Cerrar"
-            title="Cerrar"
           >
-            ✕
+            ×
           </button>
         </div>
 
-        <div className="max-h-[60vh] overflow-auto p-3">
-          {(cartItems || []).length === 0 ? (
-            <p className="text-center text-gray-500 py-8">
-              Aún no agregaste productos.
-            </p>
+        <div className="px-4 pb-3 space-y-3 overflow-auto" style={{ maxHeight: "52vh" }}>
+          {cartItems.length === 0 ? (
+            <div className="text-center text-gray-500 py-12">
+              Tu carrito está vacío.
+            </div>
           ) : (
-            <ul className="space-y-3">
-              {cartItems.map((it) => (
-                <li
-                  key={it.id}
-                  className="flex items-center gap-3 border rounded-xl p-2"
-                >
-                  <img
-                    src={imgSrc(it)}
-                    alt={it.name}
-                    className="w-14 h-14 object-cover rounded-lg border"
-                    onError={(e) => (e.currentTarget.src = "/img/no-image.png")}
-                  />
-                  <div className="flex-1 min-w-0">
-                    <div className="truncate font-medium text-purple-900">
-                      {it.name}
-                    </div>
-                    <div className="text-xs text-gray-600">
-                      S/ {Number(it.price || 0).toFixed(2)}
-                    </div>
+            cartItems.map((it) => (
+              <div
+                key={it.id}
+                className="flex items-center gap-3 border rounded-xl p-3"
+              >
+                <img
+                  src={
+                    it.imagen_url?.startsWith("http")
+                      ? it.imagen_url
+                      : it.imagen_url
+                      ? `${import.meta.env.VITE_API_URL || "http://localhost:3001"}${it.imagen_url.startsWith("/") ? it.imagen_url : "/uploads/" + it.imagen_url}`
+                      : "/img/no-image.png"
+                  }
+                  alt={it.name}
+                  className="w-14 h-14 object-cover rounded-lg border"
+                  onError={(e) => (e.currentTarget.src = "/img/no-image.png")}
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium text-purple-900 truncate">
+                    {it.name}
                   </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => decreaseQuantity(it.id)}
-                      className="w-7 h-7 rounded-full bg-gray-100 hover:bg-gray-200 font-bold"
-                      aria-label="Disminuir"
-                    >
-                      –
-                    </button>
-                    <span className="w-6 text-center text-sm">
-                      {it.quantity}
-                    </span>
-                    <button
-                      onClick={() => increaseQuantity(it.id)}
-                      className="w-7 h-7 rounded-full bg-gray-100 hover:bg-gray-200 font-bold"
-                      aria-label="Aumentar"
-                    >
-                      +
-                    </button>
-                  </div>
+                  <div className="text-xs text-gray-500">S/ {Number(it.price).toFixed(2)}</div>
+                </div>
+
+                <div className="flex items-center gap-2">
                   <button
-                    onClick={() => removeFromCart(it.id)}
-                    className="ml-2 text-red-500 hover:text-red-600 text-sm"
-                    title="Quitar"
-                    aria-label="Quitar"
+                    className="w-7 h-7 rounded-full bg-gray-100 hover:bg-gray-200"
+                    onClick={() => decreaseQuantity(it.id)}
+                    aria-label="Disminuir"
                   >
-                    ✕
+                    −
                   </button>
-                </li>
-              ))}
-            </ul>
+                  <span className="min-w-[1.5rem] text-center">{it.quantity}</span>
+                  <button
+                    className="w-7 h-7 rounded-full bg-gray-100 hover:bg-gray-200"
+                    onClick={() => increaseQuantity(it.id)}
+                    aria-label="Aumentar"
+                  >
+                    +
+                  </button>
+                </div>
+
+                <button
+                  className="text-red-500 hover:text-red-700 ml-2"
+                  onClick={() => removeFromCart(it.id)}
+                  aria-label="Eliminar"
+                >
+                  ×
+                </button>
+              </div>
+            ))
           )}
         </div>
 
-        <div className="p-4 border-t">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-purple-700 font-semibold">Subtotal</span>
-            <span className="text-purple-900 font-bold">
-              S/ {Number(subtotal || 0).toFixed(2)}
-            </span>
+        <div className="px-4 py-3 border-t">
+          <div className="flex items-center justify-between text-purple-900 mb-3">
+            <span className="font-semibold">Subtotal</span>
+            <span className="font-extrabold">S/ {Number(subtotal || 0).toFixed(2)}</span>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-3">
             <button
-              onClick={goCart}
-              className="flex-1 rounded-full border border-purple-300 text-purple-700 py-2 font-semibold hover:bg-purple-50"
+              className="flex-1 rounded-full bg-purple-100 text-purple-700 font-semibold py-2"
+              onClick={() => {
+                setOpen(false);
+                navigate("/cart", { replace: false });
+              }}
             >
               Ir al carrito
             </button>
             <button
-              onClick={goPay}
-              className="flex-1 rounded-full bg-gradient-to-r from-pink-500 to-fuchsia-500 text-white py-2 font-semibold shadow hover:shadow-md"
+              className="flex-1 rounded-full bg-pink-500 hover:bg-pink-600 text-white font-semibold py-2"
+              onClick={() => {
+                setOpen(false);
+                navigate("/cart", { replace: false });
+              }}
             >
               Pagar
             </button>
           </div>
         </div>
       </div>
-    </div>,
-    document.body
+    </>
   );
 }
