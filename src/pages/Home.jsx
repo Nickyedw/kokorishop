@@ -341,7 +341,7 @@ const Home = () => {
             <FaHeart className="text-xl" />
             Favorites
           </Link>
-          <Link to="/Cart" className="flex flex-col items-center text-sm">
+          <Link to="/cart" className="flex flex-col items-center text-sm">
             <FaShoppingBag className="text-xl" />
             Cart
           </Link>

@@ -3,7 +3,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import useCartTotals from "../hooks/useCartTotals";
 
-export default function MiniCart({ cartPath = "/Cart" }) {
+export default function MiniCart({ cartPath = "/cart" }) {
   const navigate = useNavigate();
   const { count, subtotal } = useCartTotals();
   const [open, setOpen] = useState(false);

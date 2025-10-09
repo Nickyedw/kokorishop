@@ -101,7 +101,7 @@ export default function MobileMenu({
         <nav className="flex-1 overflow-y-auto px-2 py-3">
           <MenuItem to="/" icon={<FaHome />} label="Inicio" onClick={onClose} />
           <MenuItem to="/favorites" icon={<FaHeart />} label="Favoritos" badge={favCount} onClick={onClose} />
-          <MenuItem to="/Cart" icon={<FaShoppingBag />} label="Carrito" badge={cartCount} onClick={onClose} />
+          <MenuItem to="/cart" icon={<FaShoppingBag />} label="Carrito" badge={cartCount} onClick={onClose} />
           <MenuItem to="/menu" icon={<FaUser />} label="Perfil / Menú" onClick={onClose} />
 
           {isAdmin && (
@@ -118,7 +118,7 @@ export default function MobileMenu({
         <div className="border-t border-gray-200 p-4 flex flex-col sm:flex-row gap-2">
           <button
             onClick={() => {
-              navigate("/Cart?checkout=1");
+              navigate("/cart?checkout=1");
               onClose?.();
             }}
             className="w-full rounded-full bg-gradient-to-r from-purple-600 to-fuchsia-600 text-white px-4 py-2 text-sm font-semibold shadow hover:shadow-md"
