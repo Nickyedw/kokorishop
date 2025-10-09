@@ -1,5 +1,6 @@
 // src/components/CartQuickView.jsx
 import React, { useContext, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { CartContext } from "../context/CartContext";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3001";
@@ -25,19 +26,18 @@ export default function CartQuickView() {
   } = useContext(CartContext);
 
   const [open, setOpen] = useState(false);
+  const navigate = useNavigate();
 
   // Eventos para abrir/cerrar
   useEffect(() => {
     const openIt = () => setOpen(true);
     const closeIt = () => setOpen(false);
     window.addEventListener("cart:quick:open", openIt);
-    window.addEventListener("cart:open", openIt);    // compat
+    window.addEventListener("cart:open", openIt);     // compat
     window.addEventListener("minicart:open", openIt); // compat
     window.addEventListener("cart:quick:close", closeIt);
 
-    const onKey = (e) => {
-      if (e.key === "Escape") setOpen(false);
-    };
+    const onKey = (e) => { if (e.key === "Escape") setOpen(false); };
     window.addEventListener("keydown", onKey);
 
     return () => {
@@ -48,6 +48,11 @@ export default function CartQuickView() {
       window.removeEventListener("keydown", onKey);
     };
   }, []);
+
+  // (Opcional) Si se vacía el carrito, cerrar el quickview
+  useEffect(() => {
+    if (open && cartItems.length === 0) setOpen(false);
+  }, [cartItems, open]);
 
   if (!open) return null;
 
@@ -64,12 +69,11 @@ export default function CartQuickView() {
       {/* Sheet / Modal */}
       <div
         className="
-          relative w-[94vw] md:w-[92vw] lg:w-[64rem]   /* 1024px en lg */
-          max-w-[64rem] 
+          relative w-[94vw] md:w-[92vw] lg:w-[64rem]
+          max-w-[64rem]
           max-h-[86vh]
           bg-white text-purple-900 rounded-t-3xl md:rounded-3xl shadow-2xl
           border border-purple-100 overflow-hidden
-          translate-y-0
         "
         onClick={(e) => e.stopPropagation()}
       >
@@ -88,7 +92,7 @@ export default function CartQuickView() {
           </div>
         </div>
 
-        {/* Cabecera de columnas (solo desktop) */}
+        {/* Cabecera columnas (desktop) */}
         <div className="hidden md:grid grid-cols-[1fr_auto_auto_auto_36px] items-center gap-3 px-6 py-2 text-xs font-semibold text-purple-500/80 border-b">
           <div>Producto</div>
           <div className="text-right">Precio</div>
@@ -184,19 +188,26 @@ export default function CartQuickView() {
             </div>
 
             <div className="flex gap-2 md:gap-3">
-              <a
-                href="/cart"
+              <button
+                onClick={() => {
+                  setOpen(false);
+                  navigate("/cart");           // ✔ hash-router friendly
+                }}
                 className="inline-flex items-center justify-center rounded-full px-5 h-10 md:h-11 text-sm md:text-base bg-purple-50 hover:bg-purple-100 text-purple-700"
               >
                 Ir al carrito
-              </a>
-              <a
-                href="/cart?pay=1"
+              </button>
+
+              <button
+                onClick={() => {
+                  setOpen(false);
+                  navigate("/cart?pay=1");     // ✔ hash-router friendly
+                }}
                 className="inline-flex items-center justify-center rounded-full px-6 h-10 md:h-11 text-sm md:text-base
                   bg-gradient-to-r from-fuchsia-600 to-pink-500 text-white font-semibold shadow-md active:scale-[.98] transition"
               >
                 Pagar
-              </a>
+              </button>
             </div>
           </div>
         </div>
