@@ -14,6 +14,7 @@ const {
   enviarNotificacionPedidoEnviado,
   enviarNotificacionPedidoEntregado,
   enviarAlertaStockBajo,
+  enviarCorreoAdminNuevoPedido,
 } = require('../services/notificaciones');
 
 const { ESTADOS_PEDIDO } = require('../utils/constants');
@@ -119,26 +120,77 @@ router.post('/', async (req, res) => {
     // ✅ Respondemos al cliente inmediatamente
     res.status(201).json({ mensaje: 'Pedido registrado correctamente', pedido_id });
 
-    // 🔔 Notificaciones fuera de banda (no bloquean la respuesta)
-    setImmediate(async () => {
+  // 🔔 Notificaciones fuera de banda (no bloquean la respuesta)
+  setImmediate(async () => {
+    try {
+      // Datos del usuario
+      const usuarioRes = await dbQuery(
+        'SELECT nombre_completo, correo, telefono FROM usuarios WHERE id = $1',
+        [usuario_id]
+      );
+      const usuario = usuarioRes.rows[0] || { nombre_completo: '', correo: '', telefono: '' };
+
+      // Ítems del pedido (con nombres de productos)
+      const det = await dbQuery(
+        `SELECT d.cantidad, d.precio_unitario, pr.nombre
+          FROM detalle_pedido d
+          JOIN productos pr ON pr.id = d.producto_id
+          WHERE d.pedido_id = $1
+          ORDER BY d.id`,
+        [pedido_id]
+      );
+
+      // Campos descriptivos de pago/entrega (opcionales)
+      const pago = metodo_pago_id
+        ? (await dbQuery('SELECT nombre FROM metodos_pago WHERE id=$1', [metodo_pago_id])).rows[0]?.nombre
+        : null;
+
+      const entrega = metodo_entrega_id
+        ? (await dbQuery('SELECT descripcion FROM metodos_entrega WHERE id=$1', [metodo_entrega_id])).rows[0]?.descripcion
+        : null;
+
+      const zona = zona_entrega_id
+        ? (await dbQuery('SELECT nombre_zona FROM zonas_entrega WHERE id=$1', [zona_entrega_id])).rows[0]?.nombre_zona
+        : null;
+
+      const horario = horario_entrega_id
+        ? (await dbQuery('SELECT hora_inicio FROM horarios_entrega WHERE id=$1', [horario_entrega_id])).rows[0]?.hora_inicio
+        : null;
+
+      const fecha = new Date().toLocaleString('es-PE', { timeZone: 'America/Lima' });
+
+      // 👉 Correo al cliente (lo que ya tenías)
+      try { await enviarCorreoPedido(usuario.correo, usuario.nombre_completo, pedido_id); }
+      catch (e) { console.warn('⚠️ No se pudo enviar correo de pedido al cliente:', e.message); }
+
+      // 👉 WhatsApp al cliente (lo que ya tenías)
+      try { await enviarWhatsappPedidoInicial(usuario.telefono, usuario.nombre_completo, pedido_id, fecha, total); }
+      catch (e) { console.warn('⚠️ No se pudo enviar WhatsApp inicial:', e.message); }
+
+      // 👉 Nuevo: correo resumen al/los admin(s)
       try {
-        const usuarioRes = await dbQuery(
-          'SELECT nombre_completo, correo, telefono FROM usuarios WHERE id = $1',
-          [usuario_id]
-        );
-        const usuario = usuarioRes.rows[0] || { nombre_completo: '', correo: '', telefono: '' };
-        const fecha = new Date().toLocaleDateString();
-
-        try { await enviarCorreoPedido(usuario.correo, usuario.nombre_completo, pedido_id); }
-        catch (e) { console.warn('⚠️ No se pudo enviar correo de pedido:', e.message); }
-
-        try { await enviarWhatsappPedidoInicial(usuario.telefono, usuario.nombre_completo, pedido_id, fecha, total); }
-        catch (e) { console.warn('⚠️ No se pudo enviar WhatsApp inicial:', e.message); }
-      } catch (postErr) {
-        console.warn('⚠️ Error en notificaciones post-commit:', postErr.message);
+        await enviarCorreoAdminNuevoPedido({
+          pedido_id,
+          fecha,
+          total,
+          usuario,
+          items: det.rows.map(r => ({
+            nombre: r.nombre,
+            cantidad: Number(r.cantidad),
+            precio_unitario: Number(r.precio_unitario),
+          })),
+          metodo_pago: pago || null,
+          metodo_entrega: entrega || null,
+          zona: zona || null,
+          horario: horario || null,
+        });
+      } catch (e) {
+        console.warn('⚠️ No se pudo enviar correo admin:', e.message);
       }
-    });
-
+    } catch (postErr) {
+      console.warn('⚠️ Error en notificaciones post-commit:', postErr.message);
+    }
+  });
   } catch (error) {
     try { await client.query('ROLLBACK'); } catch {/* noop */ }
     console.error('❌ Error al registrar pedido:', error);

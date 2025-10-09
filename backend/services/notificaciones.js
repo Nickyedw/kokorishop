@@ -350,6 +350,88 @@ async function enviarNotificacionPedidoEntregado(pedido) {
   );
 }
 
+// === Admin summary ===
+const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || process.env.CORREO_ADMIN || '')
+  .split(',')
+  .map(s => s.trim())
+  .filter(Boolean);
+
+const TIENDA_NOMBRE = process.env.TIENDA_NOMBRE || 'Tienda';
+
+const $$fmt = (n) => `S/ ${Number(n || 0).toFixed(2)}`;
+
+async function enviarCorreoAdminNuevoPedido(resumen) {
+  // Si no hay admins configurados, salimos silenciosamente
+  if (!ADMIN_EMAILS.length) return;
+
+  const {
+    pedido_id,
+    fecha,
+    total,
+    usuario = {},
+    items = [],
+    metodo_pago,
+    metodo_entrega,
+    zona,
+    horario,
+  } = resumen;
+
+  const filas = items.map((it, i) => `
+    <tr>
+      <td style="padding:8px 12px;border-bottom:1px solid #eee;">${i + 1}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid #eee;">${it.nombre || '-'}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid #eee; text-align:right;">${it.cantidad}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid #eee; text-align:right;">${$$fmt(it.precio_unitario)}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid #eee; text-align:right;">${$$fmt(it.cantidad * it.precio_unitario)}</td>
+    </tr>
+  `).join('');
+
+  const html = `
+    <div style="font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif; color:#111; line-height:1.6;">
+      <h2 style="margin:0 0 10px">${TIENDA_NOMBRE} – Nuevo pedido #${pedido_id}</h2>
+      <p style="margin:0 0 12px;">Fecha: <strong>${fecha}</strong></p>
+      <p style="margin:0 0 12px;">
+        Cliente: <strong>${usuario.nombre_completo || ''}</strong><br/>
+        Email: <a href="mailto:${usuario.correo}">${usuario.correo || '-'}</a><br/>
+        Tel: ${usuario.telefono || '-'}
+      </p>
+
+      <p style="margin:0 0 12px;">
+        Método de pago: <strong>${metodo_pago || '-'}</strong><br/>
+        Método de entrega: <strong>${metodo_entrega || '-'}</strong><br/>
+        Zona: <strong>${zona || '-'}</strong><br/>
+        Horario: <strong>${horario || '-'}</strong>
+      </p>
+
+      <table cellspacing="0" cellpadding="0" style="width:100%;border-collapse:collapse;font-size:14px;margin-top:10px;">
+        <thead>
+          <tr style="background:#fafafa">
+            <th style="text-align:left;padding:8px 12px;border-bottom:1px solid #eee;">#</th>
+            <th style="text-align:left;padding:8px 12px;border-bottom:1px solid #eee;">Producto</th>
+            <th style="text-align:right;padding:8px 12px;border-bottom:1px solid #eee;">Cant.</th>
+            <th style="text-align:right;padding:8px 12px;border-bottom:1px solid #eee;">P. Unit</th>
+            <th style="text-align:right;padding:8px 12px;border-bottom:1px solid #eee;">Subtotal</th>
+          </tr>
+        </thead>
+        <tbody>${filas || '<tr><td colspan="5" style="padding:10px;color:#666;">Sin ítems</td></tr>'}</tbody>
+      </table>
+
+      <p style="margin:16px 0 6px; font-size:16px;">
+        Total: <strong>${$$fmt(total)}</strong>
+      </p>
+    </div>
+  `;
+
+await sendMailSafe(
+  {
+    to: ADMIN_EMAILS, // puede ser array o string con comas
+    subject: `[${TIENDA_NOMBRE}] Nuevo pedido #${pedido_id} – ${$$fmt(total)}`,
+    html,
+  },
+  'resumen admin de pedido'
+);
+}
+
 module.exports = {
   enviarCorreoPedido,
   enviarWhatsappPedidoInicial,
@@ -358,4 +440,5 @@ module.exports = {
   enviarNotificacionPedidoEnviado,
   enviarNotificacionPedidoEntregado,
   enviarAlertaStockBajo,
+  enviarCorreoAdminNuevoPedido,
 };
