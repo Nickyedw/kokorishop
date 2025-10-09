@@ -185,13 +185,13 @@ export default function CartQuickView() {
 
             <div className="flex gap-2 md:gap-3">
               <a
-                href="/Cart"
+                href="/cart"
                 className="inline-flex items-center justify-center rounded-full px-5 h-10 md:h-11 text-sm md:text-base bg-purple-50 hover:bg-purple-100 text-purple-700"
               >
                 Ir al carrito
               </a>
               <a
-                href="/Cart?pay=1"
+                href="/cart?pay=1"
                 className="inline-flex items-center justify-center rounded-full px-6 h-10 md:h-11 text-sm md:text-base
                   bg-gradient-to-r from-fuchsia-600 to-pink-500 text-white font-semibold shadow-md active:scale-[.98] transition"
               >
