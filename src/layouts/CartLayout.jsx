@@ -2,6 +2,7 @@
 import React from "react";
 import CartFab from "../components/CartFab";
 import CartQuickView from "../components/CartQuickView";
+import WhatsAppFab from "../components/WhatsAppFab";
 
 export default function CartLayout({ children }) {
   const openMini = () => {
@@ -13,6 +14,7 @@ export default function CartLayout({ children }) {
       {children}
       <CartFab onOpenCart={openMini} />
       <CartQuickView />
+      <WhatsAppFab />
     </>
   );
 }
