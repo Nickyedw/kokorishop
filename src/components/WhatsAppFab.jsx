@@ -18,7 +18,7 @@ function getRawPhone() {
       return "";
     }
   })();
-  const fallback = ""; // opcional: "51987654321" solo para probar
+  const fallback = "51977546073"; // opcional: "51987654321" solo para probar
   return (envPhone || lsPhone || fallback || "").trim();
 }
 
