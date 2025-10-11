@@ -3,135 +3,147 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { FaWhatsapp } from "react-icons/fa";
 
-/**
- * Orden de prioridad del número:
- * 1) VITE_WHATSAPP_PHONE (build time)
- * 2) localStorage.wa_phone (runtime)
- * 3) Fallback (déjalo vacío o pon uno temporal SOLO para pruebas)
- */
+/* ===== helpers ===== */
 function getRawPhone() {
   const envPhone = import.meta.env.VITE_WHATSAPP_PHONE;
   const lsPhone = (() => {
     try { return localStorage.getItem("wa_phone") || ""; } catch { return ""; }
   })();
-  const fallback = "51977546073"; // SOLO si quieres un valor por defecto local
+  const fallback = "51977546073"; // quítalo si ya tienes el .env en producción
   return (envPhone || lsPhone || fallback || "").trim();
 }
-
 const DEFAULT_MSG =
   import.meta.env.VITE_WHATSAPP_DEFAULT_MSG ||
   "Hola 👋, tengo una consulta sobre un producto de KokoriShop.";
 
 function buildWaLink() {
-  const raw = getRawPhone().replace(/[^\d]/g, ""); // sólo dígitos
-  if (!raw) {
-    console.warn("[WhatsAppFab] Falta VITE_WHATSAPP_PHONE o localStorage.wa_phone");
-    return null;
-  }
+  const raw = getRawPhone().replace(/[^\d]/g, "");
+  if (!raw) return null;
   const text = encodeURIComponent(DEFAULT_MSG);
   return `https://wa.me/${raw}?text=${text}`;
 }
 
-// Configurables por .env (con valores por defecto)
+/* ===== config por .env ===== */
 const TEASER_INTERVAL_SEC = Number(import.meta.env.VITE_WHATSAPP_TEASER_INTERVAL_SEC ?? 60);
-const TEASER_DURATION_MS  = Number(import.meta.env.VITE_WHATSAPP_TEASER_DURATION_MS  ?? 4000);
-const CLICK_SNOOZE_SEC    = Number(import.meta.env.VITE_WHATSAPP_CLICK_SNOOZE_SEC    ?? 300);
-// Desfase extra en /catalogo para no tapar el botón Home
-const EXTRA_BOTTOM_CATALOG = Number(import.meta.env.VITE_WHATSAPP_EXTRA_BOTTOM_CATALOG ?? 88);
+const TEASER_DURATION_MS = Number(import.meta.env.VITE_WHATSAPP_TEASER_DURATION_MS ?? 4000);
+const CLICK_SNOOZE_SEC   = Number(import.meta.env.VITE_WHATSAPP_CLICK_SNOOZE_SEC ?? 300);
+const THEME = (import.meta.env.VITE_WHATSAPP_THEME || "kuromi").toLowerCase();
 
-// LocalStorage keys
+/* ===== keys localStorage ===== */
 const LS_TEASER_LAST = "wa_teaser_last_ts";
 const LS_CLICK_LAST  = "wa_last_click_ts";
+
+/* ===== paletas ===== */
+const themes = {
+  kuromi: {
+    bubble:
+      "bg-gradient-to-r from-[#111111] to-[#3a0b45] text-white ring-1 ring-pink-400/60 shadow-[0_8px_24px_rgba(255,20,147,.25)]",
+    pill: "bg-pink-500 text-white",
+    edge: "border border-pink-400/50",
+    tail: "bg-[#3a0b45]",
+  },
+  classic: {
+    bubble:
+      "bg-white text-purple-900 ring-1 ring-black/5 shadow-xl",
+    pill: "bg-fuchsia-600 text-white",
+    edge: "border border-white/20",
+    tail: "bg-white",
+  },
+  panda: {
+    bubble:
+      "bg-gradient-to-r from-[#0b1220] to-[#1f2a44] text-white ring-1 ring-emerald-400/60 shadow-[0_8px_24px_rgba(16,185,129,.25)]",
+    pill: "bg-emerald-500 text-white",
+    edge: "border border-emerald-400/40",
+    tail: "bg-[#1f2a44]",
+  },
+};
 
 export default function WhatsAppFab() {
   const href = buildWaLink();
   const { pathname } = useLocation();
+  const isHome =
+    pathname === "/" || pathname === "" || pathname === "/home" || pathname === "/inicio";
 
-  // Rutas donde sí queremos mostrarlo
-  const isAllowedRoute =
-    pathname === "/" ||
-    pathname === "" ||
-    pathname === "/home" ||
-    pathname === "/inicio" ||
-    pathname.startsWith("/catalogo");
+  // sube el FAB un poco en catálogo para no pisar el Home flotante
+  const bottomCalc = useMemo(() => {
+    const extra = pathname.startsWith("/catalogo") ? 84 : 0;
+    return `calc(16px + ${extra}px + env(safe-area-inset-bottom, 0px))`;
+  }, [pathname]);
 
-  // Si estamos en catálogo, levantamos el botón para que no se solape con el FAB Home
-  const needsLift = pathname.startsWith("/catalogo");
-  const extraBottom = needsLift ? EXTRA_BOTTOM_CATALOG : 0;
-
-  // baseBottom=16px; añadimos safe-area (iOS) + extraBottom cuando haga falta
-  const bottomCalc = `calc(16px + ${extraBottom}px + env(safe-area-inset-bottom, 0px))`;
-
-  // Teaser (globo)
   const [showTeaser, setShowTeaser] = useState(false);
-
-  // ¿Usuario prefiere menos movimiento?
   const reduceMotion = useMemo(() => {
     if (typeof window === "undefined" || !window.matchMedia) return false;
     return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   }, []);
 
-  // Mostrar teaser cada cierto tiempo (con snooze si el usuario clickeó)
   useEffect(() => {
-    if (!href || !isAllowedRoute) return;
-
+    if (!href || !isHome) return;
     let hideTimer = null;
     const now = () => Date.now();
     const getTs = (k) => { try { return Number(localStorage.getItem(k) || 0); } catch { return 0; } };
     const setTs = (k, v) => { try { localStorage.setItem(k, String(v)); } catch {/* noop */} };
 
-    const maybeShowTeaser = () => {
-      const lastClick  = getTs(LS_CLICK_LAST);
+    const maybeShow = () => {
+      const lastClick = getTs(LS_CLICK_LAST);
       if (lastClick && now() - lastClick < CLICK_SNOOZE_SEC * 1000) return;
-
       const lastTeaser = getTs(LS_TEASER_LAST);
       if (lastTeaser && now() - lastTeaser < TEASER_INTERVAL_SEC * 1000) return;
 
       setShowTeaser(true);
       setTs(LS_TEASER_LAST, now());
-
       clearTimeout(hideTimer);
       hideTimer = setTimeout(() => setShowTeaser(false), TEASER_DURATION_MS);
     };
 
-    // Chequeo inmediato y luego cada 1s para decidir si mostrar
-    maybeShowTeaser();
-    const interval = setInterval(maybeShowTeaser, 1000);
+    maybeShow();
+    const id = setInterval(maybeShow, 1000);
+    return () => { clearInterval(id); clearTimeout(hideTimer); };
+  }, [href, isHome]);
 
-    return () => {
-      clearInterval(interval);
-      clearTimeout(hideTimer);
-    };
-  }, [href, isAllowedRoute]);
+  if (!href || !isHome) return null;
 
-  if (!href || !isAllowedRoute) return null;
+  const t = themes[THEME] || themes.kuromi;
 
   return (
     <>
       {!reduceMotion && (
         <style>{`
-          @keyframes koko-bounce-soft {
-            0%, 100% { transform: translateY(0); }
-            50%      { transform: translateY(-3px); }
-          }
+          @keyframes wsoft-bounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-4px)} }
         `}</style>
       )}
 
-      <div
-        className="fixed z-[950] left-4 md:left-6"
-        style={{ bottom: bottomCalc }}
-      >
-        {/* TEASER (globo) */}
+      <div className="fixed z-[950] left-4 md:left-6" style={{ bottom: bottomCalc }}>
+        {/* teaser/globo */}
         {showTeaser && (
           <div
-            className={`
-              mb-2 select-none rounded-2xl bg-white text-purple-900 shadow-xl
-              ring-1 ring-black/5 px-3 py-2 text-[13px] font-medium
-              ${reduceMotion ? "" : "animate-[koko-bounce-soft_1.2s_ease-in-out_infinite]"}
-            `}
+            className={[
+              "relative mb-2 select-none rounded-2xl px-3 py-2 text-[13px] font-medium",
+              t.bubble, t.edge,
+              reduceMotion ? "" : "animate-[wsoft-bounce_1.2s_ease-in-out_infinite]"
+            ].join(" ")}
             role="status"
           >
-            Cualquier consulta, escríbenos a <strong>KokoriShop</strong> 💬
+            <button
+              onClick={() => setShowTeaser(false)}
+              className="absolute -right-2 -top-2 w-6 h-6 grid place-items-center rounded-full bg-white/20 hover:bg-white/30 text-white"
+              aria-label="Cerrar"
+              title="Cerrar"
+            >
+              ×
+            </button>
+
+            <div className="flex items-center gap-2">
+              <span>💬 Cualquier consulta, escríbenos a</span>
+              <span className={`px-2 py-[2px] rounded-full text-[12px] font-semibold ${t.pill}`}>
+                KokoriShop
+              </span>
+            </div>
+
+            {/* colita del globo */}
+            <div
+              className={`absolute -bottom-1 left-5 w-3 h-3 rotate-45 ${t.tail}`}
+              style={{ borderBottomLeftRadius: 4 }}
+            />
           </div>
         )}
 
