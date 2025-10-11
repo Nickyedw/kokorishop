@@ -305,8 +305,8 @@ export default function Favorites() {
         info={{
           name: zoomAlt || "Producto",
           // si tienes estos datos en favoritos, puedes añadirlos:
-          // price: favoritoSeleccionado?.precio_oferta ?? favoritoSeleccionado?.precio,
-          // description: favoritoSeleccionado?.descripcion,
+           price: favorites?.precio_oferta ?? favorites?.precio,
+           description: favorites?.descripcion,
         }}
       />
     </div>
