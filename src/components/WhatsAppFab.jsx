@@ -14,7 +14,7 @@ function getRawPhone() {
   const lsPhone = (() => {
     try { return localStorage.getItem("wa_phone") || ""; } catch { return ""; }
   })();
-  const fallback = ""; // p.ej. "51987654321" SOLO para pruebas locales
+  const fallback = "51977546073"; // p.ej. "51987654321" SOLO para pruebas locales
   return (envPhone || lsPhone || fallback || "").trim();
 }
 
