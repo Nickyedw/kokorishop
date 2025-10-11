@@ -61,6 +61,7 @@ export default function Favorites() {
   const [zoomOpen, setZoomOpen] = useState(false);
   const [zoomSrc, setZoomSrc] = useState(null);
   const [zoomAlt, setZoomAlt] = useState("");
+  const [zoomItem, setZoomItem] = useState(null);
 
   // Contador carrito
   const cartCount = useMemo(
@@ -195,6 +196,7 @@ export default function Favorites() {
                         loading="lazy"
                         onError={(e) => (e.currentTarget.src = "/placeholder.png")}
                         onClick={() => {
+                          setZoomItem(p); 
                           setZoomSrc(img);
                           setZoomAlt(name);
                           setZoomOpen(true);
@@ -301,12 +303,14 @@ export default function Favorites() {
         isOpen={zoomOpen}
         src={zoomSrc}
         alt={zoomAlt}
-        onClose={() => setZoomOpen(false)}
+        onClose={() => {
+          setZoomOpen(false);
+          setZoomItem(null); // limpiamos el seleccionado
+        }}
         info={{
-          name: zoomAlt || "Producto",
-          // si tienes estos datos en favoritos, puedes añadirlos:
-           price: favorites?.precio_oferta ?? favorites?.precio,
-           description: favorites?.descripcion,
+          name: zoomItem?.nombre || zoomItem?.name || zoomAlt || "Producto",
+          price: zoomItem ? normalizePricing(zoomItem).price : undefined,
+          description: zoomItem?.descripcion || zoomItem?.description || "",
         }}
       />
     </div>
