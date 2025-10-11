@@ -54,7 +54,7 @@ export default function WhatsAppFab() {
   const { pathname } = useLocation();
 
   // Mostrar solo en Home (contempla algunos alias)
-  const isHome = pathname === "/" || pathname === "" || pathname === "/home" || pathname === "/inicio";
+  const isHome = pathname === "/" || pathname === "" || pathname === "/home" || pathname === "/inicio" || pathname === "/catalogo";
 
   // Subir el botón en iOS por el safe area
   const bottomCalc = "calc(16px + env(safe-area-inset-bottom, 0px))";
