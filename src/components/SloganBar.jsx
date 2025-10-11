@@ -11,7 +11,7 @@ export default function SloganBar({
   interval = 4500,
   fade = 450,
   pauseOnHover = true,
-  variant = "contained",          // "contained" | "chip" | "full"
+  variant = "full",          // "contained" | "chip" | "full"
   className = "mt-1",
   maxW = "max-w-6xl",
   /** Nuevo: tema visual */
