@@ -15,12 +15,12 @@ export default function SloganBar({
    *  "full"       = ocupa todo el ancho
    */
   variant = "contained",
-  /** NUEVO:
-   *  "solid" = la banda completa con el patrón Kuromi y texto encima (lo que pides)
-   *  "chip"  = muestra una pastilla de vidrio sobre la banda (tu estilo anterior)
+  /** Visual:
+   *  "solid" = banda completa con patrón Kuromi + texto (recomendado)
+   *  "chip"  = pastilla de vidrio sobre la banda
    */
   mode = "solid",
-  /** Tema visual */
+  /** Tema */
   theme = "kuromi", // "kuromi" | "soft"
   className = "mt-1",
   maxW = "max-w-6xl",
@@ -75,14 +75,15 @@ export default function SloganBar({
     timerRef.current = setInterval(step, Math.max(interval, 1200));
   };
 
-  // Fondos
+  // ===== Fondos =====
   const kuromiBg = useMemo(
     () => ({
       backgroundImage: `
-        radial-gradient(120% 100% at 0% 0%, rgba(244,114,182,0.20), rgba(244,114,182,0) 60%),
-        radial-gradient(120% 120% at 100% 0%, rgba(147,51,234,0.22), rgba(147,51,234,0) 60%),
-        radial-gradient(100% 100% at 50% 100%, rgba(168,85,247,0.22), rgba(168,85,247,0) 50%),
-        repeating-linear-gradient(45deg, rgba(255,255,255,0.07) 0 2px, transparent 2px 8px),
+        radial-gradient(120% 100% at 0% 0%, rgba(244,114,182,0.18), rgba(244,114,182,0) 60%),
+        radial-gradient(120% 120% at 100% 0%, rgba(147,51,234,0.20), rgba(147,51,234,0) 60%),
+        radial-gradient(100% 100% at 50% 100%, rgba(168,85,247,0.18), rgba(168,85,247,0) 50%),
+        /* rayas suaves y espaciadas */
+        repeating-linear-gradient(45deg, rgba(255,255,255,0.04) 0 2px, transparent 2px 10px),
         linear-gradient(90deg, #18181b, #2a143c 55%, #1f0f2c)
       `,
     }),
@@ -99,10 +100,10 @@ export default function SloganBar({
 
   const bgStyle = theme === "kuromi" ? kuromiBg : softBg;
 
-  // ------- UI atoms -------
+  // ===== Atoms =====
   const Text = (
     <span
-      className="leading-none tracking-tight text-[clamp(12px,3.2vw,16px)] font-semibold"
+      className="leading-none tracking-tight text-[clamp(13px,3.4vw,17px)] font-semibold"
       style={{ opacity: visible ? 1 : 0, transition: `opacity ${fade}ms ease-in-out` }}
       aria-live="polite"
       onMouseEnter={onMouseEnter}
@@ -128,22 +129,24 @@ export default function SloganBar({
     </div>
   );
 
-  // ------- Render helpers -------
-  const Inner = mode === "chip"
-    ? <div className="px-4 py-2 flex justify-center">{Chip}</div>
-    : (
+  // ===== Render helpers =====
+  const Inner =
+    mode === "chip" ? (
+      <div className="px-4 py-2 flex justify-center">{Chip}</div>
+    ) : (
       <div className="px-4 py-2">
         <div
           className="
             w-full text-center text-white
-            py-2 rounded-xl
+            py-2.5 md:py-3 rounded-xl
           "
           style={{
-            // “satin” para que el texto resalte sin sobrecargar
+            // “satin” más claro + mejor contraste y legibilidad
             background:
-              "linear-gradient(to bottom, rgba(255,255,255,0.10), rgba(255,255,255,0.02))",
+              "linear-gradient(to bottom, rgba(255,255,255,0.14), rgba(255,255,255,0.05))",
             boxShadow:
-              "inset 0 1px 0 rgba(255,255,255,0.25), inset 0 -6px 18px rgba(0,0,0,0.15)",
+              "inset 0 1px 0 rgba(255,255,255,0.28), inset 0 -8px 18px rgba(0,0,0,0.16)",
+            textShadow: "0 1px 2px rgba(0,0,0,0.35)",
           }}
         >
           {Text}
@@ -153,16 +156,18 @@ export default function SloganBar({
 
   const Container = (
     <div
-      className="relative rounded-2xl shadow-inner ring-1 ring-white/10"
+      className="relative rounded-2xl shadow-inner ring-1 ring-fuchsia-300/30"
       style={bgStyle}
     >
-      {/* Borde neón sutil */}
-      <div className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-fuchsia-300/22" />
+      {/* halo sutil */}
+      <div className="pointer-events-none absolute inset-0 rounded-2xl blur-[6px] ring-2 ring-fuchsia-400/15" />
+      {/* borde “nítido” */}
+      <div className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-fuchsia-300/30" />
       {Inner}
     </div>
   );
 
-  // ------- Variants -------
+  // ===== Variants =====
   if (variant === "contained") {
     return (
       <div className={`${maxW} mx-auto px-4 ${className}`}>
@@ -173,14 +178,14 @@ export default function SloganBar({
 
   if (variant === "full") {
     return (
-      <div className={`w-full ${className}`} style={bgStyle}>
+      <div className={`w-full relative ${className}`} style={bgStyle}>
         <div className="pointer-events-none absolute inset-0 ring-1 ring-fuchsia-300/15" />
         <div className={`${maxW} mx-auto px-4`}>{Inner}</div>
       </div>
     );
   }
 
-  // Fallback (por si acaso)
+  // Fallback
   return (
     <div className={`${maxW} mx-auto px-4 ${className}`}>
       {Container}
