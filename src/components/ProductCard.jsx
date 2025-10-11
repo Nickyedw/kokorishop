@@ -284,9 +284,20 @@ const ProductCard = ({ producto, onAddedToCart }) => {
         isOpen={zoomOpen}
         onClose={() => setZoomOpen(false)}
         images={zoomImages}
-        alt={producto.nombre}
+        alt={producto?.nombre || producto?.name || "Producto"}
         onAdd={!sinStock ? handleAdd : undefined}
         addLabel="Agregar"
+        info={{
+          name: producto?.nombre || producto?.name || "Producto",
+          // toma oferta si existe; si no, el precio normal (cubre varios nombres)
+          price:
+            producto?.precio_oferta ??
+            producto?.precio ??
+            producto?.price ??
+            undefined,
+          // muestra descripción si la tienes
+          description: producto?.descripcion || producto?.description || "",
+        }}
       />
     </div>
   );

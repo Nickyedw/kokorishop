@@ -302,6 +302,12 @@ export default function Favorites() {
         src={zoomSrc}
         alt={zoomAlt}
         onClose={() => setZoomOpen(false)}
+        info={{
+          name: zoomAlt || "Producto",
+          // si tienes estos datos en favoritos, puedes añadirlos:
+          // price: favoritoSeleccionado?.precio_oferta ?? favoritoSeleccionado?.precio,
+          // description: favoritoSeleccionado?.descripcion,
+        }}
       />
     </div>
   );
