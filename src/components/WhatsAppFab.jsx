@@ -14,7 +14,7 @@ function getRawPhone() {
   const lsPhone = (() => {
     try { return localStorage.getItem("wa_phone") || ""; } catch { return ""; }
   })();
-  const fallback = "51977546073"; // p.ej. "51987654321" SOLO para pruebas locales
+  const fallback = "51977546073"; // SOLO si quieres un valor por defecto local
   return (envPhone || lsPhone || fallback || "").trim();
 }
 
@@ -25,9 +25,7 @@ const DEFAULT_MSG =
 function buildWaLink() {
   const raw = getRawPhone().replace(/[^\d]/g, ""); // sólo dígitos
   if (!raw) {
-    console.warn(
-      "[WhatsAppFab] No hay número configurado. Define VITE_WHATSAPP_PHONE o localStorage.wa_phone"
-    );
+    console.warn("[WhatsAppFab] Falta VITE_WHATSAPP_PHONE o localStorage.wa_phone");
     return null;
   }
   const text = encodeURIComponent(DEFAULT_MSG);
@@ -35,29 +33,34 @@ function buildWaLink() {
 }
 
 // Configurables por .env (con valores por defecto)
-const TEASER_INTERVAL_SEC = Number(
-  import.meta.env.VITE_WHATSAPP_TEASER_INTERVAL_SEC ?? 60
-);
-const TEASER_DURATION_MS = Number(
-  import.meta.env.VITE_WHATSAPP_TEASER_DURATION_MS ?? 4000
-);
-const CLICK_SNOOZE_SEC = Number(
-  import.meta.env.VITE_WHATSAPP_CLICK_SNOOZE_SEC ?? 300
-);
+const TEASER_INTERVAL_SEC = Number(import.meta.env.VITE_WHATSAPP_TEASER_INTERVAL_SEC ?? 60);
+const TEASER_DURATION_MS  = Number(import.meta.env.VITE_WHATSAPP_TEASER_DURATION_MS  ?? 4000);
+const CLICK_SNOOZE_SEC    = Number(import.meta.env.VITE_WHATSAPP_CLICK_SNOOZE_SEC    ?? 300);
+// Desfase extra en /catalogo para no tapar el botón Home
+const EXTRA_BOTTOM_CATALOG = Number(import.meta.env.VITE_WHATSAPP_EXTRA_BOTTOM_CATALOG ?? 88);
 
 // LocalStorage keys
 const LS_TEASER_LAST = "wa_teaser_last_ts";
-const LS_CLICK_LAST = "wa_last_click_ts";
+const LS_CLICK_LAST  = "wa_last_click_ts";
 
 export default function WhatsAppFab() {
   const href = buildWaLink();
   const { pathname } = useLocation();
 
-  // Mostrar solo en Home (contempla algunos alias)
-  const isHome = pathname === "/" || pathname === "" || pathname === "/home" || pathname === "/inicio" || pathname === "/catalogo";
+  // Rutas donde sí queremos mostrarlo
+  const isAllowedRoute =
+    pathname === "/" ||
+    pathname === "" ||
+    pathname === "/home" ||
+    pathname === "/inicio" ||
+    pathname.startsWith("/catalogo");
 
-  // Subir el botón en iOS por el safe area
-  const bottomCalc = "calc(16px + env(safe-area-inset-bottom, 0px))";
+  // Si estamos en catálogo, levantamos el botón para que no se solape con el FAB Home
+  const needsLift = pathname.startsWith("/catalogo");
+  const extraBottom = needsLift ? EXTRA_BOTTOM_CATALOG : 0;
+
+  // baseBottom=16px; añadimos safe-area (iOS) + extraBottom cuando haga falta
+  const bottomCalc = `calc(16px + ${extraBottom}px + env(safe-area-inset-bottom, 0px))`;
 
   // Teaser (globo)
   const [showTeaser, setShowTeaser] = useState(false);
@@ -68,33 +71,25 @@ export default function WhatsAppFab() {
     return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   }, []);
 
-  // Reloj para mostrar el teaser de manera espaciada
+  // Mostrar teaser cada cierto tiempo (con snooze si el usuario clickeó)
   useEffect(() => {
-    if (!href || !isHome) return;
+    if (!href || !isAllowedRoute) return;
 
     let hideTimer = null;
     const now = () => Date.now();
-    const getTs = (k) => {
-      try { return Number(localStorage.getItem(k) || 0); } catch { return 0; }
-    };
-    const setTs = (k, v) => {
-      try { localStorage.setItem(k, String(v)); } catch {/* noop */}
-    };
+    const getTs = (k) => { try { return Number(localStorage.getItem(k) || 0); } catch { return 0; } };
+    const setTs = (k, v) => { try { localStorage.setItem(k, String(v)); } catch {/* noop */} };
 
     const maybeShowTeaser = () => {
-      // 1) si el usuario clickeó hace poco, no molestar
-      const lastClick = getTs(LS_CLICK_LAST);
+      const lastClick  = getTs(LS_CLICK_LAST);
       if (lastClick && now() - lastClick < CLICK_SNOOZE_SEC * 1000) return;
 
-      // 2) respeta intervalo mínimo entre apariciones
       const lastTeaser = getTs(LS_TEASER_LAST);
       if (lastTeaser && now() - lastTeaser < TEASER_INTERVAL_SEC * 1000) return;
 
-      // 3) mostrar teaser
       setShowTeaser(true);
       setTs(LS_TEASER_LAST, now());
 
-      // 4) auto-ocultar
       clearTimeout(hideTimer);
       hideTimer = setTimeout(() => setShowTeaser(false), TEASER_DURATION_MS);
     };
@@ -107,18 +102,17 @@ export default function WhatsAppFab() {
       clearInterval(interval);
       clearTimeout(hideTimer);
     };
-  }, [href, isHome]);
+  }, [href, isAllowedRoute]);
 
-  if (!href || !isHome) return null;
+  if (!href || !isAllowedRoute) return null;
 
   return (
     <>
-      {/* animación sutil (solo cuando no hay prefers-reduced-motion) */}
       {!reduceMotion && (
         <style>{`
           @keyframes koko-bounce-soft {
             0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-3px); }
+            50%      { transform: translateY(-3px); }
           }
         `}</style>
       )}
@@ -154,7 +148,6 @@ export default function WhatsAppFab() {
             hover:brightness-110 active:scale-95 transition pointer-events-auto
           "
           onClick={() => {
-            // Guarda el click para “snoozear” futuros teasers
             try { localStorage.setItem(LS_CLICK_LAST, String(Date.now())); } catch {/* noop */}
             setShowTeaser(false);
           }}
