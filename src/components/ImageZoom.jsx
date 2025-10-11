@@ -10,6 +10,8 @@ import {
   FaShoppingCart,
 } from "react-icons/fa";
 
+const fmt = (n) => `S/ ${Number(n || 0).toFixed(2)}`;
+
 /**
  * ImageZoom – visor con zoom, galería, swipe, wheel y pinch
  */
@@ -23,6 +25,9 @@ export default function ImageZoom({
   getFullSrc,
   onAdd,
   addLabel = "Agregar al carrito",
+
+  /** NUEVO (opcional): datos para mostrar debajo de la imagen */
+  info, // { name, price, description }
 }) {
   const backdropRef = useRef(null);
   const imgRef = useRef(null);
@@ -59,6 +64,9 @@ export default function ImageZoom({
   // Swipe (cambio de imagen cuando no hay zoom)
   const swipeStart = useRef({ x: 0, y: 0, at: 0 });
 
+  // Descripción expandida
+  const [descOpen, setDescOpen] = useState(false);
+
   // Cerrar centralizado (libera capture + resetea mínimos)
   const handleClose = useCallback(() => {
     try {
@@ -81,6 +89,7 @@ export default function ImageZoom({
     setScale(1);
     setPos({ x: 0, y: 0 });
     setLoading(true);
+    setDescOpen(false);
   }, [isOpen, list.length, initialIndex]);
 
   // Navegación (wrap-around)
@@ -298,7 +307,6 @@ export default function ImageZoom({
           </>
         )}
 
-
         {/* Contenido imagen */}
         <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
           {/* Spinner */}
@@ -332,6 +340,46 @@ export default function ImageZoom({
             draggable={false}
           />
         </div>
+
+        {/* === NUEVO: Panel de información (opcional) === */}
+        {info && (info.name || info.price != null || info.description) && (
+          <div
+            className="
+              absolute left-1/2 -translate-x-1/2
+              bottom-[88px]   /* queda justo encima de la toolbar */
+              w-[92%] max-w-[780px]
+              bg-white text-purple-900 shadow-xl border border-purple-100
+              rounded-2xl px-4 py-3
+            "
+          >
+            <div className="flex items-start justify-between gap-3">
+              <h3 className="text-base md:text-lg font-extrabold">
+                {info.name || alt || "Producto"}
+              </h3>
+              {info.price != null && (
+                <div className="text-fuchsia-600 font-extrabold">
+                  {fmt(info.price)}
+                </div>
+              )}
+            </div>
+
+            {info.description && (
+              <div className="mt-1.5 text-sm text-purple-700/90">
+                <div className={descOpen ? "" : "line-clamp-3"}>
+                  {info.description}
+                </div>
+                {String(info.description).length > 120 && (
+                  <button
+                    onClick={() => setDescOpen((v) => !v)}
+                    className="mt-1 text-xs font-semibold text-fuchsia-600 hover:text-fuchsia-700"
+                  >
+                    {descOpen ? "Ver menos" : "Ver más"}
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Toolbar inferior */}
         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-white/10 backdrop-blur-md border border-white/20 rounded-full px-3 py-2 text-white">
