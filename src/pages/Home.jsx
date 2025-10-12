@@ -15,6 +15,20 @@ const base = import.meta.env.BASE_URL;
 const API_APP = import.meta.env.VITE_API_URL || "http://localhost:3001";
 const API_BASE = `${API_APP}/api`;
 
+// Tamaño compacto y reutilizable
+const userBtnSize = "w-8 h-8 sm:w-9 sm:h-9";
+
+// Estilos para cada estado
+const userBtnGuest =
+  `${userBtnSize} grid place-items-center rounded-full 
+   bg-violet-700 text-white shadow ring-2 ring-white/40 
+   hover:brightness-110 active:scale-95 transition`;
+
+const userBtnLogged =
+  `${userBtnSize} grid place-items-center rounded-full 
+   bg-white text-purple-900 shadow ring-2 ring-fuchsia-300/70 
+   hover:shadow-md transition`;
+
 function HeroVideo() {
   const PUB = import.meta.env.BASE_URL || "/";
 
@@ -196,40 +210,29 @@ const Home = () => {
 
           {/* Usuario / Cuenta */}
           {!isLogged ? (
-            <Link
-              to="/login"
-              className="
-                group inline-flex items-center gap-1.5
-                h-9 px-3 rounded-full
-                bg-gradient-to-r from-pink-500 to-fuchsia-500 text-white
-                text-[13px] font-semibold shadow-md
-                hover:shadow-lg active:scale-[.98] transition
-              "
-              aria-label="Iniciar sesión"
-              title="Iniciar sesión"
-            >
-              <span className="grid place-items-center w-5 h-5 rounded-full bg-white/20">
-                <FaUser className="text-[12px]" />
-              </span>
-              <span className="hidden sm:inline">Entrar</span>
-            </Link>
-          ) : (
+            // ——— NO LOGUEADO -> botón circular compacto y oscuro (mejor contraste del icono) ———
             <button
               type="button"
-              onClick={() => setMenuOpen(true)}
-              className="
-                relative grid place-items-center
-                w-9 h-9 rounded-full
-                bg-white/90 text-purple-900
-                shadow hover:shadow-md transition
-              "
+              aria-label="Iniciar sesión"
+              title="Iniciar sesión"
+              className={userBtnGuest}
+              onClick={() => { window.location.href = "#/login"; }}
+            >
+              <FaUser className="text-[13px] sm:text-[14px]" />
+            </button>
+          ) : (
+            // ——— LOGUEADO -> círculo con inicial, un poco más pequeño ———
+            <button
+              type="button"
               aria-label="Mi cuenta"
               title="Abrir menú de cuenta"
+              className={`relative ${userBtnLogged}`}
+              onClick={() => setMenuOpen(true)}
             >
-              <span className="font-black">{userInitial}</span>
-              <span className="pointer-events-none absolute -inset-1 rounded-full ring-2 ring-fuchsia-400/70 animate-ping-slow" />
+              <span className="font-black text-[11px] sm:text-[12px]">{userInitial}</span>
             </button>
           )}
+
 
           {/* Menú hamburguesa */}
           <button
