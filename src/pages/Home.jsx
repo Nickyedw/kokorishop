@@ -16,7 +16,7 @@ const API_APP = import.meta.env.VITE_API_URL || "http://localhost:3001";
 const API_BASE = `${API_APP}/api`;
 
 // Tamaño compacto para ambos estados
-const userBtnSize = "w-8 h-8 sm:w-9 sm:h-9";
+const userBtnSize = "w-7 h-7 sm:w-8 sm:h-8";
 
 // Botón invitado (oscuro para mejor contraste del icono blanco)
 const userBtnGuest = `
@@ -29,7 +29,7 @@ const userBtnGuest = `
 // Botón logueado (fondo blanco, texto morado) – puedes cambiar a bg-violet-700 text-white si lo prefieres oscuro / bg-white text-purple-900
 const userBtnLogged = `
   ${userBtnSize} relative grid place-items-center rounded-full
-  bg-violet-700 text-white shadow
+  bg-violet-700 text-yelow shadow
   ring-2 ring-fuchsia-300/70
   hover:brightness-110 transition
 `;
