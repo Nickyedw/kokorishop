@@ -62,7 +62,7 @@ export default function WhatsAppFab() {
   const href = buildWaLink();
   const { pathname } = useLocation();
   const isHome =
-    pathname === "/" || pathname === "" || pathname === "/home" || pathname === "/inicio";
+    pathname === "/" || pathname === "" || pathname === "/home" || pathname === "/inicio" || pathname === "/catalogo";
 
   // sube el FAB un poco en catálogo para no pisar el Home flotante
   const bottomCalc = useMemo(() => {

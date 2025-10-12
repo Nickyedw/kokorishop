@@ -1,13 +1,12 @@
 // src/pages/Home.jsx
 import React, { useEffect, useState, useContext } from "react";
-import { FaHeart, FaShoppingBag, FaBars } from "react-icons/fa";
-import { Link } from "react-router-dom";
+import { FaHeart, FaShoppingBag, FaBars, FaUserCircle } from "react-icons/fa";
+import { Link, useNavigate } from "react-router-dom";
 
 import ProductCard from "../components/ProductCard";
 import { CartContext } from "../context/CartContext";
 import { FavoritesContext } from "../context/FavoritesContext";
 // ⛔️ MiniCart YA NO se importa aquí; lo pinta CartLayout de forma global
-// import MiniCart from "../components/MiniCart";
 import MobileMenu from "../components/MobileMenu";
 import SloganBar from "../components/SloganBar";
 
@@ -89,7 +88,12 @@ function HeroVideo() {
 }
 
 const Home = () => {
+  const navigate = useNavigate();
+
   const usuario_nombre = localStorage.getItem("usuario_nombre") || "Invitado";
+  const isLogged = Boolean(usuario_nombre && usuario_nombre !== "Invitado");
+  const userInitial = isLogged ? usuario_nombre.charAt(0).toUpperCase() : null;
+
   const { cartItems } = useContext(CartContext);
   const { favorites } = useContext(FavoritesContext);
 
@@ -156,11 +160,6 @@ const Home = () => {
     cargarSecciones();
   }, []);
 
-  // handler para abrir MiniCart global
-  const openMiniCart = () => {
-    window.dispatchEvent(new Event("cart:open"));
-  };
-
   // handler reutilizable cuando se agrega al carrito
   const handleAddedToCart = () => {
     window.dispatchEvent(new CustomEvent("cart:add", { detail: { amount: 1 } }));
@@ -198,7 +197,8 @@ const Home = () => {
 
         {/* Acciones */}
         <div className="flex items-center gap-4 relative text-lg">
-          <Link to="/favorites" className="relative" aria-label="Favoritos">
+          {/* Favoritos */}
+          <Link to="/favorites" className="relative" aria-label="Favoritos" title="Favoritos">
             <FaHeart />
             {favorites.length > 0 && (
               <span className="absolute -top-2 -right-2 bg-pink-500 text-white text-xs w-5 h-5 grid place-items-center rounded-full">
@@ -207,21 +207,23 @@ const Home = () => {
             )}
           </Link>
 
-          {/* Botón que abre el MiniCart global */}
+          {/* Usuario / Cuenta (reemplaza la bolsa del carrito) */}
           <button
             type="button"
             className="relative"
-            aria-label="Abrir carrito"
-            onClick={openMiniCart}
+            aria-label={isLogged ? "Mi cuenta" : "Ingresar"}
+            title={isLogged ? "Mi cuenta" : "Ingresar"}
+            onClick={() => navigate(isLogged ? "/perfil" : "/login")}
           >
-            <FaShoppingBag />
-            {totalItems > 0 && (
+            <FaUserCircle />
+            {isLogged && (
               <span className="absolute -top-2 -right-2 bg-yellow-400 text-purple-900 text-xs w-5 h-5 grid place-items-center rounded-full">
-                {totalItems}
+                {userInitial}
               </span>
             )}
           </button>
 
+          {/* Menú */}
           <button
             type="button"
             className="text-white/90 md:hidden"

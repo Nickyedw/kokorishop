@@ -6,7 +6,7 @@ export default function SloganBar({
     "Envíos punto a punto",
     "Donde Todo es Cute ✨",
     "Atención por WhatsApp 📲",
-    "Retiro en estación de bus 🚌",
+    "Productos Kawaii, Tecnologia, Hogar, Bazar y más...",
   ],
   interval = 4500,
   fade = 450,
