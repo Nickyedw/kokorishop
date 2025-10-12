@@ -21,7 +21,7 @@ const userBtnSize = "w-7 h-7 sm:w-8 sm:h-8";
 // Botón invitado (oscuro para mejor contraste del icono blanco)
 const userBtnGuest = `
   ${userBtnSize} grid place-items-center rounded-full
-  bg-violet-700 text-white shadow
+  bg-violet-700 text-yellow shadow
   ring-2 ring-white/40
   hover:brightness-110 active:scale-95 transition
 `;
@@ -29,7 +29,7 @@ const userBtnGuest = `
 // Botón logueado (fondo blanco, texto morado) – puedes cambiar a bg-violet-700 text-white si lo prefieres oscuro / bg-white text-purple-900
 const userBtnLogged = `
   ${userBtnSize} relative grid place-items-center rounded-full
-  bg-violet-700 text-yelow shadow
+  bg-violet-800 text-yellow-300 shadow
   ring-2 ring-fuchsia-300/70
   hover:brightness-110 transition
 `;
@@ -234,7 +234,7 @@ const Home = () => {
               className={userBtnLogged}
               onClick={() => setMenuOpen(true)}
             >
-              <span className="font-black text-[11px] sm:text-[12px]">{userInitial}</span>
+              <span className="font-black text-[12px] sm:text-[13px]">{userInitial}</span>
 
               {/* halo permanente */}
               <span className="pointer-events-none absolute -inset-1 rounded-full ring-2 ring-fuchsia-400/40" />
