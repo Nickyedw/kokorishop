@@ -15,19 +15,24 @@ const base = import.meta.env.BASE_URL;
 const API_APP = import.meta.env.VITE_API_URL || "http://localhost:3001";
 const API_BASE = `${API_APP}/api`;
 
-// Tamaño compacto y reutilizable
+// Tamaño compacto para ambos estados
 const userBtnSize = "w-8 h-8 sm:w-9 sm:h-9";
 
-// Estilos para cada estado
-const userBtnGuest =
-  `${userBtnSize} grid place-items-center rounded-full 
-   bg-violet-700 text-white shadow ring-2 ring-white/40 
-   hover:brightness-110 active:scale-95 transition`;
+// Botón invitado (oscuro para mejor contraste del icono blanco)
+const userBtnGuest = `
+  ${userBtnSize} grid place-items-center rounded-full
+  bg-violet-700 text-white shadow
+  ring-2 ring-white/40
+  hover:brightness-110 active:scale-95 transition
+`;
 
-const userBtnLogged =
-  `${userBtnSize} grid place-items-center rounded-full 
-   bg-white text-purple-900 shadow ring-2 ring-fuchsia-300/70 
-   hover:shadow-md transition`;
+// Botón logueado (fondo blanco, texto morado) – puedes cambiar a bg-violet-700 text-white si lo prefieres oscuro / bg-white text-purple-900
+const userBtnLogged = `
+  ${userBtnSize} relative grid place-items-center rounded-full
+  bg-violet-700 text-white shadow
+  ring-2 ring-fuchsia-300/70
+  hover:brightness-110 transition
+`;
 
 function HeroVideo() {
   const PUB = import.meta.env.BASE_URL || "/";
@@ -210,7 +215,7 @@ const Home = () => {
 
           {/* Usuario / Cuenta */}
           {!isLogged ? (
-            // ——— NO LOGUEADO -> botón circular compacto y oscuro (mejor contraste del icono) ———
+            // ——— NO LOGUEADO -> botón circular compacto (lleva a login) ———
             <button
               type="button"
               aria-label="Iniciar sesión"
@@ -221,18 +226,22 @@ const Home = () => {
               <FaUser className="text-[13px] sm:text-[14px]" />
             </button>
           ) : (
-            // ——— LOGUEADO -> círculo con inicial, un poco más pequeño ———
+            // ——— LOGUEADO -> avatar con inicial + “lata/ping” ———
             <button
               type="button"
               aria-label="Mi cuenta"
               title="Abrir menú de cuenta"
-              className={`relative ${userBtnLogged}`}
+              className={userBtnLogged}
               onClick={() => setMenuOpen(true)}
             >
               <span className="font-black text-[11px] sm:text-[12px]">{userInitial}</span>
+
+              {/* halo permanente */}
+              <span className="pointer-events-none absolute -inset-1 rounded-full ring-2 ring-fuchsia-400/40" />
+              {/* lata/ping suave */}
+              <span className="pointer-events-none absolute -inset-1 rounded-full ring-2 ring-fuchsia-400/70 animate-ping-slow" />
             </button>
           )}
-
 
           {/* Menú hamburguesa */}
           <button
@@ -256,17 +265,17 @@ const Home = () => {
 
       {/* Animación ping para el avatar */}
       <style>{`
-        @keyframes ping-slow {
-          0% { transform: scale(1); opacity: .65 }
-          70% { transform: scale(1.35); opacity: 0 }
-          100% { opacity: 0 }
-        }
-        .animate-ping-slow {
-          animation: ping-slow 2.4s cubic-bezier(0,0,.2,1) infinite;
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .animate-ping-slow { animation: none; }
-        }
+      @keyframes ping-slow {
+        0%   { transform: scale(1);    opacity: .65; }
+        70%  { transform: scale(1.35); opacity: 0;   }
+        100% { opacity: 0; }
+      }
+      .animate-ping-slow {
+        animation: ping-slow 2.4s cubic-bezier(0,0,.2,1) infinite;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .animate-ping-slow { animation: none !important; }
+      }
       `}</style>
 
       {/* Saludo */}
