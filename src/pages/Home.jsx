@@ -1,19 +1,17 @@
 // src/pages/Home.jsx
 import React, { useEffect, useState, useContext } from "react";
-import { FaHeart, FaShoppingBag, FaBars, FaUserCircle } from "react-icons/fa";
-import { Link, useNavigate } from "react-router-dom";
+import { FaHeart, FaUser, FaBars, FaShoppingBag } from "react-icons/fa";
+import { Link } from "react-router-dom";
 
 import ProductCard from "../components/ProductCard";
 import { CartContext } from "../context/CartContext";
 import { FavoritesContext } from "../context/FavoritesContext";
-// ⛔️ MiniCart YA NO se importa aquí; lo pinta CartLayout de forma global
 import MobileMenu from "../components/MobileMenu";
 import SloganBar from "../components/SloganBar";
 
-// Nombre de la tienda (se muestra en el header)
 const STORE_NAME = "Kokorishop";
 
-const base = import.meta.env.BASE_URL; // "/" en dev, "/kokorishop/" en prod si usas subcarpeta
+const base = import.meta.env.BASE_URL;
 const API_APP = import.meta.env.VITE_API_URL || "http://localhost:3001";
 const API_BASE = `${API_APP}/api`;
 
@@ -22,9 +20,7 @@ function HeroVideo() {
 
   return (
     <section className="relative w-full mt-4">
-      {/* contenedor centrado y ancho máximo en desktop */}
       <div className="mx-auto w-[94%] max-w-5xl rounded-3xl overflow-hidden bg-purple-900">
-        {/* alto por breakpoint (mobile/tablet) y proporción en desktop */}
         <div className="relative h-48 sm:h-64 md:h-80 lg:h-auto lg:aspect-[16/9]">
           <video
             className="absolute inset-0 w-full h-full object-cover lg:object-contain bg-black"
@@ -39,10 +35,8 @@ function HeroVideo() {
             <source src={`${PUB}media/kokorishop-hero.mp4`} type="video/mp4" />
           </video>
 
-          {/* layout interno: cinta arriba, CTA abajo */}
           <div className="absolute inset-0 z-10 flex flex-col">
             <div className="flex-1" />
-
             <div className="pb-0 sm:pb-4 self-center">
               <Link
                 to="/catalogo"
@@ -88,8 +82,6 @@ function HeroVideo() {
 }
 
 const Home = () => {
-  const navigate = useNavigate();
-
   const usuario_nombre = localStorage.getItem("usuario_nombre") || "Invitado";
   const isLogged = Boolean(usuario_nombre && usuario_nombre !== "Invitado");
   const userInitial = isLogged ? usuario_nombre.charAt(0).toUpperCase() : null;
@@ -107,7 +99,6 @@ const Home = () => {
     0
   );
 
-  // helpers rol admin
   const readBool = (k) => {
     const v = (localStorage.getItem(k) || "").toString().trim().toLowerCase();
     return v === "1" || v === "true" || v === "yes";
@@ -122,9 +113,7 @@ const Home = () => {
   try {
     const qs = new URLSearchParams(window.location.search);
     if (qs.get("admin") === "1") localStorage.setItem("is_admin", "true");
-  } catch {
-    /* noop */
-  }
+  } catch {/* noop */}
 
   const isAdmin =
     readRoleIsAdmin("usuario_rol", "rol", "role") ||
@@ -160,21 +149,19 @@ const Home = () => {
     cargarSecciones();
   }, []);
 
-  // handler reutilizable cuando se agrega al carrito
   const handleAddedToCart = () => {
     window.dispatchEvent(new CustomEvent("cart:add", { detail: { amount: 1 } }));
     window.dispatchEvent(new Event("cart:changed"));
     window.dispatchEvent(new Event("cart:open"));
   };
 
-  // Si hay footer admin, reservamos espacio
   const pagePaddingBottom = isAdmin ? "pb-[88px]" : "pb-6";
 
   return (
     <div className={`min-h-screen bg-purple-900 text-white ${pagePaddingBottom}`}>
       {/* Navbar */}
       <nav className="grid grid-cols-[auto,1fr,auto] items-center gap-4 px-4 sm:px-6 py-3 bg-purple-800/95 shadow-lg">
-        {/* Icono pequeño de la tienda */}
+        {/* Logo left */}
         <img
           src={`${base}img/logo_ks.png`}
           alt="Icono tienda KokoriShop"
@@ -184,7 +171,7 @@ const Home = () => {
           onError={(e) => (e.currentTarget.src = `${base}img/no-image.png`)}
         />
 
-        {/* Logo central */}
+        {/* Center logo */}
         <div className="flex justify-center">
           <img
             src={`${base}img/logo_kokorishop.png`}
@@ -195,7 +182,7 @@ const Home = () => {
           />
         </div>
 
-        {/* Acciones */}
+        {/* Actions */}
         <div className="flex items-center gap-4 relative text-lg">
           {/* Favoritos */}
           <Link to="/favorites" className="relative" aria-label="Favoritos" title="Favoritos">
@@ -207,23 +194,44 @@ const Home = () => {
             )}
           </Link>
 
-          {/* Usuario / Cuenta (reemplaza la bolsa del carrito) */}
-          <button
-            type="button"
-            className="relative"
-            aria-label={isLogged ? "Mi cuenta" : "Ingresar"}
-            title={isLogged ? "Mi cuenta" : "Ingresar"}
-            onClick={() => navigate(isLogged ? "/perfil" : "/login")}
-          >
-            <FaUserCircle />
-            {isLogged && (
-              <span className="absolute -top-2 -right-2 bg-yellow-400 text-purple-900 text-xs w-5 h-5 grid place-items-center rounded-full">
-                {userInitial}
+          {/* Usuario / Cuenta */}
+          {!isLogged ? (
+            <Link
+              to="/login"
+              className="
+                group inline-flex items-center gap-1.5
+                h-9 px-3 rounded-full
+                bg-gradient-to-r from-pink-500 to-fuchsia-500 text-white
+                text-[13px] font-semibold shadow-md
+                hover:shadow-lg active:scale-[.98] transition
+              "
+              aria-label="Iniciar sesión"
+              title="Iniciar sesión"
+            >
+              <span className="grid place-items-center w-5 h-5 rounded-full bg-white/20">
+                <FaUser className="text-[12px]" />
               </span>
-            )}
-          </button>
+              <span className="hidden sm:inline">Entrar</span>
+            </Link>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setMenuOpen(true)}
+              className="
+                relative grid place-items-center
+                w-9 h-9 rounded-full
+                bg-white/90 text-purple-900
+                shadow hover:shadow-md transition
+              "
+              aria-label="Mi cuenta"
+              title="Abrir menú de cuenta"
+            >
+              <span className="font-black">{userInitial}</span>
+              <span className="pointer-events-none absolute -inset-1 rounded-full ring-2 ring-fuchsia-400/70 animate-ping-slow" />
+            </button>
+          )}
 
-          {/* Menú */}
+          {/* Menú hamburguesa */}
           <button
             type="button"
             className="text-white/90 md:hidden"
@@ -243,7 +251,22 @@ const Home = () => {
         </div>
       </nav>
 
-      {/* Barra secundaria (saludo) */}
+      {/* Animación ping para el avatar */}
+      <style>{`
+        @keyframes ping-slow {
+          0% { transform: scale(1); opacity: .65 }
+          70% { transform: scale(1.35); opacity: 0 }
+          100% { opacity: 0 }
+        }
+        .animate-ping-slow {
+          animation: ping-slow 2.4s cubic-bezier(0,0,.2,1) infinite;
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .animate-ping-slow { animation: none; }
+        }
+      `}</style>
+
+      {/* Saludo */}
       <div className="bg-gradient-to-r from-purple-700 to-fuchsia-700 text-purple-50 py-2 shadow-inner">
         <div className="max-w-7xl mx-auto px-4 flex items-center justify-center gap-3">
           <p className="text-xs sm:text-sm md:text-base">
@@ -262,16 +285,13 @@ const Home = () => {
 
       <SloganBar variant="contained" className="mt-1" />
 
-      {/* Hero (solo video) */}
       <HeroVideo />
 
-      {/* ⭐ Productos Destacados */}
+      {/* Secciones de productos */}
       {destacados.length > 0 && (
         <section className="px-6 mt-8">
           <h2 className="flex items-center gap-2 mb-4 text-xl sm:text-2xl lg:text-3xl font-bold text-yellow-300 drop-shadow-[0_1px_0_rgba(0,0,0,.25)]">
-            <span className="text-lg sm:text-xl lg:text-2xl" aria-hidden>
-              ⭐
-            </span>
+            <span className="text-lg sm:text-xl lg:text-2xl" aria-hidden>⭐</span>
             Productos Destacados
           </h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
@@ -286,7 +306,6 @@ const Home = () => {
         </section>
       )}
 
-      {/* 🔥 Más Vendidos */}
       {masVendidos.length > 0 && (
         <section className="px-6 mt-10">
           <h2 className="flex items-center gap-2 text-xl sm:text-2xl lg:text-3xl font-bold text-orange-300 mb-4">
@@ -304,7 +323,6 @@ const Home = () => {
         </section>
       )}
 
-      {/* 💥 Productos en Oferta */}
       {oferta.length > 0 && (
         <section className="px-6 mt-10">
           <h2 className="flex items-center gap-2 text-xl sm:text-2xl lg:text-3xl font-bold text-red-300 mb-4">
@@ -322,7 +340,7 @@ const Home = () => {
         </section>
       )}
 
-      {/* Ver catálogo completo */}
+      {/* CTA catálogo */}
       <div className="text-center my-10">
         <Link
           to="/catalogo"
@@ -354,7 +372,6 @@ const Home = () => {
         </footer>
       )}
 
-      {/* ⛔️ Eliminado: <MiniCart .../> — ahora lo muestra CartLayout */}
       <MobileMenu
         isOpen={menuOpen}
         onClose={() => setMenuOpen(false)}
