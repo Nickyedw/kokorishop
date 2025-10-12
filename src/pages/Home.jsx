@@ -8,6 +8,7 @@ import { CartContext } from "../context/CartContext";
 import { FavoritesContext } from "../context/FavoritesContext";
 import MobileMenu from "../components/MobileMenu";
 import SloganBar from "../components/SloganBar";
+import BestSellersSection from "../sections/BestSellersSection";
 
 const STORE_NAME = "Kokorishop";
 
@@ -109,7 +110,7 @@ const Home = () => {
   const { favorites } = useContext(FavoritesContext);
 
   const [destacados, setDestacados] = useState([]);
-  const [masVendidos, setMasVendidos] = useState([]);
+  //const [masVendidos, setMasVendidos] = useState([]);
   const [oferta, setOferta] = useState([]);
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -146,20 +147,22 @@ const Home = () => {
     const cargarSecciones = async () => {
       try {
         const bust = `?bust=${Date.now()}`;
-        const [resDestacados, resMasVendidos, resOferta] = await Promise.all([
+        //const [resDestacados, resMasVendidos, resOferta] = await Promise.all([
+        const [resDestacados, resOferta] = await Promise.all([
           fetch(`${API_BASE}/productos/destacados${bust}`, { cache: "no-store" }),
-          fetch(`${API_BASE}/productos/mas-vendidos${bust}`, { cache: "no-store" }),
+          //fetch(`${API_BASE}/productos/mas-vendidos${bust}`, { cache: "no-store" }),
           fetch(`${API_BASE}/productos/oferta${bust}`, { cache: "no-store" }),
         ]);
 
-        const [dataDestacados, dataMasVendidos, dataOferta] = await Promise.all([
+        //const [dataDestacados, dataMasVendidos, dataOferta] = await Promise.all([
+        const [dataDestacados, dataOferta] = await Promise.all([  
           resDestacados.json(),
-          resMasVendidos.json(),
+          //resMasVendidos.json(),
           resOferta.json(),
         ]);
 
         setDestacados(Array.isArray(dataDestacados) ? dataDestacados : []);
-        setMasVendidos(Array.isArray(dataMasVendidos) ? dataMasVendidos : []);
+        //setMasVendidos(Array.isArray(dataMasVendidos) ? dataMasVendidos : []);
         setOferta(Array.isArray(dataOferta) ? dataOferta : []);
       } catch (err) {
         console.error("Error al cargar secciones del home:", err);
@@ -318,7 +321,7 @@ const Home = () => {
         </section>
       )}
 
-      {masVendidos.length > 0 && (
+      {/* {masVendidos.length > 0 && (
         <section className="px-6 mt-10">
           <h2 className="flex items-center gap-2 text-xl sm:text-2xl lg:text-3xl font-bold text-orange-300 mb-4">
             🔥 Más Vendidos
@@ -333,7 +336,9 @@ const Home = () => {
             ))}
           </div>
         </section>
-      )}
+      )} */}
+
+     <BestSellersSection onAddedToCart={handleAddedToCart} />
 
       {oferta.length > 0 && (
         <section className="px-6 mt-10">
