@@ -91,7 +91,7 @@ const categoriaRoutes = require('./routes/categoriaRoutes');
 const opcionesEntregaRoutes = require('./routes/opcionesEntrega');
 const usuariosRouter = require('./routes/usuarios');
 const metodosPago = require('./routes/metodosPago');
-const notificacionesRouter = require('./routers/notificaciones.router');
+const notificacionesRouter = require('./routes/notificaciones.router');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/usuarios', usuariosRouter);
