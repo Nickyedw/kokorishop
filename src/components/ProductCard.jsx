@@ -1,11 +1,12 @@
 // src/components/ProductCard.jsx
-import React, { useContext, useState, useMemo } from 'react';
+import React, { useContext, useState, useMemo, useEffect } from 'react';
 import { CartContext } from '../context/CartContext';
 import { FavoritesContext } from '../context/FavoritesContext';
 import { toast } from 'react-toastify';
 import ImageZoom from './ImageZoom';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const API_APP = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const API_BASE = `${API_APP}/api`;
 const FALLBACK_IMG = '/img/no-image.png';
 
 // Helpers
@@ -21,17 +22,15 @@ function toFullUrl(raw) {
 
   if (/^https?:\/\//i.test(s0)) return s0;
   const upIdx = s0.toLowerCase().indexOf('/uploads/');
-  if (upIdx >= 0) return `${API_BASE}${s0.slice(upIdx)}`;
-  if (s0.startsWith('/')) return `${API_BASE}${s0}`;
-  return `${API_BASE}/${s0}`;
+  if (upIdx >= 0) return `${API_APP}${s0.slice(upIdx)}`;
+  if (s0.startsWith('/')) return `${API_APP}${s0}`;
+  return `${API_APP}/${s0}`;
 }
 
 /** Normaliza precios para soportar distintos nombres de campos del backend */
 function normalizePricing(p) {
-  // precio actual (si hay oferta suele venir en p.precio ó p.price ó p.precio_oferta)
   const current = Number(p.price ?? p.precio ?? p.precio_oferta ?? 0);
 
-  // precio “antes”
   const regularRaw =
     p.regular_price ??
     p.precio_regular ??
@@ -43,21 +42,11 @@ function normalizePricing(p) {
   const en_oferta =
     Boolean(p.en_oferta) && regularNum != null && regularNum > current;
 
-  // si no hay regular, caemos al precio actual para evitar NaN
   const regular_price = regularNum != null ? regularNum : current;
-
-  // % y ahorro
   const ahorro = Math.max(0, regular_price - current);
   const pct = regular_price > 0 ? Math.round((ahorro / regular_price) * 100) : 0;
 
-  return {
-    price: current,
-    offer_price: current,
-    regular_price,
-    en_oferta,
-    ahorro,
-    pct,
-  };
+  return { price: current, offer_price: current, regular_price, en_oferta, ahorro, pct };
 }
 
 const ProductCard = ({ producto, onAddedToCart }) => {
@@ -93,8 +82,12 @@ const ProductCard = ({ producto, onAddedToCart }) => {
   // pricing
   const { price, regular_price, en_oferta, ahorro, pct } = normalizePricing(producto);
 
-  const stock = Number(producto.stock_actual ?? producto.stock ?? 0);
-  const sinStock = stock <= 0;
+  const stock_actual = Number(producto.stock_actual ?? producto.stock ?? 0);
+  const stock_minimo = Number(producto.stock_minimo ?? 0);
+  const sinStock = stock_actual <= 0;
+
+  // 🔔 Stock bajo (hay stock, pero ≤ mínimo)
+  const stockBajo = !sinStock && stock_minimo > 0 && stock_actual <= stock_minimo;
 
   const [zoomOpen, setZoomOpen] = useState(false);
 
@@ -106,17 +99,16 @@ const ProductCard = ({ producto, onAddedToCart }) => {
   const handleAdd = () => {
     const chosen = principalRaw ?? pickUrl(galeriaOrdenada[0]) ?? null;
 
-    // Enviamos al carrito con metadata de oferta
     addToCart({
       id: producto.id,
       name: producto.nombre,
-      price,                        // precio actual (oferta si existe)
-      offer_price: price,           // alias útil
-      regular_price,                // precio antes
-      en_oferta,                    // bandera
+      price,
+      offer_price: price,
+      regular_price,
+      en_oferta,
       quantity: 1,
       imagen_url: chosen,
-      stock_actual: stock,
+      stock_actual,
     });
 
     if (en_oferta && ahorro > 0) {
@@ -145,6 +137,32 @@ const ProductCard = ({ producto, onAddedToCart }) => {
     return out.length ? out : [FALLBACK_IMG];
   }, [principalRaw, galeriaOrdenada]);
 
+  // ⚠️ Enviar alerta de stock bajo al backend (una vez por sesión y por valor de stock)
+  useEffect(() => {
+    if (!stockBajo) return;
+
+    const key = `stockAlertSent:${producto.id}:${stock_actual}`;
+    if (localStorage.getItem(key) === '1') return;
+
+    (async () => {
+      try {
+        await fetch(`${API_BASE}/notificaciones/stock-bajo`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            producto_id: producto.id,
+            nombreProducto: producto.nombre,
+            stock_actual,
+            stock_minimo,
+          }),
+        });
+        localStorage.setItem(key, '1');
+      } catch {
+        // Silencioso: no romper UI si falla notificación
+      }
+    })();
+  }, [stockBajo, producto.id, producto.nombre, stock_actual, stock_minimo]);
+
   return (
     <div
       className="
@@ -167,8 +185,10 @@ const ProductCard = ({ producto, onAddedToCart }) => {
           onError={(e) => (e.currentTarget.src = FALLBACK_IMG)}
           onClick={() => setZoomOpen(true)}
           loading="lazy"
+          decoding="async"
         />
 
+        {/* 🔴 Sin stock */}
         {sinStock && (
           <span
             className="
@@ -179,6 +199,21 @@ const ProductCard = ({ producto, onAddedToCart }) => {
             "
           >
             Sin stock
+          </span>
+        )}
+
+        {/* 🟡 Stock bajo */}
+        {!sinStock && stockBajo && (
+          <span
+            className="
+              absolute top-2 left-2
+              bg-amber-400 text-black
+              text-[10px] sm:text-xs font-extrabold
+              px-2 py-1 rounded-full shadow
+            "
+            title={`Stock mínimo: ${stock_minimo}`}
+          >
+            Stock bajo
           </span>
         )}
 
@@ -289,13 +324,7 @@ const ProductCard = ({ producto, onAddedToCart }) => {
         addLabel="Agregar"
         info={{
           name: producto?.nombre || producto?.name || "Producto",
-          // toma oferta si existe; si no, el precio normal (cubre varios nombres)
-          price:
-            producto?.precio_oferta ??
-            producto?.precio ??
-            producto?.price ??
-            undefined,
-          // muestra descripción si la tienes
+          price: producto?.precio_oferta ?? producto?.precio ?? producto?.price ?? undefined,
           description: producto?.descripcion || producto?.description || "",
         }}
       />

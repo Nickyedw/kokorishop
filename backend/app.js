@@ -6,6 +6,7 @@ const morgan = require('morgan');
 require('dotenv').config();
 const { query } = require('./db');
 
+
 // IMPORTA el façade de correo
 const { verifyMailer, sendMail } = require('./services/mailer');
 
@@ -90,6 +91,7 @@ const categoriaRoutes = require('./routes/categoriaRoutes');
 const opcionesEntregaRoutes = require('./routes/opcionesEntrega');
 const usuariosRouter = require('./routes/usuarios');
 const metodosPago = require('./routes/metodosPago');
+const notificacionesRouter = require('./routers/notificaciones.router');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/usuarios', usuariosRouter);
@@ -101,6 +103,7 @@ app.use('/api/categorias', categoriaRoutes);
 app.use('/categorias', categoriaRoutes);
 app.use('/api', opcionesEntregaRoutes);
 app.use('/api/metodos_pago', metodosPago);
+app.use('/api/notificaciones', notificacionesRouter);
 
 /* =========================
    Health / Root
