@@ -9,6 +9,7 @@ import { FavoritesContext } from "../context/FavoritesContext";
 import MobileMenu from "../components/MobileMenu";
 import SloganBar from "../components/SloganBar";
 import BestSellersSection from "../sections/BestSellersSection";
+import Footer from "../components/Footer";
 
 const STORE_NAME = "Kokorishop";
 
@@ -147,22 +148,17 @@ const Home = () => {
     const cargarSecciones = async () => {
       try {
         const bust = `?bust=${Date.now()}`;
-        //const [resDestacados, resMasVendidos, resOferta] = await Promise.all([
-        const [resDestacados, resOferta] = await Promise.all([
+          const [resDestacados, resOferta] = await Promise.all([
           fetch(`${API_BASE}/productos/destacados${bust}`, { cache: "no-store" }),
-          //fetch(`${API_BASE}/productos/mas-vendidos${bust}`, { cache: "no-store" }),
           fetch(`${API_BASE}/productos/oferta${bust}`, { cache: "no-store" }),
         ]);
 
-        //const [dataDestacados, dataMasVendidos, dataOferta] = await Promise.all([
-        const [dataDestacados, dataOferta] = await Promise.all([  
+          const [dataDestacados, dataOferta] = await Promise.all([  
           resDestacados.json(),
-          //resMasVendidos.json(),
           resOferta.json(),
         ]);
 
         setDestacados(Array.isArray(dataDestacados) ? dataDestacados : []);
-        //setMasVendidos(Array.isArray(dataMasVendidos) ? dataMasVendidos : []);
         setOferta(Array.isArray(dataOferta) ? dataOferta : []);
       } catch (err) {
         console.error("Error al cargar secciones del home:", err);
@@ -321,22 +317,6 @@ const Home = () => {
         </section>
       )}
 
-      {/* {masVendidos.length > 0 && (
-        <section className="px-6 mt-10">
-          <h2 className="flex items-center gap-2 text-xl sm:text-2xl lg:text-3xl font-bold text-orange-300 mb-4">
-            🔥 Más Vendidos
-          </h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-            {masVendidos.map((producto) => (
-              <ProductCard
-                key={producto.id}
-                producto={producto}
-                onAddedToCart={handleAddedToCart}
-              />
-            ))}
-          </div>
-        </section>
-      )} */}
 
      <BestSellersSection onAddedToCart={handleAddedToCart} />
 
@@ -366,6 +346,13 @@ const Home = () => {
           <span>📦</span> Ir al Catálogo Completo
         </Link>
       </div>
+
+      <Footer
+        instagramUrl=""
+        tiktokUrl=""
+        facebookUrl=""
+        whatsappUrl="https://wa.me/51977546073"
+      />
 
       {/* Footer admin */}
       {isAdmin && (

@@ -647,7 +647,7 @@ const listoParaConfirmar =
         <div className="fixed inset-0 bg-black/60 flex justify-center items-center z-50 p-3">
           <div className="bg-white p-6 rounded-2xl shadow-xl max-w-sm w-full text-center">
             <h3 className="text-2xl font-bold text-green-600 mb-2">✅ Pedido enviado</h3>
-            <p className="mb-5 text-purple-700">Tu pedido fue enviado correctamente.</p>
+            <p className="mb-5 text-purple-700">Tu pedido fue enviado correctamente, en breve te notificaremos y te contactaremos para coordinar tu pedido.</p>
             <div className="flex justify-center gap-3">
               <button
                 onClick={() => navigate("/menu")}
