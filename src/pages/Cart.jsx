@@ -24,6 +24,27 @@ const normalizeMediaUrl = (raw) => {
   return `${API_BASE}/${s}`;
 };
 
+// Placeholder SVG inline (no depende de archivos)
+const QR_FALLBACK_DATA =
+  'data:image/svg+xml;utf8,' +
+  encodeURIComponent(`
+  <svg xmlns="http://www.w3.org/2000/svg" width="220" height="220">
+    <rect width="100%" height="100%" fill="#fef3c7"/>
+    <rect x="10" y="10" width="200" height="200" fill="none" stroke="#f59e0b" stroke-width="4"/>
+    <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle"
+          font-family="sans-serif" font-size="14" fill="#78350f">
+      QR no disponible
+    </text>
+  </svg>`);
+
+// Evita loop de onError (aplica fallback una sola vez)
+const handleQrError = (e) => {
+  const img = e.currentTarget;
+  if (img.dataset.fallback === '1') return;
+  img.dataset.fallback = '1';
+  img.src = QR_FALLBACK_DATA;
+};
+
 // 🖼️ Helper para construir URL de imagen
 function getImageSrc(item) {
   const raw =
@@ -485,10 +506,7 @@ export default function Cart() {
                           className="mt-3 mx-auto max-w-[220px]"
                           loading="lazy"
                           decoding="async"
-                          onError={(e) => {
-                            // fallback local si el QR falla
-                            e.currentTarget.src = `${import.meta.env.BASE_URL}img/qr-placeholder.png`;
-                          }}
+                          onError={handleQrError}
                         />
                       )}
 
