@@ -20,7 +20,7 @@ const {
 const { ESTADOS_PEDIDO } = require('../utils/constants');
 
 /* =========================
-   Crear nuevo pedido
+   Crear nuevo pedido (con validación)
    ========================= */
 router.post('/', async (req, res) => {
   const {
@@ -31,11 +31,44 @@ router.post('/', async (req, res) => {
     horario_entrega_id,
     productos,
     comentario_pago,
-  } = req.body;
+  } = req.body || {};
+
+  // --- Validación de campos obligatorios ---
+  const falta = [];
+  const reqField = (v) => v !== null && v !== undefined && String(v).trim() !== "";
+
+  if (!reqField(metodo_pago_id))     falta.push('metodo_pago_id');
+  if (!reqField(zona_entrega_id))    falta.push('zona_entrega_id');
+  if (!reqField(horario_entrega_id)) falta.push('horario_entrega_id');
+  if (!reqField(metodo_entrega_id))  falta.push('metodo_entrega_id');
 
   if (!Array.isArray(productos) || productos.length === 0) {
     return res.status(400).json({ error: 'Carrito vacío' });
   }
+
+  // Validación de ítems
+  const badItems = [];
+  for (const [idx, p] of productos.entries()) {
+    const pid = Number(p?.producto_id);
+    const cant = Number(p?.cantidad);
+    const precio = Number(p?.precio_unitario);
+    if (!pid || pid <= 0) badItems.push(`items[${idx}].producto_id`);
+    if (!cant || cant <= 0) badItems.push(`items[${idx}].cantidad`);
+    if (Number.isNaN(precio) || precio < 0) badItems.push(`items[${idx}].precio_unitario`);
+  }
+
+  if (falta.length || badItems.length) {
+    return res.status(400).json({
+      error: 'Campos obligatorios faltantes o inválidos',
+      fields: [...falta, ...badItems],
+    });
+  }
+
+  // Normalizamos a Number para la BD
+  const pagoId     = Number(metodo_pago_id);
+  const entregaId  = Number(metodo_entrega_id);
+  const zonaId     = Number(zona_entrega_id);
+  const horarioId  = Number(horario_entrega_id);
 
   const client = await getClient();
   let pedido_id;
@@ -44,7 +77,7 @@ router.post('/', async (req, res) => {
   try {
     await client.query('BEGIN');
 
-    // Validar stock
+    // Validar stock por cada producto
     for (const prod of productos) {
       const check = await client.query(
         'SELECT nombre, stock_actual FROM productos WHERE id = $1',
@@ -52,8 +85,10 @@ router.post('/', async (req, res) => {
       );
       const existente = check.rows[0];
       if (!existente) throw new Error(`Producto ID ${prod.producto_id} no existe`);
-      if (existente.stock_actual < prod.cantidad) {
-        throw new Error(`Stock insuficiente para "${existente.nombre}". Stock disponible: ${existente.stock_actual}`);
+      if (Number(existente.stock_actual) < Number(prod.cantidad)) {
+        throw new Error(
+          `Stock insuficiente para "${existente.nombre}". Stock disponible: ${existente.stock_actual}`
+        );
       }
     }
 
@@ -71,18 +106,18 @@ router.post('/', async (req, res) => {
         ($1,$2,$3,$4,$5,$6,$7, NOW(), 'pendiente')
        RETURNING id`,
       [
-        usuario_id,
-        metodo_pago_id || null,
-        metodo_entrega_id || null,
-        zona_entrega_id || null,
-        horario_entrega_id || null,
+        usuario_id || null,
+        pagoId,
+        entregaId,
+        zonaId,
+        horarioId,
         total,
         comentario_pago || null,
       ]
     );
     pedido_id = pedidoIns.rows[0].id;
 
-    // Detalle + stock
+    // Detalle + descuento de stock
     for (const prod of productos) {
       const subtotal = Number(prod.precio_unitario) * Number(prod.cantidad);
 
@@ -99,14 +134,14 @@ router.post('/', async (req, res) => {
         [prod.cantidad, prod.producto_id]
       );
 
-      // alerta de stock bajo (permitimos dentro de la tx, pero capturamos errores)
+      // Alerta de stock bajo (no rompe la tx si falla)
       try {
         const stockCheck = await client.query(
           `SELECT nombre, stock_actual, stock_minimo FROM productos WHERE id = $1`,
           [prod.producto_id]
         );
         const { nombre, stock_actual, stock_minimo } = stockCheck.rows[0] || {};
-        if (stock_actual < stock_minimo) {
+        if (Number(stock_actual) < Number(stock_minimo)) {
           await enviarAlertaStockBajo(nombre, stock_actual, stock_minimo);
         }
       } catch (nerr) {
@@ -114,92 +149,85 @@ router.post('/', async (req, res) => {
       }
     }
 
-    // ✅ Cerramos la transacción antes de notificar
     await client.query('COMMIT');
 
-    // ✅ Respondemos al cliente inmediatamente
+    // Respuesta inmediata
     res.status(201).json({ mensaje: 'Pedido registrado correctamente', pedido_id });
 
-  // 🔔 Notificaciones fuera de banda (no bloquean la respuesta)
-  setImmediate(async () => {
-    try {
-      // Datos del usuario
-      const usuarioRes = await dbQuery(
-        'SELECT nombre_completo, correo, telefono FROM usuarios WHERE id = $1',
-        [usuario_id]
-      );
-      const usuario = usuarioRes.rows[0] || { nombre_completo: '', correo: '', telefono: '' };
-
-      // Ítems del pedido (con nombres de productos)
-      const det = await dbQuery(
-        `SELECT d.cantidad, d.precio_unitario, pr.nombre
-          FROM detalle_pedido d
-          JOIN productos pr ON pr.id = d.producto_id
-          WHERE d.pedido_id = $1
-          ORDER BY d.id`,
-        [pedido_id]
-      );
-
-      // Campos descriptivos de pago/entrega (opcionales)
-      const pago = metodo_pago_id
-        ? (await dbQuery('SELECT nombre FROM metodos_pago WHERE id=$1', [metodo_pago_id])).rows[0]?.nombre
-        : null;
-
-      const entrega = metodo_entrega_id
-        ? (await dbQuery('SELECT descripcion FROM metodos_entrega WHERE id=$1', [metodo_entrega_id])).rows[0]?.descripcion
-        : null;
-
-      const zona = zona_entrega_id
-        ? (await dbQuery('SELECT nombre_zona FROM zonas_entrega WHERE id=$1', [zona_entrega_id])).rows[0]?.nombre_zona
-        : null;
-
-      const horario = horario_entrega_id
-        ? (await dbQuery('SELECT hora_inicio FROM horarios_entrega WHERE id=$1', [horario_entrega_id])).rows[0]?.hora_inicio
-        : null;
-
-      const fecha = new Date().toLocaleString('es-PE', { timeZone: 'America/Lima' });
-
-      // 👉 Correo al cliente (lo que ya tenías)
-      try { await enviarCorreoPedido(usuario.correo, usuario.nombre_completo, pedido_id); }
-      catch (e) { console.warn('⚠️ No se pudo enviar correo de pedido al cliente:', e.message); }
-
-      // 👉 WhatsApp al cliente (lo que ya tenías)
-      try { await enviarWhatsappPedidoInicial(usuario.telefono, usuario.nombre_completo, pedido_id, fecha, total); }
-      catch (e) { console.warn('⚠️ No se pudo enviar WhatsApp inicial:', e.message); }
-
-      // 👉 Nuevo: correo resumen al/los admin(s)
+    // Notificaciones out-of-band
+    setImmediate(async () => {
       try {
-        await enviarCorreoAdminNuevoPedido({
-          pedido_id,
-          fecha,
-          total,
-          usuario,
-          items: det.rows.map(r => ({
-            nombre: r.nombre,
-            cantidad: Number(r.cantidad),
-            precio_unitario: Number(r.precio_unitario),
-          })),
-          metodo_pago: pago || null,
-          metodo_entrega: entrega || null,
-          zona: zona || null,
-          horario: horario || null,
-        });
-      } catch (e) {
-        console.warn('⚠️ No se pudo enviar correo admin:', e.message);
+        const usuarioRes = await dbQuery(
+          'SELECT nombre_completo, correo, telefono FROM usuarios WHERE id = $1',
+          [usuario_id]
+        );
+        const usuario = usuarioRes.rows[0] || { nombre_completo: '', correo: '', telefono: '' };
+
+        const det = await dbQuery(
+          `SELECT d.cantidad, d.precio_unitario, pr.nombre
+             FROM detalle_pedido d
+             JOIN productos pr ON pr.id = d.producto_id
+            WHERE d.pedido_id = $1
+            ORDER BY d.id`,
+          [pedido_id]
+        );
+
+        const pago = pagoId
+          ? (await dbQuery('SELECT nombre FROM metodos_pago WHERE id=$1', [pagoId])).rows[0]?.nombre
+          : null;
+        const entrega = entregaId
+          ? (await dbQuery('SELECT descripcion FROM metodos_entrega WHERE id=$1', [entregaId])).rows[0]?.descripcion
+          : null;
+        const zona = zonaId
+          ? (await dbQuery('SELECT nombre_zona FROM zonas_entrega WHERE id=$1', [zonaId])).rows[0]?.nombre_zona
+          : null;
+        const horario = horarioId
+          ? (await dbQuery('SELECT hora_inicio FROM horarios_entrega WHERE id=$1', [horarioId])).rows[0]?.hora_inicio
+          : null;
+
+        const fecha = new Date().toLocaleString('es-PE', { timeZone: 'America/Lima' });
+
+        try { await enviarCorreoPedido(usuario.correo, usuario.nombre_completo, pedido_id); }
+        catch (e) { console.warn('⚠️ No se pudo enviar correo de pedido al cliente:', e.message); }
+
+        try { await enviarWhatsappPedidoInicial(usuario.telefono, usuario.nombre_completo, pedido_id, fecha, total); }
+        catch (e) { console.warn('⚠️ No se pudo enviar WhatsApp inicial:', e.message); }
+
+        try {
+          await enviarCorreoAdminNuevoPedido({
+            pedido_id, fecha, total, usuario,
+            items: det.rows.map(r => ({
+              nombre: r.nombre,
+              cantidad: Number(r.cantidad),
+              precio_unitario: Number(r.precio_unitario),
+            })),
+            metodo_pago: pago || null,
+            metodo_entrega: entrega || null,
+            zona: zona || null,
+            horario: horario || null,
+          });
+        } catch (e) {
+          console.warn('⚠️ No se pudo enviar correo admin:', e.message);
+        }
+      } catch (postErr) {
+        console.warn('⚠️ Error en notificaciones post-commit:', postErr.message);
       }
-    } catch (postErr) {
-      console.warn('⚠️ Error en notificaciones post-commit:', postErr.message);
-    }
-  });
+    });
   } catch (error) {
     try { await client.query('ROLLBACK'); } catch {/* noop */ }
     console.error('❌ Error al registrar pedido:', error);
-    res.status(500).json({ error: 'Error del servidor', detail: error.message });
+
+    // Si fue por stock insuficiente u otra validación → 400
+    const msg = String(error?.message || '').toLowerCase();
+    if (msg.includes('stock insuficiente') || msg.includes('no existe')) {
+      return res.status(400).json({ error: error.message });
+    }
+
+    return res.status(500).json({ error: 'Error del servidor', detail: error.message });
   } finally {
     client.release();
   }
 });
-
 
 /* =========================
    Listar pedidos (ADMIN)

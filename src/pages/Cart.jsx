@@ -94,6 +94,18 @@ export default function Cart() {
     comentario_pago: "",
   });
 
+  // ⛔️ Validación
+const [errores, setErrores] = useState({});
+const requerido = (v) => v !== null && v !== undefined && String(v).trim() !== "";
+
+// Habilitar botón solo si todo está completo
+const listoParaConfirmar =
+  requerido(seleccion.metodo_pago_id) &&
+  requerido(seleccion.zona_entrega_id) &&
+  requerido(seleccion.horario_entrega_id) &&
+  requerido(seleccion.metodo_entrega_id);
+
+
   useEffect(() => {
     const nombre = localStorage.getItem("usuario_nombre") || "Invitado";
     setUsuarioNombre(nombre);
@@ -141,19 +153,32 @@ export default function Cart() {
   }
 
   async function handleConfirmarPedido() {
+    // Validación de campos obligatorios
+    const errs = {};
+    if (!requerido(seleccion.metodo_pago_id))   errs.metodo_pago_id   = "Selecciona un método de pago";
+    if (!requerido(seleccion.zona_entrega_id))  errs.zona_entrega_id  = "Selecciona una zona de entrega";
+    if (!requerido(seleccion.horario_entrega_id)) errs.horario_entrega_id = "Selecciona un horario de entrega";
+    if (!requerido(seleccion.metodo_entrega_id)) errs.metodo_entrega_id = "Selecciona un método de entrega";
+
+    setErrores(errs);
+    if (Object.keys(errs).length > 0) {
+      toast.error("Completa los campos obligatorios del pedido.");
+      return;
+    }
+
     setEnviando(true);
     try {
       const pedido = {
         usuario_id: localStorage.getItem("usuario_id"),
-        metodo_pago_id: seleccion.metodo_pago_id,
-        metodo_entrega_id: seleccion.metodo_entrega_id,
-        zona_entrega_id: seleccion.zona_entrega_id,
-        horario_entrega_id: seleccion.horario_entrega_id,
+        metodo_pago_id: Number(seleccion.metodo_pago_id),
+        metodo_entrega_id: Number(seleccion.metodo_entrega_id),
+        zona_entrega_id: Number(seleccion.zona_entrega_id),
+        horario_entrega_id: Number(seleccion.horario_entrega_id),
         comentario_pago: obtenerComentarioPago(),
         productos: cartItems.map((i) => ({
           producto_id: i.id,
           cantidad: i.quantity,
-          precio_unitario: i.price, // ya es “oferta” si existe
+          precio_unitario: i.price,
         })),
       };
 
@@ -473,7 +498,8 @@ export default function Cart() {
                 <div className="md:col-span-2">
                   <label className="text-sm font-medium text-purple-800">Método de pago</label>
                   <select
-                    className="mt-1 w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-300"
+                    className={`mt-1 w-full border rounded px-3 py-2 focus:outline-none focus:ring-2
+                    ${errores.metodo_pago_id ? "border-red-400 focus:ring-red-300" : "focus:ring-purple-300"}`}
                     value={seleccion.metodo_pago_id}
                     onChange={(e) =>
                       setSeleccion((prev) => ({ ...prev, metodo_pago_id: e.target.value }))
@@ -486,6 +512,8 @@ export default function Cart() {
                       </option>
                     ))}
                   </select>
+                  {errores.metodo_pago_id && (
+                  <p className="mt-1 text-[12px] text-red-600">{errores.metodo_pago_id}</p>)}
                 </div>
 
                 {/* Instrucciones y QR */}
@@ -532,57 +560,59 @@ export default function Cart() {
                 <div>
                   <label className="text-sm font-medium text-purple-800">Zona de entrega</label>
                   <select
-                    className="mt-1 w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-300"
-                    value={seleccion.zona_entrega_id}
-                    onChange={(e) =>
-                      setSeleccion((prev) => ({ ...prev, zona_entrega_id: e.target.value }))
-                    }
-                  >
-                    <option value="">Seleccione</option>
-                    {zonasEntrega.map((z) => (
-                      <option key={z.id} value={z.id}>
-                        {z.nombre_zona}
-                      </option>
-                    ))}
-                  </select>
+                  className={`mt-1 w-full border rounded px-3 py-2 focus:outline-none focus:ring-2
+                    ${errores.zona_entrega_id ? "border-red-400 focus:ring-red-300" : "focus:ring-purple-300"}`}
+                  value={seleccion.zona_entrega_id}
+                  onChange={(e) => setSeleccion((prev) => ({ ...prev, zona_entrega_id: e.target.value }))}
+                >
+                  <option value="">Seleccione</option>
+                  {zonasEntrega.map((z) => (
+                    <option key={z.id} value={z.id}>{z.nombre_zona}</option>
+                  ))}
+                </select>
+                {errores.zona_entrega_id && (
+                  <p className="mt-1 text-[12px] text-red-600">{errores.zona_entrega_id}</p>
+                )}
                 </div>
 
                 {/* Horario */}
                 <div>
                   <label className="text-sm font-medium text-purple-800">Horario de entrega</label>
                   <select
-                    className="mt-1 w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-300"
-                    value={seleccion.horario_entrega_id}
-                    onChange={(e) =>
-                      setSeleccion((prev) => ({ ...prev, horario_entrega_id: e.target.value }))
-                    }
-                  >
-                    <option value="">Seleccione</option>
-                    {horariosEntrega.map((h) => (
-                      <option key={h.id} value={h.id}>
-                        {h.hora_inicio.slice(0, 5)} - {h.hora_fin.slice(0, 5)}
-                      </option>
-                    ))}
-                  </select>
+                  className={`mt-1 w-full border rounded px-3 py-2 focus:outline-none focus:ring-2
+                    ${errores.horario_entrega_id ? "border-red-400 focus:ring-red-300" : "focus:ring-purple-300"}`}
+                  value={seleccion.horario_entrega_id}
+                  onChange={(e) => setSeleccion((prev) => ({ ...prev, horario_entrega_id: e.target.value }))}
+                >
+                  <option value="">Seleccione</option>
+                  {horariosEntrega.map((h) => (
+                    <option key={h.id} value={h.id}>
+                      {h.hora_inicio.slice(0, 5)} - {h.hora_fin.slice(0, 5)}
+                    </option>
+                  ))}
+                </select>
+                {errores.horario_entrega_id && (
+                  <p className="mt-1 text-[12px] text-red-600">{errores.horario_entrega_id}</p>
+                )}
                 </div>
 
                 {/* Método de Entrega */}
                 <div className="md:col-span-2">
                   <label className="text-sm font-medium text-purple-800">Método de entrega</label>
                   <select
-                    className="mt-1 w-full border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-300"
-                    value={seleccion.metodo_entrega_id}
-                    onChange={(e) =>
-                      setSeleccion((prev) => ({ ...prev, metodo_entrega_id: e.target.value }))
-                    }
-                  >
-                    <option value="">Seleccione</option>
-                    {metodosEntrega.map((me) => (
-                      <option key={me.id} value={me.id}>
-                        {me.descripcion}
-                      </option>
-                    ))}
-                  </select>
+                  className={`mt-1 w-full border rounded px-3 py-2 focus:outline-none focus:ring-2
+                    ${errores.metodo_entrega_id ? "border-red-400 focus:ring-red-300" : "focus:ring-purple-300"}`}
+                  value={seleccion.metodo_entrega_id}
+                  onChange={(e) => setSeleccion((prev) => ({ ...prev, metodo_entrega_id: e.target.value }))}
+                >
+                  <option value="">Seleccione</option>
+                  {metodosEntrega.map((me) => (
+                    <option key={me.id} value={me.id}>{me.descripcion}</option>
+                  ))}
+                </select>
+                {errores.metodo_entrega_id && (
+                  <p className="mt-1 text-[12px] text-red-600">{errores.metodo_entrega_id}</p>
+                )}
                 </div>
               </div>
 
@@ -601,8 +631,9 @@ export default function Cart() {
               </button>
               <button
                 onClick={handleConfirmarPedido}
-                disabled={enviando}
-                className="bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white px-4 py-2 rounded"
+                disabled={enviando || !listoParaConfirmar}
+                className={`bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded
+                ${(!listoParaConfirmar || enviando) ? "opacity-60 cursor-not-allowed" : ""}`}
               >
                 {enviando ? "Enviando..." : "Confirmar pedido"}
               </button>
