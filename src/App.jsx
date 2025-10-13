@@ -4,10 +4,11 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
-// ⬇️ Layout global que pinta MiniCart + CartFab en toda la app
-import CartLayout from "./layouts/CartLayout";
+// Layouts
+import CartLayout from "./layouts/CartLayout";   // MiniCart + CartFab global
+import SiteLayout from "./layouts/SiteLayout";   // Footer global + wrapper de sitio
 
-// Páginas principales
+// Páginas públicas / cliente
 import Home from "./pages/Home";
 import Favorites from "./pages/Favorites";
 import Cart from "./pages/Cart";
@@ -21,7 +22,7 @@ import Recuperar from "./pages/Recuperar";
 import Reestablecer from "./pages/Reestablecer";
 import Catalogo from "./pages/Catalogo";
 
-// Paneles Admin
+// Paneles Admin (sin SiteLayout)
 import AdminPedidos from "./pages/AdminPedidos";
 import DetallePedido from "./pages/DetallePedido";
 import ProductAdmin from "./pages/ProductAdmin";
@@ -36,61 +37,65 @@ import RequireAuth from "./components/RequireAuth";
 function App() {
   return (
     <>
-      {/* El CartLayout envuelve TODAS las rutas y dibuja el MiniCart + CartFab */}
+      {/* CartLayout envuelve TODO: MiniCart + CartFab disponibles en la app */}
       <CartLayout>
         <Routes>
-          {/* Públicas */}
-          <Route path="/" element={<Home />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/recuperar" element={<Recuperar />} />
-          <Route path="/reestablecer" element={<Reestablecer />} />
-          <Route path="/catalogo" element={<Catalogo />} />
-          <Route path="/favorites" element={<Favorites />} />
+          {/* ========= RUTAS CON SITE LAYOUT (footer global) ========= */}
+          <Route element={<SiteLayout />}>
+            {/* Públicas */}
+            <Route path="/" element={<Home />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/recuperar" element={<Recuperar />} />
+            <Route path="/reestablecer" element={<Reestablecer />} />
+            <Route path="/catalogo" element={<Catalogo />} />
+            <Route path="/favorites" element={<Favorites />} />
 
-          {/* Protegidas (cliente) */}
-          <Route
-            path="/cart"
-            element={
-              <RequireAuth>
-                <Cart />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/menu"
-            element={
-              <RequireAuth>
-                <Menu />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/mis-pedidos"
-            element={
-              <RequireAuth>
-                <MisPedidos />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/mis-pedidos/:id"
-            element={
-              <RequireAuth>
-                <DetalleClientePedido />
-              </RequireAuth>
-            }
-          />
-          <Route
-            path="/configuracion"
-            element={
-              <RequireAuth>
-                <ConfiguracionPerfil />
-              </RequireAuth>
-            }
-          />
+            {/* Protegidas (cliente) */}
+            <Route
+              path="/cart"
+              element={
+                <RequireAuth>
+                  <Cart />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/menu"
+              element={
+                <RequireAuth>
+                  <Menu />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/mis-pedidos"
+              element={
+                <RequireAuth>
+                  <MisPedidos />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/mis-pedidos/:id"
+              element={
+                <RequireAuth>
+                  <DetalleClientePedido />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/configuracion"
+              element={
+                <RequireAuth>
+                  <ConfiguracionPerfil />
+                </RequireAuth>
+              }
+            />
+          </Route>
 
-          {/* Admin: redirigir raíz del admin a productos */}
+          {/* ========= RUTAS ADMIN (sin SiteLayout / sin footer global) ========= */}
+          {/* Redirige /admin a /admin/productos */}
           <Route
             path="/admin"
             element={
@@ -100,7 +105,6 @@ function App() {
             }
           />
 
-          {/* Admin secciones */}
           <Route
             path="/admin/pedidos"
             element={
@@ -192,9 +196,8 @@ function App() {
             }
           />
 
-          {/* Redirección desde la ruta antigua */}
+          {/* Redirección desde ruta antigua */}
           <Route path="/kokoshop/*" element={<Navigate to="/" replace />} />
-
           {/* 404 catch-all */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
