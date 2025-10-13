@@ -9,6 +9,21 @@ import { toast } from "react-toastify";
 // 🔗 Base del backend para imágenes
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3001";
 
+/** Acepta http(s), data:, rutas absolutas (/uploads/...), o relativas */
+const normalizeMediaUrl = (raw) => {
+  if (!raw) return null;
+  let s = String(raw).trim().replace(/\\/g, "/");
+
+  // data URL (base64)
+  if (/^data:image\//i.test(s)) return s;
+  // http(s)
+  if (/^https?:\/\//i.test(s)) return s;
+  // si viene /uploads/... o cualquier ruta absoluta del backend
+  if (s.startsWith("/")) return `${API_BASE}${s}`;
+  // ruta relativa: asumir que cuelga del backend
+  return `${API_BASE}/${s}`;
+};
+
 // 🖼️ Helper para construir URL de imagen
 function getImageSrc(item) {
   const raw =
@@ -453,37 +468,47 @@ export default function Cart() {
                 </div>
 
                 {/* Instrucciones y QR */}
-                {seleccion.metodo_pago_id && (
-                  <div className="md:col-span-2 bg-yellow-50 border border-yellow-300 p-3 rounded text-xs text-yellow-800">
-                    <div className="font-semibold mb-1">Instrucciones de pago</div>
-                    <p className="leading-relaxed">
-                      {metodosPago.find((m) => m.id === parseInt(seleccion.metodo_pago_id))?.instrucciones}
-                    </p>
+                {seleccion.metodo_pago_id && (() => {
+                  const selId = parseInt(seleccion.metodo_pago_id);
+                  const metodoSel = metodosPago.find((m) => m.id === selId);
+                  const qrSrc = normalizeMediaUrl(metodoSel?.qr_url);
 
-                    {metodosPago.find((m) => m.id === parseInt(seleccion.metodo_pago_id))?.qr_url && (
-                      <img
-                        src={metodosPago.find((m) => m.id === parseInt(seleccion.metodo_pago_id))?.qr_url}
-                        alt="QR"
-                        className="mt-3 mx-auto max-w-[220px]"
-                      />
-                    )}
+                  return (
+                    <div className="md:col-span-2 bg-yellow-50 border border-yellow-300 p-3 rounded text-xs text-yellow-800">
+                      <div className="font-semibold mb-1">Instrucciones de pago</div>
+                      <p className="leading-relaxed">{metodoSel?.instrucciones}</p>
 
-                    {metodosPago.find((m) => m.nombre.toLowerCase().includes("efectivo"))?.id ===
-                      parseInt(seleccion.metodo_pago_id) && (
-                      <div className="mt-3">
-                        <label className="block text-xs font-medium">¿Necesitas vuelto?</label>
-                        <input
-                          type="text"
-                          placeholder="Ej: llevaré S/100"
-                          className="w-full border px-3 py-2 rounded mt-1 focus:outline-none focus:ring-2 focus:ring-purple-300"
-                          onChange={(e) =>
-                            setSeleccion((prev) => ({ ...prev, comentario_pago: e.target.value }))
-                          }
+                      {qrSrc && (
+                        <img
+                          src={qrSrc}
+                          alt={`QR ${metodoSel?.nombre || "pago"}`}
+                          className="mt-3 mx-auto max-w-[220px]"
+                          loading="lazy"
+                          decoding="async"
+                          onError={(e) => {
+                            // fallback local si el QR falla
+                            e.currentTarget.src = `${import.meta.env.BASE_URL}img/qr-placeholder.png`;
+                          }}
                         />
-                      </div>
-                    )}
-                  </div>
-                )}
+                      )}
+
+                      {/* Campo “¿Necesitas vuelto?” si es efectivo */}
+                      {String(metodoSel?.nombre || "").toLowerCase().includes("efectivo") && (
+                        <div className="mt-3">
+                          <label className="block text-xs font-medium">¿Necesitas vuelto?</label>
+                          <input
+                            type="text"
+                            placeholder="Ej: llevaré S/100"
+                            className="w-full border px-3 py-2 rounded mt-1 focus:outline-none focus:ring-2 focus:ring-purple-300"
+                            onChange={(e) =>
+                              setSeleccion((prev) => ({ ...prev, comentario_pago: e.target.value }))
+                            }
+                          />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 {/* Zona */}
                 <div>
