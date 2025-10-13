@@ -9,7 +9,6 @@ import { FavoritesContext } from "../context/FavoritesContext";
 import MobileMenu from "../components/MobileMenu";
 import SloganBar from "../components/SloganBar";
 import BestSellersSection from "../sections/BestSellersSection";
-import Footer from "../components/Footer";
 
 const STORE_NAME = "Kokorishop";
 
@@ -346,13 +345,6 @@ const Home = () => {
           <span>📦</span> Ir al Catálogo Completo
         </Link>
       </div>
-
-      <Footer
-        instagramUrl=""
-        tiktokUrl=""
-        facebookUrl=""
-        whatsappUrl="https://wa.me/51977546073"
-      />
 
       {/* Footer admin */}
       {isAdmin && (
