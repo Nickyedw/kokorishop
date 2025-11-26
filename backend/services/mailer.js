@@ -5,7 +5,8 @@ const fs = require('fs');
 const path = require('path');
 
 const {
-  SMTP_HOST = 'smtp-relay.brevo.com',
+  // 👇 OJO: default cambiado a sendinblue (coincide con el certificado)
+  SMTP_HOST = 'smtp-relay.sendinblue.com',
   SMTP_PORT = '587',
   SMTP_USER,
   SMTP_PASS,
@@ -28,13 +29,16 @@ function buildFrom() {
   return `"${name}" <${addr}>`;
 }
 
-// ------- SMTP transporter (queda como fallback/compat) -------
+// ------- SMTP transporter (fallback/compat) -------
 const transporter = nodemailer.createTransport({
   pool: true,
   host: SMTP_HOST,
   port,
   secure,                               // false en 587 (STARTTLS), true en 465
-  auth: SMTP_USER && SMTP_PASS ? { user: SMTP_USER, pass: SMTP_PASS } : undefined,
+  auth:
+    SMTP_USER && SMTP_PASS
+      ? { user: SMTP_USER, pass: SMTP_PASS }
+      : undefined,
 
   // timeouts bajos para evitar cuelgues largos
   family: 4,                            // fuerza IPv4
@@ -44,14 +48,33 @@ const transporter = nodemailer.createTransport({
   dnsTimeout: 4000,
 
   requireTLS: !secure,
-  tls: { servername: SMTP_HOST, rejectUnauthorized: true },
+  tls: {
+    servername: SMTP_HOST,
+    rejectUnauthorized: true,
+  },
 });
 
+// Verificación opcional del transporter SMTP
 async function verifyMailer() {
-  // Si estamos forzando API, consideramos OK sin probar SMTP
-  if ((EMAIL_TRANSPORT || '').toLowerCase() === 'brevo_api') {
+  const transport = (EMAIL_TRANSPORT || 'auto').toLowerCase();
+
+  // Si forzamos API, o en producción sin SMTP explícito, NO probamos SMTP
+  if (
+    transport === 'brevo_api' ||
+    (NODE_ENV === 'production' && transport !== 'smtp')
+  ) {
+    console.log(
+      `ℹ️ SMTP verify omitido (EMAIL_TRANSPORT=${transport}, NODE_ENV=${NODE_ENV})`
+    );
     return true;
   }
+
+  // Si no hay credenciales SMTP, tampoco tiene sentido probar
+  if (!SMTP_USER || !SMTP_PASS) {
+    console.warn('⚠️ SMTP sin credenciales, se omite verify()');
+    return false;
+  }
+
   try {
     await transporter.verify();
     console.log('✅ SMTP listo:', SMTP_HOST);
@@ -81,7 +104,14 @@ async function sendViaSMTP({ to, subject, html, text, attachments, headers }) {
 }
 
 // ------- Envío por API HTTP de Brevo (puerto 443) -------
-async function sendViaBrevoAPI({ to, subject, html, text, attachments, headers }) {
+async function sendViaBrevoAPI({
+  to,
+  subject,
+  html,
+  text,
+  attachments,
+  headers,
+}) {
   if (!BREVO_API_KEY) throw new Error('Falta BREVO_API_KEY');
 
   const toList = Array.isArray(to) ? to : [to];
@@ -105,7 +135,9 @@ async function sendViaBrevoAPI({ to, subject, html, text, attachments, headers }
           return { name: att.filename || path.basename(att.path), content };
         }
         if (att.content) {
-          const buf = Buffer.isBuffer(att.content) ? att.content : Buffer.from(String(att.content));
+          const buf = Buffer.isBuffer(att.content)
+            ? att.content
+            : Buffer.from(String(att.content));
           return { name: att.filename || 'adjunto', content: buf.toString('base64') };
         }
         return null;
@@ -125,7 +157,7 @@ async function sendMail(options) {
 
   // Forzado
   if (prefer === 'brevo_api') return sendViaBrevoAPI(options);
-  if (prefer === 'smtp')      return sendViaSMTP(options);
+  if (prefer === 'smtp') return sendViaSMTP(options);
 
   // Auto: en desarrollo intenta SMTP si está vivo, en prod usa API
   if (NODE_ENV === 'development') {

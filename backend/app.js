@@ -100,7 +100,7 @@ app.use('/productos', productosRouter);
 app.use('/api/pedidos', pedidosRouter);
 app.use('/comprobantes', comprobanteRoutes);
 app.use('/api/categorias', categoriaRoutes);
-app.use('/categorias', categoriaRoutes);
+//app.use('/categorias', categoriaRoutes);
 app.use('/api', opcionesEntregaRoutes);
 app.use('/api/metodos_pago', metodosPago);
 app.use('/api/notificaciones', notificacionesRouter);

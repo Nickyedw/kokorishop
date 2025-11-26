@@ -1,6 +1,7 @@
 // src/pages/MisPedidos.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { apiFetch } from "../utils/apiClient";
 
 const API_APP = import.meta.env.VITE_API_URL || "http://localhost:3001";
 
@@ -101,42 +102,48 @@ export default function MisPedidos() {
     localStorage.setItem("mispedidos_page", String(page));
   }, [page]);
 
-useEffect(() => {
-  let cancel = false;
-  (async () => {
-    try {
-      setLoading(true);
-      setErrorMsg("");
-      const token = localStorage.getItem("token");
-      const res = await fetch(`${API_APP}/api/pedidos/mis`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error("Error al obtener pedidos");
-      const data = await res.json();
-      if (!Array.isArray(data)) throw new Error("El servidor devolvió un formato inesperado.");
-      if (cancel) return;
+  // Cargar pedidos usando apiFetch (maneja 401 + logout por dentro)
+  useEffect(() => {
+    let cancel = false;
 
-      const normData = data
-        .map((p) => ({
-          ...p,
-          total: Number(p.total || 0),
-          productos: (p.productos || []).map((d) => ({
-            ...d,
-            subtotal: Number(d.subtotal || 0),
-          })),
-        }))
-        .sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+    (async () => {
+      try {
+        setLoading(true);
+        setErrorMsg("");
 
-      setPedidos(normData);
-    } catch (err) {
-      if (!cancel) setErrorMsg(err.message || "Error al obtener pedidos");
-    } finally {
-      if (!cancel) setLoading(false);
-    }
-  })();
-  return () => { cancel = true; };
-}, []);
+        const data = await apiFetch("/api/pedidos/mis");
 
+        if (cancel) return;
+        if (!Array.isArray(data)) {
+          throw new Error("El servidor devolvió un formato inesperado.");
+        }
+
+        const normData = data
+          .map((p) => ({
+            ...p,
+            total: Number(p.total || 0),
+            productos: (p.productos || []).map((d) => ({
+              ...d,
+              subtotal: Number(d.subtotal || 0),
+            })),
+          }))
+          .sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+
+        setPedidos(normData);
+      } catch (err) {
+        if (!cancel) {
+          // Si fue 401, apiFetch ya mostró toast y lanzó logout
+          setErrorMsg(err.message || "Error al obtener pedidos");
+        }
+      } finally {
+        if (!cancel) setLoading(false);
+      }
+    })();
+
+    return () => {
+      cancel = true;
+    };
+  }, []);
 
   // ---- filtro + paginación
   const pedidosFiltrados = useMemo(() => {
@@ -183,15 +190,14 @@ useEffect(() => {
     setPage(1);
   }, [query, dateFrom, dateTo]);
 
-  // Modal detalle
+  // Modal detalle (usa apiFetch también)
   const abrirModal = async (pedidoId) => {
     try {
       setCargandoModal(true);
       setModalAbierto(true);
-      const res = await fetch(`${API_APP}/api/pedidos/${pedidoId}`, {
-      headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-    });
-      const data = await res.json();
+
+      const data = await apiFetch(`/api/pedidos/${pedidoId}`);
+
       const normData = {
         ...data,
         total: Number(data.total || 0),
@@ -208,6 +214,7 @@ useEffect(() => {
       setCargandoModal(false);
     }
   };
+
   const cerrarModal = () => {
     setModalAbierto(false);
     setPedidoSel(null);

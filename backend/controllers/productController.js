@@ -1,6 +1,7 @@
 // backend/controllers/productController.js
 const productService = require('../services/productService');
 const pool = require('../db');
+const { query } = pool; // usamos la misma conexión para el buscador
 
 /* =========================
    Util: cabeceras no-cache
@@ -142,7 +143,6 @@ const actualizarProducto = async (req, res) => {
     }
 
     // Reglas de consistencia para oferta:
-    // necesitamos conocer el precio y el precio_regular finales.
     const actual = await productService.obtenerProductoPorId(id);
     if (!actual) return res.status(404).json({ error: 'Producto no encontrado' });
 
@@ -219,16 +219,73 @@ const eliminarProducto = async (req, res) => {
   }
 };
 
-// Buscar / categoría
+/* =========================
+   🔎 Búsqueda (para autocompletar Header)
+   ========================= */
+
 const buscarProductos = async (req, res) => {
   try {
-    const { q } = req.query;
-    const productos = await productService.buscarProductos(q);
-    res.json(productos);
+    const raw = (req.query.q || '').toString().trim();
+
+    // Si no hay término, devolvemos array vacío
+    if (!raw) {
+      return res.json([]);
+    }
+
+    const term = `%${raw}%`;
+
+    // límite suave para autocompletar (?limit=12, máx 30)
+    let limit = Number.parseInt(req.query.limit, 10);
+    if (Number.isNaN(limit) || limit <= 0) limit = 10;
+    if (limit > 30) limit = 30;
+
+    const sql = `
+      SELECT
+        p.id,
+        p.nombre,
+        p.descripcion,
+        p.precio,
+        p.imagen_url,
+        c.nombre AS categoria,
+        p.destacado,
+        p.en_oferta
+      FROM productos p
+      LEFT JOIN categorias c
+        ON c.id = p.categoria_id
+      WHERE
+        p.nombre ILIKE $1
+        OR p.descripcion ILIKE $1
+        OR c.nombre ILIKE $1
+      ORDER BY
+        p.destacado DESC,
+        p.en_oferta DESC,
+        p.id DESC
+      LIMIT $2;
+    `;
+
+    const { rows } = await query(sql, [term, limit]);
+
+    const result = rows.map((r) => ({
+      id: r.id,
+      nombre: r.nombre,
+      descripcion: r.descripcion,
+      precio: r.precio,
+      imagen_url: r.imagen_url, // el frontend arma la URL final con VITE_API_URL
+      categoria: r.categoria,
+      destacado: r.destacado,
+      en_oferta: r.en_oferta,
+    }));
+
+    return res.json(result);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('❌ Error en buscarProductos:', err); // <-- importante para ver el motivo real
+    return res.status(500).json({ error: 'Error al buscar productos' });
   }
 };
+
+/* =========================
+   Categorías / listas
+   ========================= */
 
 const productosPorCategoria = async (req, res) => {
   try {

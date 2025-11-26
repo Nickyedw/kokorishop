@@ -1,12 +1,41 @@
+// backend/controllers/categoriaController.js
 const pool = require('../db');
 
-const getCategorias = async (req, res) => {
+/**
+ * GET /api/categorias
+ * Devuelve:
+ * [
+ *   { id, nombre, total_productos }
+ * ]
+ */
+const getCategorias = async (_req, res) => {
   try {
-    const result = await pool.query('SELECT id, nombre FROM categorias ORDER BY nombre');
-    res.json(result.rows);
+    console.log('DEBUG GET /api/categorias');
+
+    const sql = `
+      SELECT 
+        c.id,
+        c.nombre,
+        COUNT(p.id)::int AS total_productos
+      FROM categorias c
+      LEFT JOIN productos p 
+        ON p.categoria_id = c.id
+      GROUP BY c.id, c.nombre
+      ORDER BY c.nombre ASC;
+    `;
+
+    console.log('SQL categorias:\n', sql);
+
+    const result = await pool.query(sql);
+
+    console.log('Filas categorías:', result.rows);
+
+    return res.json(result.rows);
   } catch (error) {
     console.error('❌ Error al obtener categorías:', error);
-    res.status(500).json({ message: 'Error al obtener categorías' });
+    return res
+      .status(500)
+      .json({ message: 'Error al obtener categorías' });
   }
 };
 

@@ -1,13 +1,17 @@
-// src/components/MiniCart.jsx
+// src/components/MiniCart.jsx 
 import React, { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import useCartTotals from "../hooks/useCartTotals";
 
 export default function MiniCart({ cartPath = "/cart" }) {
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const { count, subtotal } = useCartTotals();
   const [open, setOpen] = useState(false);
   const timerRef = useRef(null);
+
+  // 🚫 No mostrar MiniCart dentro de la página del carrito
+  const estaEnCart = pathname.startsWith("/cart");
 
   useEffect(() => {
     const onOpen = () => {
@@ -15,6 +19,7 @@ export default function MiniCart({ cartPath = "/cart" }) {
       clearTimeout(timerRef.current);
       timerRef.current = setTimeout(() => setOpen(false), 2400);
     };
+
     window.addEventListener("minicart:open", onOpen);
     return () => {
       window.removeEventListener("minicart:open", onOpen);
@@ -22,26 +27,66 @@ export default function MiniCart({ cartPath = "/cart" }) {
     };
   }, []);
 
-  if (!count || !open) return null;
+  if (!count || !open || estaEnCart) return null;
+
+  const subtotalText = `S/ ${Number(subtotal || 0).toFixed(2)}`;
 
   return (
-    <div className="fixed bottom-3 left-0 right-0 z-[60] mx-auto w-[92%] max-w-md">
-      <div className="rounded-2xl bg-white/95 text-purple-900 shadow-xl backdrop-blur border border-white/40 px-3 py-2 flex items-center justify-between">
-        <div className="flex items-center gap-2 font-semibold">
-          <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-pink-500 text-white text-xs">
-            {count}
-          </span>
-          <span>Ver carrito</span>
+    <div
+      className="
+        fixed inset-x-0 bottom-3 z-[60]
+        flex justify-center
+        px-3 sm:px-4
+      "
+    >
+      <div
+        className="
+          w-full max-w-md
+          rounded-3xl
+          bg-gradient-to-r from-purple-700 via-fuchsia-500 to-pink-500
+          text-white shadow-2xl backdrop-blur-md
+          border border-white/30
+          px-3 py-2
+          flex items-center justify-between gap-3
+        "
+      >
+        {/* Izquierda: icono + texto */}
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <div className="w-9 h-9 rounded-full bg-black/20 flex items-center justify-center text-lg">
+              🛒
+            </div>
+            <span className="absolute -top-1 -right-1 inline-flex items-center justify-center w-5 h-5 rounded-full bg-yellow-300 text-purple-900 text-[11px] font-bold shadow">
+              {count}
+            </span>
+          </div>
+
+          <div className="leading-tight text-sm">
+            <p className="font-semibold">Tienes productos en tu carrito</p>
+            <p className="text-xs text-purple-100">
+              Revísalos antes de que se agoten 💜
+            </p>
+          </div>
         </div>
-        <div className="text-sm text-purple-700">
-          Subtotal: <strong>S/ {Number(subtotal || 0).toFixed(2)}</strong>
+
+        {/* Derecha: subtotal + botón */}
+        <div className="flex items-center gap-3">
+          <div className="text-right text-xs">
+            <p className="text-purple-100">Subtotal</p>
+            <p className="font-bold text-white text-sm">{subtotalText}</p>
+          </div>
+
+          <button
+            onClick={() => navigate(cartPath, { replace: false })}
+            className="
+              rounded-full bg-white text-purple-700 hover:bg-purple-50
+              px-3 py-1.5 text-xs font-semibold shadow-md transition
+              active:scale-[0.97]
+            "
+          >
+            Ver carrito
+          </button>
         </div>
-        <button
-          onClick={() => navigate(cartPath, { replace: false })}
-          className="ml-3 rounded-full bg-pink-500 hover:bg-pink-600 text-white px-3 py-1.5 text-sm font-medium"
-        >
-          Abrir
-        </button>
       </div>
     </div>
   );

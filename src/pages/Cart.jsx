@@ -1,59 +1,31 @@
-// src/pages/Cart.jsx
+// src/pages/Cart.jsx 
 import React, { useContext, useEffect, useState } from "react";
 import { FaShoppingBag } from "react-icons/fa";
 import { CartContext } from "../context/CartContext";
 import { crearPedido } from "../services/pedidoService";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { toast } from "react-toastify";
+import PaymentFlowModal from "../components/PaymentFlowModal";
+import { apiFetch } from "../utils/apiClient";
 
 // 🔗 Base del backend para imágenes
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3001";
 
-/** Acepta http(s), data:, rutas absolutas (/uploads/...), o relativas */
-const normalizeMediaUrl = (raw) => {
-  if (!raw) return null;
-  let s = String(raw).trim().replace(/\\/g, "/");
-
-  // data URL (base64)
-  if (/^data:image\//i.test(s)) return s;
-  // http(s)
-  if (/^https?:\/\//i.test(s)) return s;
-  // si viene /uploads/... o cualquier ruta absoluta del backend
-  if (s.startsWith("/")) return `${API_BASE}${s}`;
-  // ruta relativa: asumir que cuelga del backend
-  return `${API_BASE}/${s}`;
-};
-
-// Placeholder SVG inline (no depende de archivos)
-const QR_FALLBACK_DATA =
-  'data:image/svg+xml;utf8,' +
-  encodeURIComponent(`
-  <svg xmlns="http://www.w3.org/2000/svg" width="220" height="220">
-    <rect width="100%" height="100%" fill="#fef3c7"/>
-    <rect x="10" y="10" width="200" height="200" fill="none" stroke="#f59e0b" stroke-width="4"/>
-    <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle"
-          font-family="sans-serif" font-size="14" fill="#78350f">
-      QR no disponible
-    </text>
-  </svg>`);
-
-// Evita loop de onError (aplica fallback una sola vez)
-const handleQrError = (e) => {
-  const img = e.currentTarget;
-  if (img.dataset.fallback === '1') return;
-  img.dataset.fallback = '1';
-  img.src = QR_FALLBACK_DATA;
-};
-
 // 🖼️ Helper para construir URL de imagen
 function getImageSrc(item) {
   const raw =
-    item?.imagen_url || item?.image || item?.imagen || item?.foto || item?.url_imagen;
+    item?.imagen_url ||
+    item?.image ||
+    item?.imagen ||
+    item?.foto ||
+    item?.url_imagen;
   if (!raw) return null;
   if (/^https?:\/\//i.test(raw)) return raw;
   if (raw.startsWith("/")) return `${API_BASE}${raw}`;
   return `${API_BASE}/uploads/${raw}`;
 }
+
+const formatSoles = (n) => `S/ ${Number(n || 0).toFixed(2)}`;
 
 export default function Cart() {
   const {
@@ -62,18 +34,28 @@ export default function Cart() {
     clearCart,
     increaseQuantity,
     decreaseQuantity,
-
-    // NUEVO: totales “oferta-aware”
-    subtotal,          // usa price (oferta si la hay)
-    regularSubtotal,   // usa regular_price (antes)
-    savingsTotal,      // ahorro total
-    savingsPct,        // % ahorro global
-    total,             // alias a subtotal (compat)
+    subtotal,
+    regularSubtotal,
+    savingsTotal,
+    savingsPct,
+    total,
   } = useContext(CartContext);
 
+  // controla apertura del nuevo modal de flujo de pago
   const [mostrarResumen, setMostrarResumen] = useState(false);
-  const [enviando, setEnviando] = useState(false);
+
+  // éxito de pedido
   const [pedidoExitoso, setPedidoExitoso] = useState(false);
+  const [ultimoPedido, setUltimoPedido] = useState(null); // datos del último pedido
+  const [cuentaCreada, setCuentaCreada] = useState(false);
+  const [mostrarFormularioCuenta, setMostrarFormularioCuenta] =
+    useState(false);
+
+  // formulario contraseña (para invitados)
+  const [pass1, setPass1] = useState("");
+  const [pass2, setPass2] = useState("");
+  const [creandoCuenta, setCreandoCuenta] = useState(false);
+
   const [errorStock, setErrorStock] = useState("");
 
   const navigate = useNavigate();
@@ -86,25 +68,16 @@ export default function Cart() {
   const [horariosEntrega, setHorariosEntrega] = useState([]);
   const [metodosEntrega, setMetodosEntrega] = useState([]);
 
-  const [seleccion, setSeleccion] = useState({
-    metodo_pago_id: "",
-    zona_entrega_id: "",
-    horario_entrega_id: "",
-    metodo_entrega_id: "",
-    comentario_pago: "",
-  });
-
-  // ⛔️ Validación
-const [errores, setErrores] = useState({});
-const requerido = (v) => v !== null && v !== undefined && String(v).trim() !== "";
-
-// Habilitar botón solo si todo está completo
-const listoParaConfirmar =
-  requerido(seleccion.metodo_pago_id) &&
-  requerido(seleccion.zona_entrega_id) &&
-  requerido(seleccion.horario_entrega_id) &&
-  requerido(seleccion.metodo_entrega_id);
-
+  // 🔐 Detección de sesión REAL:
+  // solo consideramos logueado si hay token (authToken o token) Y usuario_id.
+  const rawToken =
+    (typeof window !== "undefined" &&
+      (localStorage.getItem("authToken") || localStorage.getItem("token"))) ||
+    null;
+  const storedUserId =
+    (typeof window !== "undefined" && localStorage.getItem("usuario_id")) ||
+    null;
+  const isLoggedIn = !!rawToken && !!storedUserId;
 
   useEffect(() => {
     const nombre = localStorage.getItem("usuario_nombre") || "Invitado";
@@ -135,46 +108,44 @@ const listoParaConfirmar =
     }
   }
 
-  function obtenerComentarioPago() {
-    const metodo = metodosPago.find((m) => m.id === parseInt(seleccion.metodo_pago_id));
-    if (!metodo) return "";
-    switch (metodo.nombre.toLowerCase()) {
-      case "transferencia bancaria":
-        return "Transferir a la cuenta 123-456-789 del Banco XYZ y enviar el comprobante por WhatsApp.";
-      case "yape":
-        return "Realiza el pago por Yape al número 987654321 o escanea el QR.";
-      case "plin":
-        return "Realiza el pago por Plin al número 987654321 o escanea el QR.";
-      case "efectivo al momento de entrega":
-        return seleccion.comentario_pago || "El cliente pagará en efectivo al momento de entrega.";
-      default:
-        return "";
-    }
-  }
-
-  async function handleConfirmarPedido() {
-    // Validación de campos obligatorios
-    const errs = {};
-    if (!requerido(seleccion.metodo_pago_id))   errs.metodo_pago_id   = "Selecciona un método de pago";
-    if (!requerido(seleccion.zona_entrega_id))  errs.zona_entrega_id  = "Selecciona una zona de entrega";
-    if (!requerido(seleccion.horario_entrega_id)) errs.horario_entrega_id = "Selecciona un horario de entrega";
-    if (!requerido(seleccion.metodo_entrega_id)) errs.metodo_entrega_id = "Selecciona un método de entrega";
-
-    setErrores(errs);
-    if (Object.keys(errs).length > 0) {
-      toast.error("Completa los campos obligatorios del pedido.");
-      return;
-    }
-
-    setEnviando(true);
+  /**
+   * Recibe payload del PaymentFlowModal:
+   * {
+   *   zonaId,
+   *   metodoEntregaId,
+   *   horarioId,
+   *   metodoPagoId,
+   *   efectivoVuelto,
+   *   comentarioPago,
+   *   total,
+   *   envio,
+   *   nombreCompleto,
+   *   direccion,
+   *   email,
+   *   telefono,
+   *   metodoPagoNombre
+   * }
+   */
+  async function handleConfirmarPedido(flowData) {
     try {
+      const usuarioId = isLoggedIn
+        ? Number(storedUserId)
+        : null;
+
       const pedido = {
-        usuario_id: localStorage.getItem("usuario_id"),
-        metodo_pago_id: Number(seleccion.metodo_pago_id),
-        metodo_entrega_id: Number(seleccion.metodo_entrega_id),
-        zona_entrega_id: Number(seleccion.zona_entrega_id),
-        horario_entrega_id: Number(seleccion.horario_entrega_id),
-        comentario_pago: obtenerComentarioPago(),
+        usuario_id: usuarioId,
+        metodo_pago_id: Number(flowData.metodoPagoId),
+        metodo_entrega_id: Number(flowData.metodoEntregaId),
+        zona_entrega_id: Number(flowData.zonaId),
+        horario_entrega_id: Number(flowData.horarioId),
+        comentario_pago: flowData.comentarioPago,
+
+        // datos del cliente (para invitados y también para clientes por si quieres actualizar)
+        cliente_nombre: flowData.nombreCompleto || null,
+        cliente_email: flowData.email || null,
+        cliente_telefono: flowData.telefono || null,
+        cliente_direccion: flowData.direccion || null,
+
         productos: cartItems.map((i) => ({
           producto_id: i.id,
           cantidad: i.quantity,
@@ -182,9 +153,35 @@ const listoParaConfirmar =
         })),
       };
 
-      await crearPedido(pedido);
+      const res = await crearPedido(pedido);
+      const pedidoId = res?.id || res?.pedido_id || null;
+
+      // limpiar carrito
       clearCart();
       setMostrarResumen(false);
+
+      // marcar si este pedido fue realmente "invited"
+      const esInvitado = !isLoggedIn || !usuarioId;
+
+      // guardar datos del último pedido para el modal de éxito
+      setUltimoPedido({
+        esInvitado,
+        pedidoId,
+        total: flowData.total,
+        envio: flowData.envio,
+        nombreCompleto:
+          flowData.nombreCompleto ||
+          localStorage.getItem("usuario_nombre") ||
+          "Cliente Kokori",
+        direccion: flowData.direccion || "",
+        email: flowData.email || localStorage.getItem("usuario_email") || "",
+        telefono: flowData.telefono || "",
+        metodoPagoNombre: flowData.metodoPagoNombre || "",
+      });
+      setCuentaCreada(false);
+      setMostrarFormularioCuenta(false);
+      setPass1("");
+      setPass2("");
       setPedidoExitoso(true);
     } catch (err) {
       console.error("Error al enviar pedido:", err);
@@ -194,12 +191,91 @@ const listoParaConfirmar =
       } else {
         toast.error("❌ Error al enviar pedido");
       }
-    } finally {
-      setEnviando(false);
     }
   }
 
-  const formatSoles = (n) => `S/ ${Number(n || 0).toFixed(2)}`;
+  // Crear cuenta a partir del pedido (solo invitados)
+  async function handleCrearCuentaDesdePedido() {
+    if (!ultimoPedido?.esInvitado) return;
+
+    if (!pass1 || pass1.length < 6) {
+      toast.warn("La contraseña debe tener al menos 6 caracteres.");
+      return;
+    }
+    if (pass1 !== pass2) {
+      toast.warn("Las contraseñas no coinciden.");
+      return;
+    }
+    if (!ultimoPedido.email) {
+      toast.error(
+        "No se encontró el correo del pedido. Vuelve atrás y completa los datos."
+      );
+      return;
+    }
+
+    try {
+      setCreandoCuenta(true);
+
+      const resp = await apiFetch("/api/auth/registro-desde-pedido", {
+        method: "POST",
+        body: JSON.stringify({
+          nombre_completo: ultimoPedido.nombreCompleto,
+          email: ultimoPedido.email,          // se mapea a "correoFinal" en el backend
+          telefono: ultimoPedido.telefono,
+          direccion: ultimoPedido.direccion,
+          password: pass1,
+          pedido_id: ultimoPedido.pedidoId,   // 👈 asociar ese pedido al nuevo usuario
+        }),
+      });
+
+      if (!resp || !resp.token || !resp.usuario) {
+        throw new Error("Respuesta inesperada al crear cuenta");
+      }
+
+      // Guardamos token en ambas claves por compatibilidad
+      localStorage.setItem("authToken", resp.token);
+      localStorage.setItem("token", resp.token);
+
+      localStorage.setItem("usuario_id", resp.usuario.id);
+      localStorage.setItem(
+        "usuario_nombre",
+        resp.usuario.nombre_completo || "Cliente Kokori"
+      );
+      if (resp.usuario.email) {
+        localStorage.setItem("usuario_email", resp.usuario.email);
+      }
+
+      // MUY IMPORTANTE: este usuario NO es admin
+      localStorage.setItem(
+        "es_admin",
+        resp.usuario.es_admin ? "true" : "false"
+      );
+
+      setUsuarioNombre(resp.usuario.nombre_completo || "Cliente Kokori");
+      setCuentaCreada(true);
+      setMostrarFormularioCuenta(false);
+
+      toast.success("🎉 Cuenta creada con éxito. Ya puedes ver tus pedidos.");
+    } catch (err) {
+      console.error("Error creando cuenta desde pedido:", err);
+      const msg = (err && err.message) || "";
+      if (
+        msg.toLowerCase().includes("correo") &&
+        msg.toLowerCase().includes("existe")
+      ) {
+        toast.error(
+          "Este correo ya está registrado. Inicia sesión para ver tus pedidos."
+        );
+      } else {
+        toast.error("No se pudo crear la cuenta. Inténtalo nuevamente.");
+      }
+    } finally {
+      setCreandoCuenta(false);
+    }
+  }
+
+  const puedeVerPedidos =
+    !ultimoPedido?.esInvitado || cuentaCreada || isLoggedIn;
 
   return (
     <div className="min-h-screen bg-purple-50 text-purple-800">
@@ -230,8 +306,12 @@ const listoParaConfirmar =
           <div className="min-h-[50vh] grid place-items-center text-center">
             <div>
               <div className="text-5xl mb-2">🛒</div>
-              <h2 className="text-xl font-semibold text-purple-900">Tu carrito está vacío</h2>
-              <p className="text-purple-600 mt-1">Agrega productos para continuar.</p>
+              <h2 className="text-xl font-semibold text-purple-900">
+                Tu carrito está vacío
+              </h2>
+              <p className="text-purple-600 mt-1">
+                Agrega productos para continuar.
+              </p>
               <Link
                 to="/"
                 className="inline-block mt-5 rounded-full bg-pink-500 hover:bg-pink-600 text-white px-6 py-3 font-semibold"
@@ -252,22 +332,22 @@ const listoParaConfirmar =
                   const canInc = Number(item.quantity) < stock;
                   const isOffer =
                     !!item.en_oferta &&
-                    Number(item.regular_price ?? 0) > Number(item.price ?? 0);
-                  const pct =
-                    isOffer
-                      ? Math.round(
-                          ((Number(item.regular_price) - Number(item.price)) /
-                            Number(item.regular_price)) *
-                            100
-                        )
-                      : 0;
+                    Number(item.regular_price ?? 0) >
+                      Number(item.price ?? 0);
+                  const pct = isOffer
+                    ? Math.round(
+                        ((Number(item.regular_price) -
+                          Number(item.price)) /
+                          Number(item.regular_price)) *
+                          100
+                      )
+                    : 0;
 
                   return (
                     <article
                       key={item.id}
                       className="bg-white rounded-2xl shadow-sm border border-purple-100 hover:shadow-md transition overflow-hidden"
                     >
-                      {/* Card responsive: imagen + contenido */}
                       <div className="grid grid-cols-[96px_1fr] sm:grid-cols-[112px_1fr] gap-4 p-4 sm:p-5">
                         {/* Miniatura */}
                         <div className="relative w-24 h-24 sm:w-[112px] sm:h-[112px] rounded-xl overflow-hidden bg-purple-50 border border-purple-100">
@@ -277,7 +357,9 @@ const listoParaConfirmar =
                               alt={item.name}
                               className="absolute inset-0 w-full h-full object-cover object-center"
                               loading="lazy"
-                              onError={(e) => (e.currentTarget.src = "/placeholder.png")}
+                              onError={(e) =>
+                                (e.currentTarget.src = "/placeholder.png")
+                              }
                             />
                           ) : (
                             <div className="absolute inset-0 grid place-items-center text-3xl">
@@ -285,7 +367,6 @@ const listoParaConfirmar =
                             </div>
                           )}
 
-                          {/* Etiqueta -% si está en oferta */}
                           {isOffer && (
                             <span className="absolute top-1.5 left-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold text-white bg-gradient-to-r from-pink-500 to-fuchsia-500 shadow">
                               -{pct}%
@@ -295,7 +376,6 @@ const listoParaConfirmar =
 
                         {/* Info + acciones */}
                         <div className="min-w-0">
-                          {/* Título + eliminar */}
                           <div className="flex items-start justify-between gap-3">
                             <h3 className="font-semibold text-purple-900 text-base sm:text-lg leading-snug line-clamp-2">
                               {item.name}
@@ -309,7 +389,6 @@ const listoParaConfirmar =
                             </button>
                           </div>
 
-                          {/* Precio unitario (con oferta) */}
                           <div className="text-purple-700 mt-1 text-sm flex items-baseline gap-2">
                             <span>Precio:</span>
                             {isOffer ? (
@@ -328,9 +407,7 @@ const listoParaConfirmar =
                             )}
                           </div>
 
-                          {/* Controles */}
                           <div className="mt-3 flex flex-wrap items-center gap-3">
-                            {/* Stepper */}
                             <div className="inline-flex items-center rounded-full border border-purple-200 overflow-hidden">
                               <button
                                 onClick={() => decreaseQuantity(item.id)}
@@ -348,7 +425,9 @@ const listoParaConfirmar =
                                   if (canInc) {
                                     increaseQuantity(item.id);
                                   } else {
-                                    toast.warning(`😵‍💫 Solo hay ${stock} unidades disponibles`);
+                                    toast.warning(
+                                      `😵‍💫 Solo hay ${stock} unidades disponibles`
+                                    );
                                   }
                                 }}
                                 className="px-3 py-1.5 text-purple-700 hover:bg-purple-50"
@@ -358,11 +437,14 @@ const listoParaConfirmar =
                               </button>
                             </div>
 
-                            {/* Total por ítem */}
                             <div className="ml-auto text-sm sm:text-base">
-                              <span className="text-gray-500 mr-1">Total:</span>
+                              <span className="text-gray-500 mr-1">
+                                Total:
+                              </span>
                               <span className="font-bold text-purple-900">
-                                {formatSoles(Number(item.price) * Number(item.quantity))}
+                                {formatSoles(
+                                  Number(item.price) * Number(item.quantity)
+                                )}
                               </span>
                             </div>
                           </div>
@@ -372,7 +454,6 @@ const listoParaConfirmar =
                   );
                 })}
 
-                {/* Acciones inferiores */}
                 <div className="flex items-center justify-between mt-4">
                   <button
                     onClick={clearCart}
@@ -392,10 +473,11 @@ const listoParaConfirmar =
               {/* RESUMEN (sticky en desktop) */}
               <aside className="lg:sticky lg:top-6 h-max">
                 <div className="bg-white rounded-2xl shadow-sm border border-purple-100 p-6">
-                  <h2 className="text-lg font-semibold text-purple-900">Resumen del pedido</h2>
+                  <h2 className="text-lg font-semibold text-purple-900">
+                    Resumen del pedido
+                  </h2>
 
                   <div className="mt-4 space-y-2 text-sm">
-                    {/* Antes (si hay diferencia) */}
                     {regularSubtotal > subtotal && (
                       <div className="flex justify-between">
                         <span className="text-gray-600">Antes</span>
@@ -407,10 +489,11 @@ const listoParaConfirmar =
 
                     <div className="flex justify-between">
                       <span className="text-gray-600">Subtotal</span>
-                      <span className="font-medium">{formatSoles(subtotal)}</span>
+                      <span className="font-medium">
+                        {formatSoles(subtotal)}
+                      </span>
                     </div>
 
-                    {/* Ahorro */}
                     {regularSubtotal > subtotal && (
                       <div className="flex justify-between text-emerald-600 font-semibold">
                         <span>Ahorras</span>
@@ -428,7 +511,9 @@ const listoParaConfirmar =
                     <div className="border-t border-purple-100 my-2" />
 
                     <div className="flex justify-between text-base">
-                      <span className="font-semibold text-purple-800">Total</span>
+                      <span className="font-semibold text-purple-800">
+                        Total
+                      </span>
                       <span className="font-extrabold text-purple-900">
                         {formatSoles(subtotal)}
                       </span>
@@ -439,11 +524,21 @@ const listoParaConfirmar =
                     onClick={() => setMostrarResumen(true)}
                     className="w-full mt-5 rounded-full bg-gradient-to-r from-purple-500 to-fuchsia-500 text-white py-3 font-semibold shadow hover:shadow-lg active:scale-[0.99] transition"
                   >
-                    Proceder al pago
+                    Continuar a envío y pago
                   </button>
 
                   <p className="text-[12px] text-gray-500 mt-3">
-                    Al continuar, aceptas nuestras políticas de compra y privacidad.
+                    ¿Ya tienes cuenta?{" "}
+                    <Link
+                      to="/login"
+                      className="text-purple-600 font-semibold hover:underline"
+                    >
+                      Inicia sesión
+                    </Link>
+                  </p>
+                  <p className="text-[11px] text-gray-400 mt-1">
+                    Al continuar, aceptas nuestras políticas de compra y
+                    privacidad.
                   </p>
                 </div>
               </aside>
@@ -462,7 +557,7 @@ const listoParaConfirmar =
                   onClick={() => setMostrarResumen(true)}
                   className="flex-1 rounded-full bg-gradient-to-r from-purple-500 to-fuchsia-500 text-white py-3 font-semibold shadow hover:shadow-lg active:scale-[0.99] transition text-center"
                 >
-                  Proceder al pago
+                  Continuar a envío y pago
                 </button>
               </div>
             </div>
@@ -470,197 +565,152 @@ const listoParaConfirmar =
         )}
       </main>
 
-      {/* Modal: Checkout */}
-      {mostrarResumen && (
-        <div className="fixed inset-0 bg-black/60 flex justify-center items-center z-50 p-3">
-          <div className="bg-white w-full max-w-lg rounded-2xl shadow-xl overflow-hidden">
-            <div className="px-5 py-4 border-b">
-              <h2 className="text-xl font-semibold text-purple-800">Resumen de Pedido</h2>
-            </div>
-
-            <div className="px-5 py-4 space-y-3 max-h-[70vh] overflow-auto">
-              <ul className="space-y-2 text-sm">
-                {cartItems.map((item) => (
-                  <li key={item.id} className="flex justify-between">
-                    <span className="truncate pr-2">
-                      {item.name} × {item.quantity}
-                    </span>
-                    <span className="font-medium">
-                      {formatSoles(Number(item.price) * Number(item.quantity))}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-
-              {/* Campos en grid desde md */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
-                {/* Método de Pago */}
-                <div className="md:col-span-2">
-                  <label className="text-sm font-medium text-purple-800">Método de pago</label>
-                  <select
-                    className={`mt-1 w-full border rounded px-3 py-2 focus:outline-none focus:ring-2
-                    ${errores.metodo_pago_id ? "border-red-400 focus:ring-red-300" : "focus:ring-purple-300"}`}
-                    value={seleccion.metodo_pago_id}
-                    onChange={(e) =>
-                      setSeleccion((prev) => ({ ...prev, metodo_pago_id: e.target.value }))
-                    }
-                  >
-                    <option value="">Seleccione</option>
-                    {metodosPago.map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.nombre}
-                      </option>
-                    ))}
-                  </select>
-                  {errores.metodo_pago_id && (
-                  <p className="mt-1 text-[12px] text-red-600">{errores.metodo_pago_id}</p>)}
-                </div>
-
-                {/* Instrucciones y QR */}
-                {seleccion.metodo_pago_id && (() => {
-                  const selId = parseInt(seleccion.metodo_pago_id);
-                  const metodoSel = metodosPago.find((m) => m.id === selId);
-                  const qrSrc = normalizeMediaUrl(metodoSel?.qr_url);
-
-                  return (
-                    <div className="md:col-span-2 bg-yellow-50 border border-yellow-300 p-3 rounded text-xs text-yellow-800">
-                      <div className="font-semibold mb-1">Instrucciones de pago</div>
-                      <p className="leading-relaxed">{metodoSel?.instrucciones}</p>
-
-                      {qrSrc && (
-                        <img
-                          src={qrSrc}
-                          alt={`QR ${metodoSel?.nombre || "pago"}`}
-                          className="mt-3 mx-auto max-w-[220px]"
-                          loading="lazy"
-                          decoding="async"
-                          onError={handleQrError}
-                        />
-                      )}
-
-                      {/* Campo “¿Necesitas vuelto?” si es efectivo */}
-                      {String(metodoSel?.nombre || "").toLowerCase().includes("efectivo") && (
-                        <div className="mt-3">
-                          <label className="block text-xs font-medium">¿Necesitas vuelto?</label>
-                          <input
-                            type="text"
-                            placeholder="Ej: llevaré S/100"
-                            className="w-full border px-3 py-2 rounded mt-1 focus:outline-none focus:ring-2 focus:ring-purple-300"
-                            onChange={(e) =>
-                              setSeleccion((prev) => ({ ...prev, comentario_pago: e.target.value }))
-                            }
-                          />
-                        </div>
-                      )}
-                    </div>
-                  );
-                })()}
-
-                {/* Zona */}
-                <div>
-                  <label className="text-sm font-medium text-purple-800">Zona de entrega</label>
-                  <select
-                  className={`mt-1 w-full border rounded px-3 py-2 focus:outline-none focus:ring-2
-                    ${errores.zona_entrega_id ? "border-red-400 focus:ring-red-300" : "focus:ring-purple-300"}`}
-                  value={seleccion.zona_entrega_id}
-                  onChange={(e) => setSeleccion((prev) => ({ ...prev, zona_entrega_id: e.target.value }))}
-                >
-                  <option value="">Seleccione</option>
-                  {zonasEntrega.map((z) => (
-                    <option key={z.id} value={z.id}>{z.nombre_zona}</option>
-                  ))}
-                </select>
-                {errores.zona_entrega_id && (
-                  <p className="mt-1 text-[12px] text-red-600">{errores.zona_entrega_id}</p>
-                )}
-                </div>
-
-                {/* Horario */}
-                <div>
-                  <label className="text-sm font-medium text-purple-800">Horario de entrega</label>
-                  <select
-                  className={`mt-1 w-full border rounded px-3 py-2 focus:outline-none focus:ring-2
-                    ${errores.horario_entrega_id ? "border-red-400 focus:ring-red-300" : "focus:ring-purple-300"}`}
-                  value={seleccion.horario_entrega_id}
-                  onChange={(e) => setSeleccion((prev) => ({ ...prev, horario_entrega_id: e.target.value }))}
-                >
-                  <option value="">Seleccione</option>
-                  {horariosEntrega.map((h) => (
-                    <option key={h.id} value={h.id}>
-                      {h.hora_inicio.slice(0, 5)} - {h.hora_fin.slice(0, 5)}
-                    </option>
-                  ))}
-                </select>
-                {errores.horario_entrega_id && (
-                  <p className="mt-1 text-[12px] text-red-600">{errores.horario_entrega_id}</p>
-                )}
-                </div>
-
-                {/* Método de Entrega */}
-                <div className="md:col-span-2">
-                  <label className="text-sm font-medium text-purple-800">Método de entrega</label>
-                  <select
-                  className={`mt-1 w-full border rounded px-3 py-2 focus:outline-none focus:ring-2
-                    ${errores.metodo_entrega_id ? "border-red-400 focus:ring-red-300" : "focus:ring-purple-300"}`}
-                  value={seleccion.metodo_entrega_id}
-                  onChange={(e) => setSeleccion((prev) => ({ ...prev, metodo_entrega_id: e.target.value }))}
-                >
-                  <option value="">Seleccione</option>
-                  {metodosEntrega.map((me) => (
-                    <option key={me.id} value={me.id}>{me.descripcion}</option>
-                  ))}
-                </select>
-                {errores.metodo_entrega_id && (
-                  <p className="mt-1 text-[12px] text-red-600">{errores.metodo_entrega_id}</p>
-                )}
-                </div>
-              </div>
-
-              <div className="pt-2 text-right text-base">
-                <span className="font-semibold">Total:</span>{" "}
-                <span className="font-extrabold">{formatSoles(subtotal)}</span>
-              </div>
-            </div>
-
-            <div className="px-5 py-4 border-t flex justify-end gap-2">
-              <button
-                onClick={() => setMostrarResumen(false)}
-                className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleConfirmarPedido}
-                disabled={enviando || !listoParaConfirmar}
-                className={`bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded
-                ${(!listoParaConfirmar || enviando) ? "opacity-60 cursor-not-allowed" : ""}`}
-              >
-                {enviando ? "Enviando..." : "Confirmar pedido"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* 🔥 Nuevo Modal de Flujo de Pago (2 etapas) */}
+      <PaymentFlowModal
+        open={mostrarResumen}
+        onClose={() => setMostrarResumen(false)}
+        subtotal={subtotal}
+        zonas={zonasEntrega}
+        metodosEntrega={metodosEntrega}
+        horarios={horariosEntrega}
+        metodosPago={metodosPago}
+        onConfirm={handleConfirmarPedido}
+      />
 
       {/* Modal éxito */}
-      {pedidoExitoso && (
+      {pedidoExitoso && ultimoPedido && (
         <div className="fixed inset-0 bg-black/60 flex justify-center items-center z-50 p-3">
           <div className="bg-white p-6 rounded-2xl shadow-xl max-w-sm w-full text-center">
-            <h3 className="text-2xl font-bold text-green-600 mb-2">✅ Pedido enviado</h3>
-            <p className="mb-5 text-purple-700">Tu pedido fue enviado correctamente, en breve te notificaremos y te contactaremos para coordinar tu pedido.</p>
-            <div className="flex justify-center gap-3">
+            {/* Título */}
+            <h3 className="text-2xl font-bold text-green-600 mb-2 leading-snug">
+              ✅ ¡Gracias por tu compra,
+              <br />{" "}
+              {ultimoPedido.nombreCompleto ||
+                usuarioNombre ||
+                "Cliente Kokori"}
+              !
+            </h3>
+            <p className="mb-5 text-purple-700 text-sm">
+              Tu pedido ha sido recibido correctamente. Te contactaremos para
+              coordinar la entrega.
+            </p>
+
+            {/* Resumen mini */}
+            <div className="bg-purple-50/80 border border-purple-100 rounded-xl p-3 mb-5 text-left text-sm">
+              <p className="font-semibold text-purple-900 mb-1">
+                Resumen de tu pedido
+              </p>
+              <p className="flex justify-between">
+                <span>Total pagado:</span>
+                <span className="font-bold">
+                  {formatSoles(ultimoPedido.total)}
+                </span>
+              </p>
+              {ultimoPedido.direccion && (
+                <p className="mt-1">
+                  <span className="font-medium">Entrega en: </span>
+                  {ultimoPedido.direccion}
+                </p>
+              )}
+              {ultimoPedido.email && (
+                <p className="mt-1 text-xs text-purple-700">
+                  Te enviaremos los detalles a:
+                  <br />
+                  <span className="font-medium">
+                    {ultimoPedido.email}
+                  </span>
+                </p>
+              )}
+            </div>
+
+            {/* Bloque "crear cuenta" SOLO invitados que aún no crean cuenta */}
+            {ultimoPedido.esInvitado && !cuentaCreada && (
+              <>
+                {!mostrarFormularioCuenta ? (
+                  <>
+                    <p className="text-xs text-gray-700 mb-4">
+                      💡 Un paso más: crea tu cuenta gratis para guardar
+                      tus datos y seguir tus pedidos fácilmente.
+                    </p>
+                    <button
+                      onClick={() => setMostrarFormularioCuenta(true)}
+                      className="w-full mb-3 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 text-white py-2.5 text-sm font-semibold shadow hover:shadow-lg active:scale-[0.99] transition"
+                    >
+                      Crear cuenta gratis
+                    </button>
+                  </>
+                ) : (
+                  <div className="mb-4 text-left text-sm">
+                    <p className="text-gray-700 mb-2">
+                      Crea tu contraseña para completar tu cuenta en
+                      KokoriShop:
+                    </p>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Contraseña
+                    </label>
+                    <input
+                      type="password"
+                      value={pass1}
+                      onChange={(e) => setPass1(e.target.value)}
+                      className="w-full border rounded-lg px-3 py-2 text-sm mb-3 focus:ring-2 focus:ring-purple-400 focus:border-purple-400 outline-none"
+                      placeholder="Mínimo 6 caracteres"
+                    />
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Confirmar contraseña
+                    </label>
+                    <input
+                      type="password"
+                      value={pass2}
+                      onChange={(e) => setPass2(e.target.value)}
+                      className="w-full border rounded-lg px-3 py-2 text-sm mb-3 focus:ring-2 focus:ring-purple-400 focus:border-purple-400 outline-none"
+                      placeholder="Repite tu contraseña"
+                    />
+
+                    <button
+                      onClick={handleCrearCuentaDesdePedido}
+                      disabled={creandoCuenta}
+                      className={`w-full rounded-full bg-gradient-to-r from-purple-500 to-pink-500 text-white py-2.5 text-sm font-semibold shadow hover:shadow-lg active:scale-[0.99] transition ${
+                        creandoCuenta
+                          ? "opacity-60 cursor-not-allowed"
+                          : ""
+                      }`}
+                    >
+                      {creandoCuenta
+                        ? "Creando cuenta..."
+                        : "Guardar contraseña y crear cuenta"}
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* Botones inferiores */}
+            <div className="flex justify-center gap-3 mt-2 flex-wrap">
               <button
-                onClick={() => navigate("/menu")}
-                className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded"
+                onClick={() => {
+                  setPedidoExitoso(false);
+                  setUltimoPedido(null);
+                  navigate("/");
+                }}
+                className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-full text-sm font-semibold"
               >
-                Volver al Menú
+                {ultimoPedido.esInvitado && !cuentaCreada
+                  ? "Seguir comprando"
+                  : "Volver al Menú"}
               </button>
-              <button
-                onClick={() => navigate("/mis-pedidos")}
-                className="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded"
-              >
-                Ver Pedidos
-              </button>
+
+              {puedeVerPedidos && (
+                <button
+                  onClick={() => {
+                    setPedidoExitoso(false);
+                    setUltimoPedido(null);
+                    navigate("/mis-pedidos");
+                  }}
+                  className="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-full text-sm font-semibold"
+                >
+                  Ver pedidos
+                </button>
+              )}
             </div>
           </div>
         </div>

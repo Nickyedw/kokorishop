@@ -1,9 +1,11 @@
 // src/components/CartFab.jsx
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { FaShoppingCart } from "react-icons/fa";
+import { useLocation } from "react-router-dom";
 import useCartTotals from "../hooks/useCartTotals";
 
 export default function CartFab({ onOpenCart }) {
+  const { pathname } = useLocation();
   const { count, subtotal } = useCartTotals("cart");
 
   const [expanded, setExpanded] = useState(false);
@@ -138,8 +140,9 @@ export default function CartFab({ onOpenCart }) {
   const anchorRight = pos.xPerc > 50; // si está a la derecha, abrimos el popover hacia la izquierda
   const side = anchorRight ? "left" : "right";
 
-  // 🚫 No renderizar FAB (ni popover) cuando el carrito está vacío
-  if (count === 0) return null;
+  // 🚫 No renderizar FAB (ni popover) cuando el carrito está vacío o estamos en /cart
+  const estaEnCart = pathname.startsWith("/cart");
+  if (count === 0 || estaEnCart) return null;
 
   return (
     <div
@@ -156,16 +159,21 @@ export default function CartFab({ onOpenCart }) {
       {expanded && count > 0 && (
         <div
           className={[
-            "absolute z-[60] select-none rounded-2xl bg-white text-purple-900 shadow-xl ring-1 ring-black/5",
-            "opacity-100 translate-y-0 pointer-events-auto",
+            "absolute z-[60] select-none rounded-2xl",
+            "bg-slate-950/95 text-pink-50 shadow-2xl ring-1 ring-fuchsia-400/60",
+            "backdrop-blur-sm",
             side === "left" ? "right-[calc(100%+10px)]" : "left-[calc(100%+10px)]",
           ].join(" ")}
-          style={{ width: "min(72vw, 260px)", top: "50%", transform: "translateY(-50%)" }}
+          style={{
+            width: "min(72vw, 260px)",
+            top: "50%",
+            transform: "translateY(-50%)",
+          }}
           onClick={(e) => e.stopPropagation()}
         >
           <div className="px-3 pt-2 pb-1.5 flex items-center gap-2">
-            <span className="inline-flex items-center gap-1 text-[13px] font-semibold">
-              <svg width="16" height="16" viewBox="0 0 24 24" className="opacity-80">
+            <span className="inline-flex items-center gap-1 text-[13px] font-semibold text-pink-100">
+              <svg width="16" height="16" viewBox="0 0 24 24" className="opacity-90">
                 <path
                   fill="currentColor"
                   d="M7 18a2 2 0 1 0 0 4a2 2 0 0 0 0-4m10 0a2 2 0 1 0 0 4a2 2 0 0 0 0-4M6.2 6l.5 2H20a1 1 0 0 1 1 1c0 .1 0 .2-.1.3l-1.6 5.6c-.2.6-.8 1.1-1.5 1.1H8a1.9 1.9 0 0 1-1.9-1.5L4 4H2V2h2.6c.9 0 1.6.6 1.8 1.4L6.2 6z"
@@ -175,8 +183,9 @@ export default function CartFab({ onOpenCart }) {
             </span>
           </div>
 
-          <div className="px-3 pb-2 text-[12px] text-gray-600">
-            Subtotal: <span className="font-semibold text-purple-800">{fmt(subtotal)}</span>
+          <div className="px-3 pb-2 text-[12px] text-pink-200">
+            Subtotal:{" "}
+            <span className="font-semibold text-pink-100">{fmt(subtotal)}</span>
           </div>
 
           <div className="px-3 pb-3">
@@ -187,7 +196,7 @@ export default function CartFab({ onOpenCart }) {
                 if (typeof onOpenCart === "function") onOpenCart();
                 else window.dispatchEvent(new CustomEvent("cart:quick:open"));
               }}
-              className="w-full h-9 rounded-full bg-gradient-to-r from-fuchsia-600 to-pink-500 text-white text-[13px] font-semibold shadow-md active:scale-[.98] transition"
+              className="w-full h-9 rounded-full bg-gradient-to-r from-purple-600 via-fuchsia-500 to-pink-500 text-white text-[13px] font-semibold shadow-[0_10px_25px_rgba(0,0,0,0.45)] active:scale-[.98] transition"
             >
               Abrir
             </button>
@@ -210,14 +219,17 @@ export default function CartFab({ onOpenCart }) {
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") setExpanded((v) => !v);
         }}
-        className={`relative grid place-items-center w-[56px] h-[56px] rounded-full bg-pink-500 shadow-2xl border-2 border-yellow-300 ${
-          dragging ? "cursor-grabbing" : "cursor-grab"
-        } select-none`}
+        className={`relative grid place-items-center w-[56px] h-[56px] rounded-full
+          bg-gradient-to-br from-purple-700 via-fuchsia-600 to-pink-500
+          shadow-[0_16px_30px_rgba(0,0,0,0.55)]
+          border-2 border-white/70
+          ${dragging ? "cursor-grabbing" : "cursor-grab"}
+          select-none`}
         aria-label="Carrito"
       >
-        <FaShoppingCart className="text-white text-xl drop-shadow" />
+        <FaShoppingCart className="text-white text-xl drop-shadow-[0_0_8px_rgba(0,0,0,0.65)]" />
         {count > 0 && (
-          <span className="absolute -top-2 -right-2 w-6 h-6 grid place-items-center rounded-full bg-yellow-300 text-purple-900 text-xs font-extrabold border border-white">
+          <span className="absolute -top-2 -right-2 w-6 h-6 grid place-items-center rounded-full bg-yellow-500 text-purple-900 text-xs font-extrabold border border-white shadow-md">
             {count}
           </span>
         )}

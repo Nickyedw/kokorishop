@@ -1,318 +1,174 @@
-// src/pages/Favorites.jsx
-import React, { useContext, useState, useMemo } from "react";
+import React, { useContext } from "react";
 import { useNavigate } from "react-router-dom";
 import { FavoritesContext } from "../context/FavoritesContext";
-import { CartContext } from "../context/CartContext";
-import { toast } from "react-toastify";
-import { FaShoppingCart, FaBars } from "react-icons/fa";
-import MobileMenu from "../components/MobileMenu";
-import ImageZoom from "../components/ImageZoom";
+import ProductCard from "../components/ProductCard";
 
-// 🔗 Base del backend para imágenes
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3001";
-
-// 🖼️ Helper para URL de imagen
-function getImageSrc(item) {
-  const raw =
-    item?.imagen_url || item?.image || item?.imagen || item?.foto || item?.url_imagen;
-  if (!raw) return null;
-  if (/^https?:\/\//i.test(raw)) return raw;
-  if (raw.startsWith("/")) return `${API_BASE}${raw}`;
-  return `${API_BASE}/uploads/${raw}`;
-}
-
-// 🔢 Normaliza precios (soporta varios nombres de campo del backend)
-function normalizePricing(p) {
-  const current = Number(p.price ?? p.precio ?? p.precio_oferta ?? 0);
-  const regularRaw =
-    p.regular_price ?? p.precio_regular ?? p.precio_anterior ?? undefined;
-  const regularNum = regularRaw != null ? Number(regularRaw) : undefined;
-
-  const en_oferta =
-    Boolean(p.en_oferta) && regularNum != null && regularNum > current;
-
-  const regular_price = regularNum != null ? regularNum : current;
-  const ahorro = Math.max(0, regular_price - current);
-  const pct = regular_price > 0 ? Math.round((ahorro / regular_price) * 100) : 0;
-
-  return { price: current, regular_price, en_oferta, ahorro, pct };
-}
+const LOGO_BG = "/img/logo_kokorishop.png"; // ajusta si tu logo está en otra ruta
 
 export default function Favorites() {
   const usuario_nombre = localStorage.getItem("usuario_nombre") || "Invitado";
+  const usuario_id = localStorage.getItem("usuario_id");
+  const isGuest = !usuario_id; // Estrategia: si no hay id, tratamos como invitado
+
   const navigate = useNavigate();
-
-  const { favorites, removeFromFavorites } = useContext(FavoritesContext);
-
-  const { addToCart, cartItems } = useContext(CartContext) || {
-    addToCart: null,
-    cartItems: [],
-  };
-
-  // ▶ estado del menú móvil
-  const [menuOpen, setMenuOpen] = useState(false);
-
-  // ▶ flag admin (ajústalo a tu esquema real)
-  const isAdmin =
-    localStorage.getItem("usuario_rol") === "admin" ||
-    localStorage.getItem("usuario_is_admin") === "1";
-
-  // ▶ Lightbox Zoom
-  const [zoomOpen, setZoomOpen] = useState(false);
-  const [zoomSrc, setZoomSrc] = useState(null);
-  const [zoomAlt, setZoomAlt] = useState("");
-  const [zoomItem, setZoomItem] = useState(null);
-
-  // Contador carrito
-  const cartCount = useMemo(
-    () => (cartItems?.reduce?.((a, i) => a + (i?.quantity || 0), 0)) || 0,
-    [cartItems]
-  );
-
-  // Agregar al carrito (oferta-aware)
-  const handleAddToCart = (p) => {
-    const { price, regular_price, en_oferta, ahorro, pct } = normalizePricing(p);
-    const stock = Number(p.stock_actual ?? p.stock ?? 0);
-
-    if (stock <= 0) {
-      toast.warn("⛔ Sin stock disponible");
-      return;
-    }
-
-    const item = {
-      id: p.id,
-      name: p.nombre ?? p.name,
-      price,                 // precio actual (oferta si hay)
-      offer_price: price,    // alias útil
-      regular_price,         // precio antes
-      en_oferta,             // bandera
-      quantity: 1,
-      imagen_url: p.imagen_url ?? p.image ?? p.imagen,
-      stock_actual: stock,
-    };
-
-    if (addToCart) {
-      addToCart(item);
-
-      // ✅ Eventos globales para CartFab/MiniCart (CartLayout)
-      window.dispatchEvent(new CustomEvent("cart:add", { detail: { amount: 1, item } }));
-      window.dispatchEvent(new Event("cart:changed"));
-      window.dispatchEvent(new Event("cart:open"));
-      // compat heredada:
-      window.dispatchEvent(new Event("minicart:open"));
-
-      if (en_oferta && ahorro > 0) {
-        toast.success(`🎉 ¡Oferta agregada! Ahorras S/ ${ahorro.toFixed(2)} (${pct}%)`);
-      } else {
-        toast.success("🛒 Agregado al carrito");
-      }
-    } else {
-      toast.info("Configura CartContext.addToCart para usar esta acción");
-    }
-  };
-
-  const fmt = (n) => `S/ ${Number(n || 0).toFixed(2)}`;
+  const { favorites } = useContext(FavoritesContext);
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-purple-900 to-purple-800 text-white">
-      {/* Navbar sticky */}
-      <nav className="sticky top-0 z-40 backdrop-blur-md bg-purple-900/70 border-b border-white/10">
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2">
-          <button
-            onClick={() => navigate("/")}
-            className="rounded-full bg-pink-500 hover:bg-pink-600 text-white px-3 py-2 text-xs sm:text-sm font-medium transition shrink-0"
-          >
-            ← Tienda
-          </button>
+    <>
+      {/* 🔑 Animación suave para cards (fade + slide up) */}
+      <style>{`
+        @keyframes fav-card-fade {
+          0% {
+            opacity: 0;
+            transform: translateY(14px) scale(0.98);
+          }
+          100% {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+      `}</style>
 
-          {/* Título + chip nombre (centro) */}
-          <div className="flex-1 text-center">
-            <div className="text-base sm:text-xl font-extrabold leading-tight">
-              💖 Favoritos
-            </div>
-            <div className="inline-flex mt-0.5 px-2 py-0.5 rounded-full bg-white/15 text-[11px] sm:text-xs font-semibold text-white/90">
-              {usuario_nombre}
-            </div>
-          </div>
+      <div className="min-h-screen relative overflow-hidden text-white bg-gradient-to-br from-[#1b0b2a] via-[#301448] to-[#12051f]">
+        {/* 🎆 Luces Kuromi */}
+        <div
+          className="pointer-events-none absolute inset-0 opacity-50"
+          style={{
+            backgroundImage:
+              "radial-gradient(circle at 0 0, rgba(255,122,196,0.28), transparent 55%), radial-gradient(circle at 100% 0, rgba(196,161,255,0.22), transparent 55%), radial-gradient(circle at 50% 100%, rgba(139,92,246,0.25), transparent 55%)",
+          }}
+        />
 
-          <button
-            type="button"
-            aria-label="Menú"
-            className="text-white/90 p-2 rounded-full hover:bg-white/10 shrink-0"
-            onClick={() => setMenuOpen(true)}
-          >
-            <FaBars />
-          </button>
+        {/* 🐼 Logo flotando en baja opacidad */}
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-[0.06]">
+          <img
+            src={LOGO_BG}
+            alt="Kokorishop logo"
+            className="max-w-[420px] w-[70vw]"
+            style={{
+              animation: "float-logo 26s ease-in-out infinite alternate",
+            }}
+          />
         </div>
-      </nav>
 
-      {/* Contenido */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-28 pt-4 sm:pt-6">
-        {favorites.length === 0 ? (
-          <div className="min-h-[50vh] grid place-items-center">
-            <div className="bg-white/10 backdrop-blur rounded-2xl p-8 text-center max-w-md">
-              <div className="text-5xl mb-2">💔</div>
-              <h2 className="text-xl font-semibold">Aún no tienes favoritos</h2>
-              <p className="text-purple-200 mt-2">
-                Marca productos como favoritos para verlos aquí.
-              </p>
+        {/* Capa de contenido */}
+        <div className="relative z-10 flex flex-col min-h-screen">
+          {/* NAVBAR */}
+          <nav className="sticky top-0 z-40 backdrop-blur-md bg-black/10 border-b border-white/10">
+            <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
               <button
                 onClick={() => navigate("/")}
-                className="inline-block mt-6 bg-pink-500 hover:bg-pink-600 rounded-full px-6 py-3 font-semibold"
+                className="rounded-full bg-pink-500 hover:bg-pink-600 text-white px-3 py-2 text-xs font-medium shadow-lg shadow-pink-500/30 transition"
               >
-                Ver productos
+                ← Tienda
               </button>
+
+              <div className="text-center flex-1">
+                <h1 className="text-xl font-extrabold">💜 Favoritos</h1>
+                <span className="text-xs px-2 py-1 rounded-full bg-white/10 border border-white/15">
+                  {usuario_nombre}
+                </span>
+              </div>
+
+              {/* espacio fantasma para centrar */}
+              <div className="w-10" />
             </div>
-          </div>
-        ) : (
-          <div
-            className="
-              grid gap-3 sm:gap-4 md:gap-5
-              grid-cols-2
-              md:grid-cols-3
-              xl:grid-cols-4
-            "
-          >
-            {favorites.map((p) => {
-              const name = p.nombre || p.name || "Producto";
-              const img = getImageSrc(p);
-              const sinStock =
-                p.stock_actual !== undefined && Number(p.stock_actual) <= 0;
+          </nav>
 
-              const { price, regular_price, en_oferta, ahorro, pct } = normalizePricing(p);
+          {/* 🔔 Banner para invitados (refuerzo al registro) */}
+          {isGuest && (
+            <div className="bg-black/20 border-b border-white/10">
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-xs sm:text-sm">
+                <p className="text-purple-50">
+                  💖{" "}
+                  <span className="font-semibold">¡Guarda tus favoritos!</span>{" "}
+                  Inicia sesión o crea una cuenta para guardar esta lista en
+                  cualquier dispositivo.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => navigate("/register")}
+                    className="px-3 py-1.5 rounded-full text-xs sm:text-sm font-semibold bg-pink-500 hover:bg-pink-600 text-white shadow-sm"
+                  >
+                    Crear cuenta
+                  </button>
+                  <button
+                    onClick={() => navigate("/login")}
+                    className="px-3 py-1.5 rounded-full text-xs sm:text-sm font-semibold border border-white/40 text-white hover:bg-white/10"
+                  >
+                    Iniciar sesión
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
-              return (
-                <article
-                  key={p.id}
-                  className="bg-white rounded-2xl overflow-hidden shadow-sm border border-purple-200/60 hover:shadow-md transition flex flex-col"
-                >
-                  {/* Imagen 4:3 compacta */}
-                  <div className="relative w-full" style={{ paddingTop: "75%" }}>
-                    {img ? (
-                      <img
-                        src={img}
-                        alt={name}
-                        className="absolute inset-0 w-full h-full object-cover object-center cursor-zoom-in"
-                        loading="lazy"
-                        onError={(e) => (e.currentTarget.src = "/placeholder.png")}
-                        onClick={() => {
-                          setZoomItem(p); 
-                          setZoomSrc(img);
-                          setZoomAlt(name);
-                          setZoomOpen(true);
-                        }}
-                      />
-                    ) : (
-                      <div className="absolute inset-0 grid place-items-center text-3xl text-purple-300 bg-purple-50">
-                        {p.emoji || "🛍️"}
-                      </div>
-                    )}
+          {/* CONTENIDO */}
+          <main className="flex-1 py-6 px-4 sm:px-6 lg:px-8">
+            {/* ESTADO VACÍO */}
+            {favorites.length === 0 && (
+              <div className="min-h-[55vh] flex items-center justify-center">
+                <div className="bg-white/10 backdrop-blur-xl rounded-3xl px-8 py-9 sm:px-10 sm:py-10 text-center max-w-md w-full border border-white/15 shadow-[0_18px_60px_rgba(0,0,0,0.65)]">
+                  <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-pink-500 via-fuchsia-500 to-purple-500 flex items-center justify-center shadow-pink-500/40 mb-4">
+                    <span className="text-4xl">🛒</span>
+                  </div>
 
-                    {/* Badge oferta -% */}
-                    {en_oferta && pct > 0 && !sinStock && (
-                      <span className="absolute top-2 left-2 px-2 py-1 rounded-full text-[10px] sm:text-xs font-bold text-white bg-gradient-to-r from-pink-500 to-fuchsia-500 shadow">
-                        -{pct}%
-                      </span>
-                    )}
+                  <h2 className="text-xl sm:text-2xl font-bold mb-1">
+                    Oh no... ¡Tu lista de deseos está un poco solitaria! 🥺
+                  </h2>
+                  <p className="mt-2 text-sm text-purple-100/90">
+                    Empieza a buscar productos cute que te enamoren. Te
+                    ayudamos:
+                  </p>
 
-                    {/* Quitar de favoritos */}
+                  <div className="mt-6 flex flex-col sm:flex-row gap-3 sm:justify-center">
                     <button
-                      onClick={() => removeFromFavorites(p.id)}
-                      className="absolute top-2 right-2 bg-white/95 hover:bg-white text-pink-600 rounded-full px-2.5 py-1.5 shadow text-xs font-semibold"
-                      title="Quitar de favoritos"
-                      aria-label="Quitar de favoritos"
+                      onClick={() => navigate("/catalogo")}
+                      className="flex-1 sm:flex-none bg-gradient-to-r from-pink-500 via-fuchsia-500 to-purple-500 px-6 py-3 text-sm font-semibold rounded-full shadow-lg hover:brightness-110 hover:-translate-y-0.5 transition-transform"
                     >
-                      💔
+                      IR AL CATÁLOGO COMPLETO
                     </button>
-
-                    {/* Badge stock */}
-                    {sinStock && (
-                      <span className="absolute bottom-2 left-2 bg-red-500 text-white text-[10px] font-semibold px-2 py-0.5 rounded-full shadow">
-                        Sin stock
-                      </span>
-                    )}
+                    <button
+                      onClick={() => navigate("/catalogo?ofertas=1")}
+                      className="flex-1 sm:flex-none px-6 py-3 text-sm font-semibold rounded-full border border-white/40 text-white hover:bg-white/10 transition-colors"
+                    >
+                      VER NUESTRAS OFERTAS ✨
+                    </button>
                   </div>
+                </div>
+              </div>
+            )}
 
-                  {/* Info compacta */}
-                  <div className="p-3 sm:p-4 flex flex-col flex-1">
-                    <h3 className="font-semibold text-purple-900 text-[13px] sm:text-sm leading-snug line-clamp-2 min-h-[2.4rem]">
-                      {name}
-                    </h3>
-
-                    {/* Bloque de precios oferta-aware */}
-                    <div className="mt-1 text-[13px] sm:text-sm">
-                      {en_oferta && regular_price > price ? (
-                        <>
-                          <div className="flex items-baseline gap-2">
-                            <span className="text-gray-500 line-through">{fmt(regular_price)}</span>
-                            <span className="font-extrabold text-purple-900">{fmt(price)}</span>
-                          </div>
-                          <div className="text-emerald-600 font-semibold text-[12px] sm:text[13px] mt-0.5">
-                            Ahorras {fmt(ahorro)} ({pct}%)
-                          </div>
-                        </>
-                      ) : (
-                        <div className="text-purple-700">
-                          Precio: <span className="font-bold">{fmt(price)}</span>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Acciones */}
-                    <div className="mt-3 flex items-center gap-2">
-                      <button
-                        onClick={() => handleAddToCart(p)}
-                        className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-full bg-gradient-to-r from-purple-500 to-fuchsia-500 text-white py-1.5 text-[13px] font-medium shadow hover:shadow-md transition disabled:opacity-60"
-                        disabled={sinStock}
-                        title="Agregar al carrito"
-                      >
-                        <FaShoppingCart className="text-[12px]" />
-                        Agregar
-                      </button>
-
-                      <button
-                        onClick={() => removeFromFavorites(p.id)}
-                        className="rounded-full border border-pink-300 text-pink-600 hover:bg-pink-50 px-3 py-1.5 text-[13px] font-medium"
-                        title="Quitar de favoritos"
-                      >
-                        💔
-                      </button>
-                    </div>
+            {/* GRID DE FAVORITOS (usa tu ProductCard completo) */}
+            {favorites.length > 0 && (
+              <div
+                className="
+                  grid
+                  grid-cols-2
+                  sm:grid-cols-2
+                  md:grid-cols-3
+                  lg:grid-cols-4
+                  gap-4
+                  place-items-center
+                "
+              >
+                {favorites.map((p, idx) => (
+                  <div
+                    key={p.id}
+                    className="flex justify-center w-full max-w-[330px]"
+                    style={{
+                      animation: "fav-card-fade 0.55s ease-out both",
+                      animationDelay: `${idx * 70}ms`,
+                    }}
+                  >
+                    <ProductCard producto={p} />
                   </div>
-                </article>
-              );
-            })}
-          </div>
-        )}
+                ))}
+              </div>
+            )}
+          </main>
+        </div>
       </div>
-
-      {/* ⛔️ Eliminado: <MiniCart .../> — lo renderiza CartLayout globalmente */}
-
-      {/* Mobile Menu */}
-      <MobileMenu
-        isOpen={menuOpen}
-        onClose={() => setMenuOpen(false)}
-        usuarioNombre={usuario_nombre}
-        favCount={favorites.length}
-        cartCount={cartCount}
-        isAdmin={isAdmin}
-      />
-
-      {/* Lightbox Zoom */}
-      <ImageZoom
-        isOpen={zoomOpen}
-        src={zoomSrc}
-        alt={zoomAlt}
-        onClose={() => {
-          setZoomOpen(false);
-          setZoomItem(null); // limpiamos el seleccionado
-        }}
-        info={{
-          name: zoomItem?.nombre || zoomItem?.name || zoomAlt || "Producto",
-          price: zoomItem ? normalizePricing(zoomItem).price : undefined,
-          description: zoomItem?.descripcion || zoomItem?.description || "",
-        }}
-      />
-    </div>
+    </>
   );
 }

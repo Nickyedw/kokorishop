@@ -19,6 +19,33 @@ const {
 
 const { ESTADOS_PEDIDO } = require('../utils/constants');
 
+// 🔧 Helper para normalizar teléfonos de Perú
+function normalizarTelefonoPeru(tel) {
+  if (!tel) return null;
+
+  let raw = String(tel).trim();
+
+  // Si ya viene con +51 lo dejamos tal cual
+  if (raw.startsWith("+51")) return raw;
+
+  // Solo dígitos
+  let digits = raw.replace(/\D/g, "");
+
+  // Si empieza con 51 (por ej. 51987654321), le quitamos ese 51
+  if (digits.startsWith("51")) {
+    digits = digits.slice(2);
+  }
+
+  // Quitar ceros iniciales (ej. 098765432 -> 98765432)
+  digits = digits.replace(/^0+/, "");
+
+  if (!digits) return null;
+
+  // Armar número final
+  return `+51${digits}`;
+}
+
+
 /* =========================
    Crear nuevo pedido (con validación)
    ========================= */
@@ -31,16 +58,35 @@ router.post('/', async (req, res) => {
     horario_entrega_id,
     productos,
     comentario_pago,
+
+    // 🔹 NUEVO: datos del cliente (invitado o no)
+    cliente_nombre,
+    cliente_email,
+    cliente_telefono,
+    cliente_direccion,
   } = req.body || {};
+
+    // Normalizamos teléfono del cliente (para invitados)
+  const telefonoNormalizado = normalizarTelefonoPeru(cliente_telefono);
 
   // --- Validación de campos obligatorios ---
   const falta = [];
-  const reqField = (v) => v !== null && v !== undefined && String(v).trim() !== "";
+  const reqField = (v) => v !== null && v !== undefined && String(v).trim() !== '';
 
   if (!reqField(metodo_pago_id))     falta.push('metodo_pago_id');
   if (!reqField(zona_entrega_id))    falta.push('zona_entrega_id');
   if (!reqField(horario_entrega_id)) falta.push('horario_entrega_id');
   if (!reqField(metodo_entrega_id))  falta.push('metodo_entrega_id');
+
+  // 🔹 Si NO hay usuario_id, exigimos datos mínimos del invitado
+  const esInvitado = !reqField(usuario_id);
+  if (esInvitado) {
+    if (!reqField(cliente_nombre))    falta.push('cliente_nombre');
+    if (!reqField(cliente_email))     falta.push('cliente_email');
+    if (!reqField(cliente_direccion)) falta.push('cliente_direccion');
+    // teléfono puede ser opcional, pero si quieres obligatorio:
+    // if (!reqField(cliente_telefono)) falta.push('cliente_telefono');
+  }
 
   if (!Array.isArray(productos) || productos.length === 0) {
     return res.status(400).json({ error: 'Carrito vacío' });
@@ -98,12 +144,24 @@ router.post('/', async (req, res) => {
       0
     );
 
-    // Crear pedido
+    // 🔹 INSERT del pedido (AHORA GUARDAMOS DATOS DEL INVITADO)
     const pedidoIns = await client.query(
       `INSERT INTO pedidos
-        (usuario_id, metodo_pago_id, metodo_entrega_id, zona_entrega_id, horario_entrega_id, total, comentario_pago, fecha, estado)
+        (usuario_id,
+         metodo_pago_id,
+         metodo_entrega_id,
+         zona_entrega_id,
+         horario_entrega_id,
+         total,
+         comentario_pago,
+         fecha,
+         estado,
+         cliente_nombre,
+         cliente_email,
+         cliente_telefono,
+         cliente_direccion)
        VALUES
-        ($1,$2,$3,$4,$5,$6,$7, NOW(), 'pendiente')
+        ($1,$2,$3,$4,$5,$6,$7, NOW(), 'pendiente',$8,$9,$10,$11)
        RETURNING id`,
       [
         usuario_id || null,
@@ -113,6 +171,10 @@ router.post('/', async (req, res) => {
         horarioId,
         total,
         comentario_pago || null,
+        cliente_nombre || null,
+        cliente_email || null,
+        telefonoNormalizado || null,
+        cliente_direccion || null,
       ]
     );
     pedido_id = pedidoIns.rows[0].id;
@@ -154,14 +216,25 @@ router.post('/', async (req, res) => {
     // Respuesta inmediata
     res.status(201).json({ mensaje: 'Pedido registrado correctamente', pedido_id });
 
+    // ========================
     // Notificaciones out-of-band
+    // ========================
     setImmediate(async () => {
       try {
+        // 🔹 AHORA TOMAMOS DATOS DEL USUARIO O DEL INVITADO DE LA TABLA PEDIDOS
         const usuarioRes = await dbQuery(
-          'SELECT nombre_completo, correo, telefono FROM usuarios WHERE id = $1',
-          [usuario_id]
+          `SELECT
+             COALESCE(u.nombre_completo, p.cliente_nombre)   AS nombre_completo,
+             COALESCE(u.correo,         p.cliente_email)     AS correo,
+             COALESCE(u.telefono,       p.cliente_telefono)  AS telefono
+           FROM pedidos p
+           LEFT JOIN usuarios u ON u.id = p.usuario_id
+          WHERE p.id = $1`,
+          [pedido_id]
         );
-        const usuario = usuarioRes.rows[0] || { nombre_completo: '', correo: '', telefono: '' };
+
+        const usuario =
+          usuarioRes.rows[0] || { nombre_completo: '', correo: '', telefono: '' };
 
         const det = await dbQuery(
           `SELECT d.cantidad, d.precio_unitario, pr.nombre
@@ -187,16 +260,43 @@ router.post('/', async (req, res) => {
 
         const fecha = new Date().toLocaleString('es-PE', { timeZone: 'America/Lima' });
 
-        try { await enviarCorreoPedido(usuario.correo, usuario.nombre_completo, pedido_id); }
-        catch (e) { console.warn('⚠️ No se pudo enviar correo de pedido al cliente:', e.message); }
+        // 🔹 Normalizamos teléfono a +51 si viene solo como 9 dígitos
+        let telefonoWa = usuario.telefono || '';
+        if (telefonoWa && !String(telefonoWa).startsWith('+')) {
+          const soloDigitos = String(telefonoWa).replace(/\D/g, '');
+          if (soloDigitos.length >= 8) {
+            telefonoWa = `+51${soloDigitos}`;
+          }
+        }
 
-        try { await enviarWhatsappPedidoInicial(usuario.telefono, usuario.nombre_completo, pedido_id, fecha, total); }
-        catch (e) { console.warn('⚠️ No se pudo enviar WhatsApp inicial:', e.message); }
+        // Correo al cliente (si hay correo)
+        try {
+          await enviarCorreoPedido(usuario.correo, usuario.nombre_completo, pedido_id);
+        } catch (e) {
+          console.warn('⚠️ No se pudo enviar correo de pedido al cliente:', e.message);
+        }
 
+        // WhatsApp al cliente (si el número es válido)
+        try {
+          await enviarWhatsappPedidoInicial(
+            telefonoWa,
+            usuario.nombre_completo,
+            pedido_id,
+            fecha,
+            total
+          );
+        } catch (e) {
+          console.warn('⚠️ No se pudo enviar WhatsApp inicial:', e.message);
+        }
+
+        // Correo admin
         try {
           await enviarCorreoAdminNuevoPedido({
-            pedido_id, fecha, total, usuario,
-            items: det.rows.map(r => ({
+            pedido_id,
+            fecha,
+            total,
+            usuario,
+            items: det.rows.map((r) => ({
               nombre: r.nombre,
               cantidad: Number(r.cantidad),
               precio_unitario: Number(r.precio_unitario),
@@ -228,6 +328,7 @@ router.post('/', async (req, res) => {
     client.release();
   }
 });
+
 
 /* =========================
    Listar pedidos (ADMIN)

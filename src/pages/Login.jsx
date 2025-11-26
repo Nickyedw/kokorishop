@@ -1,44 +1,68 @@
 // src/pages/Login.jsx
-import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { toast } from 'react-toastify';
+import React, { useState } from "react";
+import { useNavigate, useLocation, Link } from "react-router-dom";
+import { toast } from "react-toastify";
 
 // 🔑 Base de la API desde .env (.env.development / .env.production)
-const API_APP = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const API_APP = import.meta.env.VITE_API_URL || "http://localhost:3001";
 
 const Login = () => {
-  const [correo, setCorreo] = useState('');
-  const [password, setPassword] = useState('');
+  const [correo, setCorreo] = useState("");
+  const [password, setPassword] = useState("");
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Si viene de RequireAuth → location.state.from, si no → /menu
+  const from = location.state?.from || "/menu";
 
   const handleLogin = async (e) => {
     e.preventDefault();
 
     try {
       const res = await fetch(`${API_APP}/api/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ correo, password })
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ correo, password }),
       });
 
+      const data = await res.json().catch(() => null);
+
       if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.error || 'Error en el inicio de sesión');
+        const msg =
+          data?.error || data?.message || "Error en el inicio de sesión";
+        throw new Error(msg);
       }
 
-      const data = await res.json();
+      const { token, usuario } = data || {};
+      if (!token || !usuario) {
+        throw new Error("Respuesta inválida del servidor");
+      }
 
-      // Guardar token y datos del usuario
-      localStorage.setItem('token', data.token);
+      // 🟣 Usar SIEMPRE authToken (coincide con RequireAuth y apiClient)
+      localStorage.setItem('authToken', data.token);      // NUEVO nombre
+      localStorage.setItem('token', data.token);          // compatibilidad 
+      // Datos útiles
       localStorage.setItem('usuario', JSON.stringify(data.usuario));
-      localStorage.setItem('usuario_id', data.usuario.id);
-      localStorage.setItem('usuario_nombre', data.usuario.nombre);
-      localStorage.setItem('es_admin', data.usuario.es_admin ? 'true' : 'false');
+      localStorage.setItem("usuario_id", data.usuario.id);
+      localStorage.setItem(
+        "usuario_nombre",
+        data.usuario.nombre || data.usuario.nombre_completo || "Cliente Kokori"
+      );
+      if (usuario.correo) {
+        localStorage.setItem("usuario_email", data.usuario.correo);
+      }
+      localStorage.setItem("es_admin", data.usuario.es_admin ? "true" : "false");
 
-      toast.success(`¡Bienvenido, ${data.usuario.nombre}!`);
-      navigate('/menu');
+      // (Opcional) guardar objeto completo por si lo necesitas
+      //localStorage.setItem("usuario", JSON.stringify(usuario));
+
+      toast.success(`¡Bienvenido, ${data.usuario.nombre || "Cliente Kokori"}!`);
+
+      // Redirige a donde estaba antes o a /menu
+      navigate(from, { replace: true });
     } catch (error) {
-      toast.error(error.message || 'Error al iniciar sesión');
+      console.error("Error login:", error);
+      toast.error(error.message || "Error al iniciar sesión");
     }
   };
 
@@ -52,7 +76,9 @@ const Login = () => {
           Iniciar Sesión
         </h2>
 
-        <label className="block mb-2 text-sm font-medium">Correo electrónico:</label>
+        <label className="block mb-2 text-sm font-medium">
+          Correo electrónico:
+        </label>
         <input
           type="email"
           value={correo}
@@ -78,7 +104,7 @@ const Login = () => {
         </button>
 
         <p className="text-center text-sm text-gray-600 mt-4">
-          ¿No tienes cuenta?{' '}
+          ¿No tienes cuenta?{" "}
           <Link to="/register" className="text-yellow-600 hover:underline">
             Regístrate aquí
           </Link>
@@ -92,7 +118,7 @@ const Login = () => {
       </p>
 
       <button
-        onClick={() => navigate('/')}
+        onClick={() => navigate("/")}
         className="mt-4 text-purple-600 hover:underline text-sm"
       >
         ← Volver a la tienda

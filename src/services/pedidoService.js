@@ -6,7 +6,7 @@ const TIMEOUT_MS = 30000; // ⬅️ 30s
 
 /** Headers con token si existe */
 function authHeaders() {
-  const t = localStorage.getItem('token');
+  const t = localStorage.getItem('authToken') || localStorage.getItem('token');
   return {
     'Content-Type': 'application/json',
     ...(t ? { Authorization: `Bearer ${t}` } : {}),

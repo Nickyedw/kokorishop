@@ -3,7 +3,10 @@ import React from 'react';
 import { Navigate } from 'react-router-dom';
 
 const RequireAuth = ({ children }) => {
-  const token = localStorage.getItem('token');
+  // Mira primero authToken y, si no hay, intenta con token (compatibilidad)
+  const token =
+    localStorage.getItem('authToken') || localStorage.getItem('token');
+
   return token ? children : <Navigate to="/login" replace />;
 };
 

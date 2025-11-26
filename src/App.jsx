@@ -5,8 +5,8 @@ import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
 // Layouts
-import CartLayout from "./layouts/CartLayout";   // MiniCart + CartFab global
-import SiteLayout from "./layouts/SiteLayout";   // Footer global + wrapper de sitio
+import CartLayout from "./layouts/CartLayout";
+import SiteLayout from "./layouts/SiteLayout";
 
 // Páginas públicas / cliente
 import Home from "./pages/Home";
@@ -22,7 +22,7 @@ import Recuperar from "./pages/Recuperar";
 import Reestablecer from "./pages/Reestablecer";
 import Catalogo from "./pages/Catalogo";
 
-// Paneles Admin (sin SiteLayout)
+// Paneles Admin
 import AdminPedidos from "./pages/AdminPedidos";
 import DetallePedido from "./pages/DetallePedido";
 import ProductAdmin from "./pages/ProductAdmin";
@@ -33,14 +33,16 @@ import AdminUsuarios from "./pages/AdminUsuarios";
 
 // 🔐 Rutas protegidas
 import RequireAuth from "./components/RequireAuth";
+import RequireAdmin from "./components/RequireAdmin";
 
 function App() {
   return (
     <>
-      {/* CartLayout envuelve TODO: MiniCart + CartFab disponibles en la app */}
       <CartLayout>
         <Routes>
-          {/* ========= RUTAS CON SITE LAYOUT (footer global) ========= */}
+          {/* ============================== */}
+          {/*     RUTAS CON LAYOUT DE SITIO   */}
+          {/* ============================== */}
           <Route element={<SiteLayout />}>
             {/* Públicas */}
             <Route path="/" element={<Home />} />
@@ -50,16 +52,9 @@ function App() {
             <Route path="/reestablecer" element={<Reestablecer />} />
             <Route path="/catalogo" element={<Catalogo />} />
             <Route path="/favorites" element={<Favorites />} />
+            <Route path="/cart" element={<Cart />} />
 
-            {/* Protegidas (cliente) */}
-            <Route
-              path="/cart"
-              element={
-                <RequireAuth>
-                  <Cart />
-                </RequireAuth>
-              }
-            />
+            {/* 🔐 Rutas protegidas para cliente */}
             <Route
               path="/menu"
               element={
@@ -94,111 +89,115 @@ function App() {
             />
           </Route>
 
-          {/* ========= RUTAS ADMIN (sin SiteLayout / sin footer global) ========= */}
-          {/* Redirige /admin a /admin/productos */}
+          {/* ============================== */}
+          {/*       RUTAS ADMIN (PROTEGIDAS) */}
+          {/* ============================== */}
+
+          {/* Redirección base admin */}
           <Route
             path="/admin"
             element={
-              <RequireAuth>
+              <RequireAdmin>
                 <Navigate to="/admin/productos" replace />
-              </RequireAuth>
+              </RequireAdmin>
             }
           />
 
           <Route
             path="/admin/pedidos"
             element={
-              <RequireAuth>
+              <RequireAdmin>
                 <AdminPedidos />
-              </RequireAuth>
+              </RequireAdmin>
             }
           />
           <Route
             path="/admin/pedidos/:id"
             element={
-              <RequireAuth>
+              <RequireAdmin>
                 <DetallePedido />
-              </RequireAuth>
+              </RequireAdmin>
             }
           />
           <Route
             path="/admin/productos"
             element={
-              <RequireAuth>
+              <RequireAdmin>
                 <ProductAdmin />
-              </RequireAuth>
+              </RequireAdmin>
             }
           />
           <Route
             path="/admin/productos/:id"
             element={
-              <RequireAuth>
+              <RequireAdmin>
                 <EditarProducto />
-              </RequireAuth>
+              </RequireAdmin>
             }
           />
           <Route
             path="/admin/usuarios"
             element={
-              <RequireAuth>
+              <RequireAdmin>
                 <AdminUsuarios />
-              </RequireAuth>
+              </RequireAdmin>
             }
           />
           <Route
             path="/admin/crear-usuario"
             element={
-              <RequireAuth>
+              <RequireAdmin>
                 <AdminCrearUsuario />
-              </RequireAuth>
+              </RequireAdmin>
             }
           />
           <Route
             path="/admin/reposiciones"
             element={
-              <RequireAuth>
+              <RequireAdmin>
                 <HistorialReposiciones />
-              </RequireAuth>
+              </RequireAdmin>
             }
           />
 
-          {/* Alias en inglés (opcionales) */}
+          {/* Alias opcionales en inglés */}
           <Route
             path="/admin/products"
             element={
-              <RequireAuth>
+              <RequireAdmin>
                 <ProductAdmin />
-              </RequireAuth>
+              </RequireAdmin>
             }
           />
           <Route
             path="/admin/orders"
             element={
-              <RequireAuth>
+              <RequireAdmin>
                 <AdminPedidos />
-              </RequireAuth>
+              </RequireAdmin>
             }
           />
           <Route
             path="/admin/users"
             element={
-              <RequireAuth>
+              <RequireAdmin>
                 <AdminCrearUsuario />
-              </RequireAuth>
+              </RequireAdmin>
             }
           />
           <Route
             path="/admin/restocks"
             element={
-              <RequireAuth>
+              <RequireAdmin>
                 <HistorialReposiciones />
-              </RequireAuth>
+              </RequireAdmin>
             }
           />
 
-          {/* Redirección desde ruta antigua */}
+          {/* Redirección desde URL antiguas */}
           <Route path="/kokoshop/*" element={<Navigate to="/" replace />} />
-          {/* 404 catch-all */}
+
+          {/* 404 */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </CartLayout>

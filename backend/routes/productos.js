@@ -55,7 +55,7 @@ const filePathToPublicUrl = (absPath) => {
 /* ===================================================================
    Búsquedas / listados
    =================================================================== */
-router.get('/buscar', buscarProductos);
+router.get('/buscar', noStore, buscarProductos);
 router.get('/categoria/:id', productosPorCategoria);
 router.get('/historial-reposiciones', verificarToken, historialReposiciones);
 router.get('/destacados', productosDestacados);
