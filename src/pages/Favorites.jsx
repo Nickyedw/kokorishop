@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { FavoritesContext } from "../context/FavoritesContext";
 import ProductCard from "../components/ProductCard";
 
-const LOGO_BG = "/img/logo_kokorishop.png"; // ajusta si tu logo está en otra ruta
+const LOGO_BG = `${import.meta.env.BASE_URL}img/logo_kokorishop.png`;
 
 export default function Favorites() {
   const usuario_nombre = localStorage.getItem("usuario_nombre") || "Invitado";

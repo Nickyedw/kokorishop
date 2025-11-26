@@ -4,7 +4,7 @@ import { FaInstagram, FaTiktok, FaFacebook, FaWhatsapp } from "react-icons/fa";
 import { Mail, Phone, MapPin, Heart } from "lucide-react";
 
 // Ajusta la ruta si tu logo está en otra carpeta
-const DEFAULT_LOGO_SRC = "/img/logo_kokorishop.png";
+const DEFAULT_LOGO_SRC = `${import.meta.env.BASE_URL}img/logo_kokorishop.png`;
 
 const YEAR = new Date().getFullYear();
 const env = import.meta.env || {};
