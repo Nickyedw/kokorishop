@@ -2,9 +2,10 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-export default defineConfig(({ command }) => ({
+export default defineConfig({
   plugins: [react()],
-  // ✅ en build usa /kokorishop/, en dev sirve en /
-  base: command === 'build' ? '/kokorishop/' : '/',
-  build: { outDir: 'docs' } // 👈 compila a /docs para GitHub Pages
-}))
+  base: '/',          // ✅ raíz del dominio (Vercel)
+  build: {
+    outDir: 'docs',   // seguimos usando /docs como salida
+  },
+})
