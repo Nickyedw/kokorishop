@@ -12,11 +12,22 @@ export default function ComingSoon() {
       <div className="snow" />
 
       {/* Contenido por encima de la nieve */}
-      <img
-        src={DEFAULT_LOGO_SRC}
-        alt="Kokorishop Logo"
-        className="w-40 h-auto mb-6 drop-shadow-lg z-10"
-      />
+            <div className="relative z-10 flex items-center justify-center">
+            {/* 🌟 Halo de luz detrás del logo */}
+            <div className="absolute w-60 h-60 md:w-72 md:h-72 bg-purple-500/40 blur-3xl rounded-full animate-glow"></div>
+
+            {/* 🌫️ Sombra violeta difusa debajo */}
+            <div className="absolute bottom-[-20px] w-40 h-10 md:w-52 md:h-12 bg-purple-800/40 blur-2xl rounded-full"></div>
+
+            {/* LOGO */}
+            <img
+                src={DEFAULT_LOGO_SRC}
+                alt="Kokorishop Logo"
+                className="relative w-48 md:w-60 h-auto drop-shadow-2xl animate-float"
+            />
+            </div>
+
+
 
       <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-center z-10">
         🎄 Muy pronto 🎁

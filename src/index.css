@@ -169,3 +169,36 @@
   }
 }
 
+/* ✨ Flotar suave (respiración) */
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+  100% { transform: translateY(0px); }
+}
+
+.animate-float {
+  animation: float 4s ease-in-out infinite;
+}
+
+
+/* 🫧 Flotación suave del logo */
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+  100% { transform: translateY(0px); }
+}
+
+.animate-float {
+  animation: float 4s ease-in-out infinite;
+}
+
+/* 🌟 Halo vivo que respira */
+@keyframes glowPulse {
+  0% { opacity: 0.5; transform: scale(1); }
+  50% { opacity: 0.9; transform: scale(1.15); }
+  100% { opacity: 0.5; transform: scale(1); }
+}
+
+.animate-glow {
+  animation: glowPulse 6s ease-in-out infinite;
+}
