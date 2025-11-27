@@ -1,4 +1,4 @@
-// src/App.jsx
+// src/App.jsx 
 import React from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
@@ -35,172 +35,187 @@ import AdminUsuarios from "./pages/AdminUsuarios";
 import RequireAuth from "./components/RequireAuth";
 import RequireAdmin from "./components/RequireAdmin";
 
+// 🕒 Pantalla "Muy pronto"
+import ComingSoon from "./pages/ComingSoon";
+
+// Flag de mantenimiento (se controla con env en Vercel)
+const MAINTENANCE =
+  import.meta.env.VITE_MODO_COMING_SOON === "true";
+
 function App() {
+  const content = MAINTENANCE ? (
+    // 🔒 Modo "Muy pronto": todas las rutas muestran una sola pantalla
+    <Routes>
+      <Route path="*" element={<ComingSoon />} />
+    </Routes>
+  ) : (
+    // 🌟 Tu app normal (igualito a como la tenías)
+    <Routes>
+      {/* ============================== */}
+      {/*     RUTAS CON LAYOUT DE SITIO   */}
+      {/* ============================== */}
+      <Route element={<SiteLayout />}>
+        {/* Públicas */}
+        <Route path="/" element={<Home />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/recuperar" element={<Recuperar />} />
+        <Route path="/reestablecer" element={<Reestablecer />} />
+        <Route path="/catalogo" element={<Catalogo />} />
+        <Route path="/favorites" element={<Favorites />} />
+        <Route path="/cart" element={<Cart />} />
+
+        {/* 🔐 Rutas protegidas para cliente */}
+        <Route
+          path="/menu"
+          element={
+            <RequireAuth>
+              <Menu />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/mis-pedidos"
+          element={
+            <RequireAuth>
+              <MisPedidos />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/mis-pedidos/:id"
+          element={
+            <RequireAuth>
+              <DetalleClientePedido />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/configuracion"
+          element={
+            <RequireAuth>
+              <ConfiguracionPerfil />
+            </RequireAuth>
+          }
+        />
+      </Route>
+
+      {/* ============================== */}
+      {/*       RUTAS ADMIN (PROTEGIDAS) */}
+      {/* ============================== */}
+
+      {/* Redirección base admin */}
+      <Route
+        path="/admin"
+        element={
+          <RequireAdmin>
+            <Navigate to="/admin/productos" replace />
+          </RequireAdmin>
+        }
+      />
+
+      <Route
+        path="/admin/pedidos"
+        element={
+          <RequireAdmin>
+            <AdminPedidos />
+          </RequireAdmin>
+        }
+      />
+      <Route
+        path="/admin/pedidos/:id"
+        element={
+          <RequireAdmin>
+            <DetallePedido />
+          </RequireAdmin>
+        }
+      />
+      <Route
+        path="/admin/productos"
+        element={
+          <RequireAdmin>
+            <ProductAdmin />
+          </RequireAdmin>
+        }
+      />
+      <Route
+        path="/admin/productos/:id"
+        element={
+          <RequireAdmin>
+            <EditarProducto />
+          </RequireAdmin>
+        }
+      />
+      <Route
+        path="/admin/usuarios"
+        element={
+          <RequireAdmin>
+            <AdminUsuarios />
+          </RequireAdmin>
+        }
+      />
+      <Route
+        path="/admin/crear-usuario"
+        element={
+          <RequireAdmin>
+            <AdminCrearUsuario />
+          </RequireAdmin>
+        }
+      />
+      <Route
+        path="/admin/reposiciones"
+        element={
+          <RequireAdmin>
+            <HistorialReposiciones />
+          </RequireAdmin>
+        }
+      />
+
+      {/* Alias opcionales en inglés */}
+      <Route
+        path="/admin/products"
+        element={
+          <RequireAdmin>
+            <ProductAdmin />
+          </RequireAdmin>
+        }
+      />
+      <Route
+        path="/admin/orders"
+        element={
+          <RequireAdmin>
+            <AdminPedidos />
+          </RequireAdmin>
+        }
+      />
+      <Route
+        path="/admin/users"
+        element={
+          <RequireAdmin>
+            <AdminCrearUsuario />
+          </RequireAdmin>
+        }
+      />
+      <Route
+        path="/admin/restocks"
+        element={
+          <RequireAdmin>
+            <HistorialReposiciones />
+          </RequireAdmin>
+        }
+      />
+
+      {/* Redirección desde URL antiguas */}
+      <Route path="/kokoshop/*" element={<Navigate to="/" replace />} />
+
+      {/* 404 */}
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
+
   return (
     <>
-      <CartLayout>
-        <Routes>
-          {/* ============================== */}
-          {/*     RUTAS CON LAYOUT DE SITIO   */}
-          {/* ============================== */}
-          <Route element={<SiteLayout />}>
-            {/* Públicas */}
-            <Route path="/" element={<Home />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/recuperar" element={<Recuperar />} />
-            <Route path="/reestablecer" element={<Reestablecer />} />
-            <Route path="/catalogo" element={<Catalogo />} />
-            <Route path="/favorites" element={<Favorites />} />
-            <Route path="/cart" element={<Cart />} />
-
-            {/* 🔐 Rutas protegidas para cliente */}
-            <Route
-              path="/menu"
-              element={
-                <RequireAuth>
-                  <Menu />
-                </RequireAuth>
-              }
-            />
-            <Route
-              path="/mis-pedidos"
-              element={
-                <RequireAuth>
-                  <MisPedidos />
-                </RequireAuth>
-              }
-            />
-            <Route
-              path="/mis-pedidos/:id"
-              element={
-                <RequireAuth>
-                  <DetalleClientePedido />
-                </RequireAuth>
-              }
-            />
-            <Route
-              path="/configuracion"
-              element={
-                <RequireAuth>
-                  <ConfiguracionPerfil />
-                </RequireAuth>
-              }
-            />
-          </Route>
-
-          {/* ============================== */}
-          {/*       RUTAS ADMIN (PROTEGIDAS) */}
-          {/* ============================== */}
-
-          {/* Redirección base admin */}
-          <Route
-            path="/admin"
-            element={
-              <RequireAdmin>
-                <Navigate to="/admin/productos" replace />
-              </RequireAdmin>
-            }
-          />
-
-          <Route
-            path="/admin/pedidos"
-            element={
-              <RequireAdmin>
-                <AdminPedidos />
-              </RequireAdmin>
-            }
-          />
-          <Route
-            path="/admin/pedidos/:id"
-            element={
-              <RequireAdmin>
-                <DetallePedido />
-              </RequireAdmin>
-            }
-          />
-          <Route
-            path="/admin/productos"
-            element={
-              <RequireAdmin>
-                <ProductAdmin />
-              </RequireAdmin>
-            }
-          />
-          <Route
-            path="/admin/productos/:id"
-            element={
-              <RequireAdmin>
-                <EditarProducto />
-              </RequireAdmin>
-            }
-          />
-          <Route
-            path="/admin/usuarios"
-            element={
-              <RequireAdmin>
-                <AdminUsuarios />
-              </RequireAdmin>
-            }
-          />
-          <Route
-            path="/admin/crear-usuario"
-            element={
-              <RequireAdmin>
-                <AdminCrearUsuario />
-              </RequireAdmin>
-            }
-          />
-          <Route
-            path="/admin/reposiciones"
-            element={
-              <RequireAdmin>
-                <HistorialReposiciones />
-              </RequireAdmin>
-            }
-          />
-
-          {/* Alias opcionales en inglés */}
-          <Route
-            path="/admin/products"
-            element={
-              <RequireAdmin>
-                <ProductAdmin />
-              </RequireAdmin>
-            }
-          />
-          <Route
-            path="/admin/orders"
-            element={
-              <RequireAdmin>
-                <AdminPedidos />
-              </RequireAdmin>
-            }
-          />
-          <Route
-            path="/admin/users"
-            element={
-              <RequireAdmin>
-                <AdminCrearUsuario />
-              </RequireAdmin>
-            }
-          />
-          <Route
-            path="/admin/restocks"
-            element={
-              <RequireAdmin>
-                <HistorialReposiciones />
-              </RequireAdmin>
-            }
-          />
-
-          {/* Redirección desde URL antiguas */}
-          <Route path="/kokoshop/*" element={<Navigate to="/" replace />} />
-
-          {/* 404 */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </CartLayout>
+      <CartLayout>{content}</CartLayout>
 
       <ToastContainer
         position="top-right"
