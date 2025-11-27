@@ -188,17 +188,81 @@
   100% { transform: translateY(0px); }
 }
 
+/* 🫧 Flotación suave del logo */
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+  100% { transform: translateY(0px); }
+}
+
 .animate-float {
   animation: float 4s ease-in-out infinite;
 }
 
-/* 🌟 Halo vivo que respira */
-@keyframes glowPulse {
-  0% { opacity: 0.5; transform: scale(1); }
-  50% { opacity: 0.9; transform: scale(1.15); }
-  100% { opacity: 0.5; transform: scale(1); }
+/* 🌈 Halo Kuromi (morado + rosa + violeta) */
+.halo-kokori {
+  position: absolute;
+  top: 45%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 260px;
+  height: 260px;
+  border-radius: 9999px;
+  background: conic-gradient(
+    from 0deg,
+    rgba(244, 114, 182, 0.9),   /* rosa */
+    rgba(124, 58, 237, 0.9),    /* morado */
+    rgba(56, 189, 248, 0.8),    /* celeste */
+    rgba(15, 23, 42, 0)         /* se difumina a transparente */
+  );
+  filter: blur(40px);
+  opacity: 0.75;
+  z-index: -10;
+  animation: glowPulse 6s ease-in-out infinite;
 }
 
-.animate-glow {
-  animation: glowPulse 6s ease-in-out infinite;
+/* Pulso suave del halo */
+@keyframes glowPulse {
+  0% { opacity: 0.5; transform: translate(-50%, -50%) scale(1); }
+  50% { opacity: 0.95; transform: translate(-50%, -50%) scale(1.15); }
+  100% { opacity: 0.5; transform: translate(-50%, -50%) scale(1); }
+}
+
+/* ✨ Destellos alrededor del logo */
+.sparkles {
+  position: absolute;
+  inset: -10px;
+  pointer-events: none;
+  z-index: -5;
+  opacity: 0.9;
+}
+
+.sparkles-1 {
+  background-image:
+    radial-gradient(3px 3px at 10% 20%, #ffffff 70%, transparent 71%),
+    radial-gradient(2px 2px at 80% 15%, #f9e3ff 70%, transparent 71%),
+    radial-gradient(2px 2px at 20% 80%, #ffffff 70%, transparent 71%),
+    radial-gradient(3px 3px at 90% 70%, #ffe6ff 70%, transparent 71%);
+  animation: sparklesFloat1 7s linear infinite;
+}
+
+.sparkles-2 {
+  background-image:
+    radial-gradient(2px 2px at 30% 40%, #ffffff 70%, transparent 71%),
+    radial-gradient(3px 3px at 70% 60%, #ffe6ff 70%, transparent 71%),
+    radial-gradient(2px 2px at 50% 85%, #ffffff 70%, transparent 71%);
+  animation: sparklesFloat2 9s linear infinite;
+}
+
+/* Movimiento suave de los destellos */
+@keyframes sparklesFloat1 {
+  0%   { transform: translateY(0px); opacity: 0.9; }
+  50%  { transform: translateY(-8px); opacity: 0.4; }
+  100% { transform: translateY(0px); opacity: 0.9; }
+}
+
+@keyframes sparklesFloat2 {
+  0%   { transform: translateY(0px); opacity: 0.7; }
+  50%  { transform: translateY(6px); opacity: 0.3; }
+  100% { transform: translateY(0px); opacity: 0.7; }
 }

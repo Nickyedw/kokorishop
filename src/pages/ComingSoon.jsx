@@ -11,23 +11,23 @@ export default function ComingSoon() {
       {/* ❄️ Capa de nieve solo CSS */}
       <div className="snow" />
 
-      {/* Contenido por encima de la nieve */}
-            <div className="relative z-10 flex items-center justify-center">
-            {/* 🌟 Halo de luz detrás del logo */}
-            <div className="absolute w-60 h-60 md:w-72 md:h-72 bg-purple-500/40 blur-3xl rounded-full animate-glow"></div>
+      {/* LOGO + HALO + DESTELLOS */}
+      <div className="relative z-30 flex flex-col items-center justify-center mb-4">
+        
+        {/* 🌈 Halo multicolor Kuromi */}
+        <div className="halo-kokori" />
 
-            {/* 🌫️ Sombra violeta difusa debajo */}
-            <div className="absolute bottom-[-20px] w-40 h-10 md:w-52 md:h-12 bg-purple-800/40 blur-2xl rounded-full"></div>
+        {/* ✨ Destellos animados */}
+        <div className="sparkles sparkles-1" />
+        <div className="sparkles sparkles-2" />
 
-            {/* LOGO */}
-            <img
-                src={DEFAULT_LOGO_SRC}
-                alt="Kokorishop Logo"
-                className="relative w-48 md:w-60 h-auto drop-shadow-2xl animate-float"
-            />
-            </div>
-
-
+        {/* LOGO flotando */}
+        <img
+          src={DEFAULT_LOGO_SRC}
+          alt="Kokorishop Logo"
+          className="relative w-48 md:w-60 h-auto drop-shadow-2xl animate-float"
+        />
+      </div>
 
       <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-center z-10">
         🎄 Muy pronto 🎁
