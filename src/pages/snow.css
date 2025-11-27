@@ -1,0 +1,36 @@
+/* ❄️ Animación de nieve navideña kawaii */
+
+/* Contenedor de la nieve */
+.snow {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  background-image: url("https://i.ibb.co/5G0DCbB/snow2.png");
+  /* Imagen transparente con copos */
+  animation: snowfall 15s linear infinite;
+  opacity: 0.7;
+}
+
+/* Animación */
+@keyframes snowfall {
+  0% {
+    background-position: 0 -100%;
+  }
+  100% {
+    background-position: 0 100%;
+  }
+}
+
+/* 🎀 Logo flotando */
+@keyframes floating {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-12px); }
+  100% { transform: translateY(0px); }
+}
+
+.animate-floating {
+  animation: floating 4s ease-in-out infinite;
+}

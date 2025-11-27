@@ -1,35 +1,43 @@
 // src/pages/ComingSoon.jsx
 import React from "react";
+import "./snow.css"; // 👈 Importamos la animación de nieve CSS
 
-const DEFAULT_LOGO_SRC = "/img/logo_kokorishop.png"; // <- Ruta válida en Vercel
+const DEFAULT_LOGO_SRC = "/img/logo_kokorishop.png"; // Ruta válida en Vercel
 
-function ComingSoon() {
+export default function ComingSoon() {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-purple-900 via-purple-950 to-black text-white px-4">
-      
-      {/* Logo */}
+    <div className="relative min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-purple-900 via-purple-950 to-black text-white px-6 overflow-hidden">
+
+      {/* ❄️ Capa de nieve */}
+      <div className="snow"></div>
+
+      {/* 🎀 Logo flotando */}
       <img
         src={DEFAULT_LOGO_SRC}
         alt="Kokorishop Logo"
-        className="w-40 h-auto mb-6 drop-shadow-lg"
+        className="w-52 md:w-64 h-auto mb-8 drop-shadow-xl animate-floating"
       />
 
-      {/* Mensaje principal */}
-      <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-center">
-        💜 Muy pronto
+      {/* 🎄 Mensaje principal navideño */}
+      <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-center flex items-center gap-3">
+        🎄 Muy pronto 🎁
       </h1>
 
-      <p className="mt-4 max-w-md text-sm md:text-base text-center text-white/70">
-        Estamos preparando la nueva versión de{" "}
-        <span className="font-semibold text-fuchsia-300">Kokorishop</span>,
-        con productos reales, fotos actualizadas y una experiencia aún más kawaii.
+      {/* ✨ Texto navideño kawaii */}
+      <p className="mt-4 max-w-md text-sm md:text-base text-center text-white/80 leading-relaxed">
+        La magia navideña llega a{" "}
+        <span className="font-semibold text-fuchsia-300">Kokorishop</span>.  
+        Estamos preparando una nueva tienda llena de productos kawaii,  
+        regalos, accesorios, tecnología y detalles perfectos para esta temporada.  
       </p>
 
-      <p className="mt-6 text-xs md:text-sm text-white/60 text-center">
-        Síguenos y vuelve en unos días ✨
+      <p className="mt-4 max-w-md text-xs md:text-sm text-center text-fuchsia-200">
+        ✨ Fotos reales, catálogo renovado y una experiencia más kawaii que nunca ✨
+      </p>
+
+      <p className="mt-8 text-xs md:text-sm text-purple-200/80 text-center">
+        Vuelve pronto… Santa Kokori está preparando sorpresas 🎅💜
       </p>
     </div>
   );
 }
-
-export default ComingSoon;
