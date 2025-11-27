@@ -40,7 +40,7 @@ import ComingSoon from "./pages/ComingSoon";
 
 // Flag de mantenimiento (se controla con env en Vercel)
 const MAINTENANCE =
-  import.meta.env.VITE_MODO_COMING_SOON === "true";
+  import.meta.env.VITE_MODO_COMING_SOON === "False";
 
 function App() {
   const content = MAINTENANCE ? (
