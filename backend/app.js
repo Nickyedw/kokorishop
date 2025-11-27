@@ -27,18 +27,38 @@ const authLimiter = rateLimit({
 /* =========================
    CORS
    ========================= */
-const allowedOrigins =
-  (process.env.CORS_ORIGIN || '')
-    .split(',')
-    .map(s => s.trim())
-    .filter(Boolean);
+
+// Dominios que SIEMPRE queremos permitir, además de lo que venga en CORS_ORIGIN
+const extraOrigins = [
+  'https://kokorishop.vercel.app',
+  'https://kokorishop.com',
+];
+
+// Tomamos la env CORS_ORIGIN y la combinamos con extraOrigins
+const allowedOrigins = (process.env.CORS_ORIGIN || '')
+  .split(',')
+  .map(s => s.trim())
+  .filter(Boolean)
+  .concat(extraOrigins);
+
+console.log('[CORS] allowedOrigins:', allowedOrigins);
 
 app.use(
   cors({
     origin: (origin, cb) => {
-      if (!origin) return cb(null, true);
-      if (allowedOrigins.length === 0) return cb(null, true);
-      if (allowedOrigins.includes(origin)) return cb(null, true);
+      // Peticiones sin origin (curl, Postman, etc.) -> permitir
+      if (!origin) {
+        return cb(null, true);
+      }
+
+      // ¿Está el origin en la lista permitida?
+      const isAllowed = allowedOrigins.includes(origin);
+
+      if (isAllowed) {
+        return cb(null, true);
+      }
+
+      console.error('[CORS] origin NO permitido:', origin, 'allowed:', allowedOrigins);
       return cb(new Error('CORS: origin no permitido: ' + origin));
     },
     credentials: true,
@@ -47,7 +67,10 @@ app.use(
     exposedHeaders: ['Content-Disposition'],
   })
 );
+
+// Preflight
 app.options(/.*/, cors());
+
 
 /* =========================
    Middlewares
