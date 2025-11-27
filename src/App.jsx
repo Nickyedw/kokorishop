@@ -1,4 +1,3 @@
-// src/App.jsx 
 import React from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
@@ -215,7 +214,10 @@ function App() {
 
   return (
     <>
-      <CartLayout>{content}</CartLayout>
+      {/* 👇 aquí le decimos al layout que oculte WhatsApp si está en modo mantenimiento */}
+      <CartLayout hideWhatsapp={MAINTENANCE}>
+        {content}
+      </CartLayout>
 
       <ToastContainer
         position="top-right"

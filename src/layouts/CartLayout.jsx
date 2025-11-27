@@ -4,7 +4,7 @@ import CartFab from "../components/CartFab";
 import CartQuickView from "../components/CartQuickView";
 import WhatsAppFab from "../components/WhatsAppFab";
 
-export default function CartLayout({ children }) {
+export default function CartLayout({ children, hideWhatsapp = false }) {
   const openMini = () => {
     window.dispatchEvent(new CustomEvent("cart:quick:open"));
   };
@@ -12,9 +12,15 @@ export default function CartLayout({ children }) {
   return (
     <>
       {children}
+
+      {/* Botón flotante del carrito */}
       <CartFab onOpenCart={openMini} />
+
+      {/* Mini carrito */}
       <CartQuickView />
-      <WhatsAppFab />
+
+      {/* WhatsApp oculto si el Coming Soon está activo */}
+      {!hideWhatsapp && <WhatsAppFab />}
     </>
   );
 }
