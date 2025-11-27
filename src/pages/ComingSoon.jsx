@@ -8,17 +8,16 @@ export default function ComingSoon() {
     <div className="relative min-h-screen flex flex-col items-center justify-center text-white overflow-hidden
       bg-gradient-to-b from-purple-900 via-purple-950 to-black px-4">
       
-      {/* ❄️ EFECTO NIEVE */}
-      <div className="snow"></div>
+      {/* ❄️ Capa de nieve solo CSS */}
+      <div className="snow" />
 
-      {/* Logo */}
+      {/* Contenido por encima de la nieve */}
       <img
         src={DEFAULT_LOGO_SRC}
         alt="Kokorishop Logo"
         className="w-40 h-auto mb-6 drop-shadow-lg z-10"
       />
 
-      {/* Texto principal */}
       <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-center z-10">
         🎄 Muy pronto 🎁
       </h1>
