@@ -34,7 +34,7 @@ export default function ComingSoon() {
       </h1>
 
       <p className="mt-4 text-center text-lg opacity-90 max-w-md z-10">
-        Tecnología, detalles perfectos y un catálogo renovado para esta temporada ✨
+        Tu tienda online con productos Kawaii, regalos, Tecnología, detalles perfectos y un catálogo renovado para esta temporada ¡Donde todo es Cute! ✨
       </p>
     </div>
   );
