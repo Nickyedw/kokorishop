@@ -42,6 +42,7 @@ const MAINTENANCE =
   String(import.meta.env.VITE_MODO_COMING_SOON || "")
     .toLowerCase() === "true";
 
+
 function App() {
   const content = MAINTENANCE ? (
     // 🔒 Modo "Muy pronto": todas las rutas muestran una sola pantalla
