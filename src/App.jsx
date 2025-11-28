@@ -42,6 +42,19 @@ const MAINTENANCE =
   String(import.meta.env.VITE_MODO_COMING_SOON || "")
     .toLowerCase() === "true";
 
+ // 🔍 DEBUG TEMPORAL: ver qué llega en producción
+if (import.meta.env.PROD) {
+  // eslint-disable-next-line no-console
+  console.log(
+    "[KOKORI PROD] MODE:",
+    import.meta.env.MODE,
+    "COMING_SOON:",
+    import.meta.env.VITE_MODO_COMING_SOON,
+    "MAINTENANCE:",
+    MAINTENANCE
+  );
+}   
+
 
 function App() {
   const content = MAINTENANCE ? (
