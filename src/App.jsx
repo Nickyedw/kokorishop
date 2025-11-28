@@ -38,22 +38,23 @@ import RequireAdmin from "./components/RequireAdmin";
 import ComingSoon from "./pages/ComingSoon";
 
 // Flag de mantenimiento (se controla con env en Vercel)
-const MAINTENANCE =
+// 🕒 Modo mantenimiento / Coming Soon
+
+// 1) Detectar si estamos en el dominio REAL de producción
+const isKokoriProdDomain =
+  typeof window !== "undefined" &&
+  (window.location.hostname === "kokorishop.com" ||
+    window.location.hostname === "www.kokorishop.com");
+
+// 2) Flag por variable (por si la queremos usar en otros entornos)
+const envComingSoon =
   String(import.meta.env.VITE_MODO_COMING_SOON || "")
     .toLowerCase() === "true";
 
- // 🔍 DEBUG TEMPORAL: ver qué llega en producción
-if (import.meta.env.PROD) {
-  // eslint-disable-next-line no-console
-  console.log(
-    "[KOKORI PROD] MODE:",
-    import.meta.env.MODE,
-    "COMING_SOON:",
-    import.meta.env.VITE_MODO_COMING_SOON,
-    "MAINTENANCE:",
-    MAINTENANCE
-  );
-}   
+// 3) Regla final:
+//    - En kokorishop.com => SIEMPRE mantenimiento (Coming Soon)
+//    - En otros dominios => depende de la variable (GitHub, local, etc.)
+const MAINTENANCE = isKokoriProdDomain || envComingSoon;
 
 
 function App() {
