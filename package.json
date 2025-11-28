@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build && node scripts/copy404.mjs",
+    "build:gh": "vite build --mode github",
     "preview": "vite preview",
     "predeploy": "npm run build",
     "deploy": "gh-pages -d docs",
