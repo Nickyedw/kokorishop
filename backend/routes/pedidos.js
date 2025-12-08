@@ -59,14 +59,14 @@ router.post('/', async (req, res) => {
     productos,
     comentario_pago,
 
-    // 🔹 NUEVO: datos del cliente (invitado o no)
+    // 🔹 Datos del cliente (invitado o no)
     cliente_nombre,
     cliente_email,
     cliente_telefono,
     cliente_direccion,
   } = req.body || {};
 
-    // Normalizamos teléfono del cliente (para invitados)
+  // Normalizamos teléfono del cliente (para invitados)
   const telefonoNormalizado = normalizarTelefonoPeru(cliente_telefono);
 
   // --- Validación de campos obligatorios ---
@@ -84,8 +84,7 @@ router.post('/', async (req, res) => {
     if (!reqField(cliente_nombre))    falta.push('cliente_nombre');
     if (!reqField(cliente_email))     falta.push('cliente_email');
     if (!reqField(cliente_direccion)) falta.push('cliente_direccion');
-    // teléfono puede ser opcional, pero si quieres obligatorio:
-    // if (!reqField(cliente_telefono)) falta.push('cliente_telefono');
+    // if (!reqField(cliente_telefono)) falta.push('cliente_telefono'); // opcional
   }
 
   if (!Array.isArray(productos) || productos.length === 0) {
@@ -144,7 +143,7 @@ router.post('/', async (req, res) => {
       0
     );
 
-    // 🔹 INSERT del pedido (AHORA GUARDAMOS DATOS DEL INVITADO)
+    // INSERT del pedido (guardamos datos del invitado)
     const pedidoIns = await client.query(
       `INSERT INTO pedidos
         (usuario_id,
@@ -184,7 +183,8 @@ router.post('/', async (req, res) => {
       const subtotal = Number(prod.precio_unitario) * Number(prod.cantidad);
 
       await client.query(
-        `INSERT INTO detalle_pedido (pedido_id, producto_id, cantidad, precio_unitario, subtotal)
+        `INSERT INTO detalle_pedido
+           (pedido_id, producto_id, cantidad, precio_unitario, subtotal)
          VALUES ($1,$2,$3,$4,$5)`,
         [pedido_id, prod.producto_id, prod.cantidad, prod.precio_unitario, subtotal]
       );
@@ -199,7 +199,9 @@ router.post('/', async (req, res) => {
       // Alerta de stock bajo (no rompe la tx si falla)
       try {
         const stockCheck = await client.query(
-          `SELECT nombre, stock_actual, stock_minimo FROM productos WHERE id = $1`,
+          `SELECT nombre, stock_actual, stock_minimo
+             FROM productos
+            WHERE id = $1`,
           [prod.producto_id]
         );
         const { nombre, stock_actual, stock_minimo } = stockCheck.rows[0] || {};
@@ -221,12 +223,13 @@ router.post('/', async (req, res) => {
     // ========================
     setImmediate(async () => {
       try {
-        // 🔹 AHORA TOMAMOS DATOS DEL USUARIO O DEL INVITADO DE LA TABLA PEDIDOS
+        // 🟣 IMPORTANTE (invitados):
+        // Tomamos datos de usuario (si existe) o del invitado guardado en pedidos
         const usuarioRes = await dbQuery(
           `SELECT
-             COALESCE(u.nombre_completo, p.cliente_nombre)   AS nombre_completo,
-             COALESCE(u.correo,         p.cliente_email)     AS correo,
-             COALESCE(u.telefono,       p.cliente_telefono)  AS telefono
+             COALESCE(u.nombre_completo, p.cliente_nombre, 'Invitado') AS nombre_completo,
+             COALESCE(u.correo,         p.cliente_email)             AS correo,
+             COALESCE(u.telefono,       p.cliente_telefono)          AS telefono
            FROM pedidos p
            LEFT JOIN usuarios u ON u.id = p.usuario_id
           WHERE p.id = $1`,
@@ -260,7 +263,7 @@ router.post('/', async (req, res) => {
 
         const fecha = new Date().toLocaleString('es-PE', { timeZone: 'America/Lima' });
 
-        // 🔹 Normalizamos teléfono a +51 si viene solo como 9 dígitos
+        // Normalizamos teléfono a +51 si viene solo como 9 dígitos
         let telefonoWa = usuario.telefono || '';
         if (telefonoWa && !String(telefonoWa).startsWith('+')) {
           const soloDigitos = String(telefonoWa).replace(/\D/g, '');
@@ -271,20 +274,24 @@ router.post('/', async (req, res) => {
 
         // Correo al cliente (si hay correo)
         try {
-          await enviarCorreoPedido(usuario.correo, usuario.nombre_completo, pedido_id);
+          if (usuario.correo) {
+            await enviarCorreoPedido(usuario.correo, usuario.nombre_completo, pedido_id);
+          }
         } catch (e) {
           console.warn('⚠️ No se pudo enviar correo de pedido al cliente:', e.message);
         }
 
         // WhatsApp al cliente (si el número es válido)
         try {
-          await enviarWhatsappPedidoInicial(
-            telefonoWa,
-            usuario.nombre_completo,
-            pedido_id,
-            fecha,
-            total
-          );
+          if (telefonoWa) {
+            await enviarWhatsappPedidoInicial(
+              telefonoWa,
+              usuario.nombre_completo,
+              pedido_id,
+              fecha,
+              total
+            );
+          }
         } catch (e) {
           console.warn('⚠️ No se pudo enviar WhatsApp inicial:', e.message);
         }
@@ -317,7 +324,6 @@ router.post('/', async (req, res) => {
     try { await client.query('ROLLBACK'); } catch {/* noop */ }
     console.error('❌ Error al registrar pedido:', error);
 
-    // Si fue por stock insuficiente u otra validación → 400
     const msg = String(error?.message || '').toLowerCase();
     if (msg.includes('stock insuficiente') || msg.includes('no existe')) {
       return res.status(400).json({ error: error.message });
@@ -332,9 +338,6 @@ router.post('/', async (req, res) => {
 
 /* =========================
    Listar pedidos (ADMIN)
-   - opcionales: ?usuario_id=, ?estado=,
-                 ?zona_entrega_id=, ?horario_entrega_id=
-   - si no mandas usuario_id, lista TODOS
    ========================= */
 const adminListHandler = async (req, res) => {
   try {
@@ -371,15 +374,17 @@ const adminListHandler = async (req, res) => {
 
     const where = whereParts.length ? `WHERE ${whereParts.join(' AND ')}` : '';
 
+    // 🟣 IMPORTANTE (invitados): LEFT JOIN + COALESCE
     const pedidosRes = await dbQuery(
-      `SELECT p.*,
-              u.nombre_completo AS cliente,
-              m.nombre AS metodo_pago
-         FROM pedidos p
-         JOIN usuarios u ON p.usuario_id = u.id
-    LEFT JOIN metodos_pago m ON p.metodo_pago_id = m.id
-        ${where}
-     ORDER BY p.fecha DESC`,
+      `SELECT
+         p.*,
+         COALESCE(u.nombre_completo, p.cliente_nombre, 'Invitado') AS cliente,
+         m.nombre AS metodo_pago
+       FROM pedidos p
+       LEFT JOIN usuarios u   ON p.usuario_id = u.id
+       LEFT JOIN metodos_pago m ON p.metodo_pago_id = m.id
+       ${where}
+       ORDER BY p.fecha DESC`,
       params
     );
 
@@ -416,7 +421,7 @@ const adminListHandler = async (req, res) => {
   }
 };
 
-// Montaje de rutas admin (compat + explícita)
+// Montaje de rutas admin
 router.get('/',      verificarTokenAdmin, adminListHandler);
 router.get('/admin', verificarTokenAdmin, adminListHandler);
 
@@ -426,6 +431,7 @@ router.get('/mis', verificarToken, async (req, res) => {
   const usuario_id = req.usuario.usuario_id;
 
   try {
+    // Aquí sí tiene sentido JOIN porque son pedidos de usuarios registrados
     const pedidosRes = await dbQuery(
       `SELECT p.*, u.nombre_completo AS cliente, m.nombre AS metodo_pago
          FROM pedidos p
@@ -465,17 +471,20 @@ router.get('/mis', verificarToken, async (req, res) => {
 
 
 /* =========================
-   Obtener pedido por ID
+   Obtener pedido por ID (admin / detalle)
    ========================= */
 router.get('/:id', async (req, res) => {
   const pedidoId = parseInt(req.params.id, 10);
 
   try {
+    // 🟣 IMPORTANTE (invitados): LEFT JOIN + COALESCE
     const pedidoRes = await dbQuery(
-      `SELECT p.*, u.nombre_completo AS cliente
-         FROM pedidos p
-         JOIN usuarios u ON p.usuario_id = u.id
-        WHERE p.id = $1`,
+      `SELECT
+         p.*,
+         COALESCE(u.nombre_completo, p.cliente_nombre, 'Invitado') AS cliente
+       FROM pedidos p
+       LEFT JOIN usuarios u ON p.usuario_id = u.id
+      WHERE p.id = $1`,
       [pedidoId]
     );
     if (!pedidoRes.rows.length) {
@@ -483,7 +492,9 @@ router.get('/:id', async (req, res) => {
     }
 
     const detallesRes = await dbQuery(
-      `SELECT d.*, pr.nombre AS producto_nombre, pr.imagen_url AS producto_imagen_url
+      `SELECT d.*,
+              pr.nombre     AS producto_nombre,
+              pr.imagen_url AS producto_imagen_url
          FROM detalle_pedido d
          JOIN productos pr ON d.producto_id = pr.id
         WHERE d.pedido_id = $1
@@ -509,20 +520,21 @@ router.put('/:id/estado', async (req, res) => {
   try {
     await dbQuery('UPDATE pedidos SET estado = $1 WHERE id = $2', [estado, id]);
 
+    // 🟣 IMPORTANTE (invitados): LEFT JOIN + COALESCE
     const resultado = await dbQuery(
       `
       SELECT 
         p.*,
         p.id AS numero_pedido,
-        u.nombre_completo AS nombre_cliente,
-        u.correo AS correo_cliente,
-        u.telefono,
+        COALESCE(u.nombre_completo, p.cliente_nombre, 'Invitado') AS nombre_cliente,
+        COALESCE(u.correo,         p.cliente_email)              AS correo_cliente,
+        COALESCE(u.telefono,       p.cliente_telefono)           AS telefono,
         z.nombre_zona AS zona_entrega_nombre,
         h.hora_inicio AS horario_entrega_texto,
         me.descripcion AS metodo_entrega_nombre
       FROM pedidos p
-      JOIN usuarios u ON p.usuario_id = u.id
-      LEFT JOIN zonas_entrega z ON p.zona_entrega_id = z.id
+      LEFT JOIN usuarios u       ON p.usuario_id = u.id
+      LEFT JOIN zonas_entrega z  ON p.zona_entrega_id = z.id
       LEFT JOIN horarios_entrega h ON p.horario_entrega_id = h.id
       LEFT JOIN metodos_entrega me ON p.metodo_entrega_id = me.id
       WHERE p.id = $1
@@ -601,14 +613,16 @@ router.put('/:id/confirmar-pago', verificarTokenAdmin, async (req, res) => {
       return res.status(409).json({ message: 'El pago ya estaba confirmado' });
     }
 
+    // 🟣 IMPORTANTE (invitados): LEFT JOIN + COALESCE
     const info = await dbQuery(
-      `SELECT p.id AS numero_pedido,
-              u.nombre_completo AS nombre_cliente,
-              u.correo AS correo_cliente,
-              u.telefono
-         FROM pedidos p
-         JOIN usuarios u ON u.id = p.usuario_id
-        WHERE p.id = $1`,
+      `SELECT
+         p.id AS numero_pedido,
+         COALESCE(u.nombre_completo, p.cliente_nombre, 'Invitado') AS nombre_cliente,
+         COALESCE(u.correo,         p.cliente_email)              AS correo_cliente,
+         COALESCE(u.telefono,       p.cliente_telefono)           AS telefono
+       FROM pedidos p
+       LEFT JOIN usuarios u ON u.id = p.usuario_id
+      WHERE p.id = $1`,
       [pedidoId]
     );
     const payload = info.rows[0];

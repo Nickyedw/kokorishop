@@ -37,10 +37,10 @@ import RequireAdmin from "./components/RequireAdmin";
 // 🕒 Pantalla "Muy pronto"
 import ComingSoon from "./pages/ComingSoon";
 
-// ⚠️ Modo mantenimiento FORZADO (para probar producción)
-const MAINTENANCE = true;
-
-
+// ⚠️ Modo mantenimiento SOLO en producción (Vercel)
+// - En `npm run dev` (localhost) → false  → ves la app normal
+// - En build/producción           → true   → se muestra ComingSoon
+const MAINTENANCE = import.meta.env.PROD;
 
 function App() {
   const content = MAINTENANCE ? (

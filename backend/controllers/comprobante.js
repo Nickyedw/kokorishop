@@ -29,11 +29,19 @@ function niceDate(d) {
 // ===========================================================
 async function generarComprobantePDF(pedidoId) {
   try {
-    // --- datos del pedido
+    // 🟣 IMPORTANTE (invitados): LEFT JOIN + COALESCE
     const pedidoResult = await db.query(
-      `SELECT p.id, u.nombre_completo AS cliente, p.fecha, p.estado, p.total, u.correo AS correo_cliente
-       FROM pedidos p JOIN usuarios u ON p.usuario_id=u.id
-       WHERE p.id=$1`, [pedidoId]
+      `SELECT
+         p.id,
+         COALESCE(u.nombre_completo, p.cliente_nombre, 'Invitado') AS cliente,
+         p.fecha,
+         p.estado,
+         p.total,
+         COALESCE(u.correo, p.cliente_email) AS correo_cliente
+       FROM pedidos p
+       LEFT JOIN usuarios u ON p.usuario_id = u.id
+      WHERE p.id=$1`,
+      [pedidoId]
     );
     const pedido = pedidoResult.rows[0];
     if (!pedido) throw new Error('Pedido no encontrado');
@@ -207,10 +215,18 @@ async function generarComprobantePDF(pedidoId) {
 // ===========================================================
 async function generarTicketPDF(pedidoId) {
   try {
+     // 🟣 IMPORTANTE (invitados): LEFT JOIN + COALESCE
     const pedidoResult = await db.query(
-      `SELECT p.id, u.nombre_completo AS cliente, p.fecha, p.estado, p.total
-       FROM pedidos p JOIN usuarios u ON p.usuario_id=u.id
-       WHERE p.id=$1`, [pedidoId]
+      `SELECT
+         p.id,
+         COALESCE(u.nombre_completo, p.cliente_nombre, 'Invitado') AS cliente,
+         p.fecha,
+         p.estado,
+         p.total
+       FROM pedidos p
+       LEFT JOIN usuarios u ON p.usuario_id=u.id
+      WHERE p.id=$1`,
+      [pedidoId]
     );
     const pedido = pedidoResult.rows[0];
     if (!pedido) throw new Error('Pedido no encontrado');
