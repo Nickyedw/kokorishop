@@ -548,7 +548,7 @@ export function Header() {
       {/* Top Banner */}
       <div className="bg-gradient-to-r from-fuchsia-600 to-pink-500 text-white text-center py-2 px-4">
         <p className="flex items-center justify-center gap-2 flex-wrap text-sm">
-          ✨ <span>¡Envío gratis en compras mayores a S/ 100!</span> ✨
+          ✨ <span>¡Envío gratis en puntos centricos de Lima en todas tus compras!</span> ✨
         </p>
       </div>
 

@@ -82,11 +82,11 @@ export function HeroSection() {
             {/* Stats */}
             <div className="flex flex-wrap gap-6 justify-center md:justify-start pt-4">
               <div className="text-center md:text-left">
-                <p className="text-2xl text-fuchsia-400">500+</p>
+                <p className="text-2xl text-fuchsia-400">100+</p>
                 <p className="text-sm text-gray-400">Productos</p>
               </div>
               <div className="text-center md:text-left">
-                <p className="text-2xl text-fuchsia-400">10k+</p>
+                <p className="text-2xl text-fuchsia-400">200+</p>
                 <p className="text-sm text-gray-400">Clientes Felices</p>
               </div>
               <div className="text-center md:text-left">

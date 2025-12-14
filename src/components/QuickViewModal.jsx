@@ -350,7 +350,7 @@ export default function QuickViewModal({
                   <FaTruck className="h-5 w-5 text-purple-600 mt-0.5" />
                   <div>
                     <p className="text-gray-900">
-                      Envío gratis en compras mayores a S/ 100
+                      Envío gratis en puntos centricos de Lima en todas tus compras
                     </p>
                     <p className="text-xs text-gray-500">
                       Entrega en 2–5 días hábiles
