@@ -40,7 +40,9 @@ import ComingSoon from "./pages/ComingSoon";
 // ⚠️ Modo mantenimiento SOLO en producción (Vercel)
 // - En `npm run dev` (localhost) → false  → ves la app normal
 // - En build/producción           → true   → se muestra ComingSoon
-const MAINTENANCE = import.meta.env.PROD;
+//const MAINTENANCE = import.meta.env.PROD;
+
+const MAINTENANCE = import.meta.env.VITE_MODO_COMING_SOON === "true";
 
 function App() {
   const content = MAINTENANCE ? (

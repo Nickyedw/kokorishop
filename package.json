@@ -9,7 +9,7 @@
     "build": "vite build && node scripts/copy404.mjs",
     "build:gh": "vite build --mode github",
     "preview": "vite preview",
-    "predeploy": "npm run build",
+    "predeploy": "npm run build:gh && node scripts/copy404.mjs",
     "deploy": "gh-pages -d docs",
     "ship": "git add -A && (git commit -m \"deploy: ship\" || echo \"no changes to commit\") && git push origin main && npm run build && npm run deploy"
   },
