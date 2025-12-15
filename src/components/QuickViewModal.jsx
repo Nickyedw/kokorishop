@@ -8,6 +8,7 @@ import {
   FaStar,
   FaTruck,
   FaShieldAlt,
+  FaCheckCircle,
 } from "react-icons/fa";
 import ReactDOM from "react-dom";
 
@@ -84,6 +85,19 @@ export default function QuickViewModal({
     images && images.length > 0
       ? images
       : [producto?.imagen_url || "/img/placeholder-kawaii.png"];
+
+  // ✅ NUEVO: parse simple a bullets (máx 6)
+  const descriptionBullets = (() => {
+    const raw = (producto?.descripcion || "").toString().trim();
+    if (!raw) return [];
+    return raw
+      .replace(/\r\n/g, "\n")
+      .replace(/\n+/g, ". ")
+      .split(".")
+      .map((t) => t.trim())
+      .filter(Boolean)
+      .slice(0, 6);
+  })();
 
   const handleAddToCartClick = () => {
     if (typeof onAddToCart === "function") {
@@ -246,11 +260,23 @@ export default function QuickViewModal({
                 )}
               </div>
 
-              {/* Descripción */}
+              {/* Descripción (✅ bullets visuales) */}
               <div className="space-y-2 text-sm text-gray-700">
                 <h3 className="font-semibold text-gray-900">Descripción</h3>
+
                 {producto?.descripcion ? (
-                  <p className="leading-relaxed">{producto.descripcion}</p>
+                  <ul className="space-y-2 leading-relaxed">
+                    {descriptionBullets.length > 0 ? (
+                      descriptionBullets.map((t, idx) => (
+                        <li key={idx} className="flex items-start gap-2">
+                          <FaCheckCircle className="h-4 w-4 text-emerald-500 mt-0.5 shrink-0" />
+                          <span>{t}</span>
+                        </li>
+                      ))
+                    ) : (
+                      <li className="leading-relaxed">{producto.descripcion}</li>
+                    )}
+                  </ul>
                 ) : (
                   <p className="leading-relaxed">
                     Este adorable producto kawaii es perfecto para alegrar tu
@@ -369,6 +395,7 @@ export default function QuickViewModal({
                   </div>
                 </div>
               </div>
+
             </div>
           </div>
         </div>

@@ -1,10 +1,5 @@
 // src/components/ProductCard.jsx
-import React, {
-  useContext,
-  useState,
-  useMemo,
-  useEffect,
-} from "react";
+import React, { useContext, useState, useMemo, useEffect } from "react";
 
 import { CartContext } from "../context/CartContext";
 import { FavoritesContext } from "../context/FavoritesContext";
@@ -12,13 +7,7 @@ import { toast } from "react-toastify";
 
 import QuickViewModal from "./QuickViewModal";
 
-import {
-  Heart,
-  ShoppingCart,
-  Eye,
-  Star,
-  Sparkles,
-} from "lucide-react";
+import { Heart, ShoppingCart, Eye, Star, Sparkles } from "lucide-react";
 
 const API_APP = import.meta.env.VITE_API_URL || "http://localhost:3001";
 const API_BASE = `${API_APP}/api`;
@@ -26,8 +15,7 @@ const FALLBACK_IMG = "/img/no-image.png";
 
 // Helpers para URL de imagen
 const isAbsoluteFsPath = (s) => /[A-Za-z]:[\\/]/.test(s || "");
-const pickUrl = (raw) =>
-  typeof raw === "object" && raw !== null ? raw.url : raw;
+const pickUrl = (raw) => (typeof raw === "object" && raw !== null ? raw.url : raw);
 
 function toFullUrl(raw) {
   const v = pickUrl(raw);
@@ -47,29 +35,16 @@ function toFullUrl(raw) {
 
 // Normalización de precios (soporta varios nombres de campos)
 function normalizePricing(p) {
-  const current = Number(
-    p.price ?? p.precio ?? p.precio_oferta ?? 0
-  );
+  const current = Number(p.price ?? p.precio ?? p.precio_oferta ?? 0);
 
-  const regularRaw =
-    p.regular_price ??
-    p.precio_regular ??
-    p.precio_anterior ??
-    undefined;
-
+  const regularRaw = p.regular_price ?? p.precio_regular ?? p.precio_anterior ?? undefined;
   const regularNum = regularRaw != null ? Number(regularRaw) : undefined;
 
-  const en_oferta =
-    Boolean(p.en_oferta) &&
-    regularNum != null &&
-    regularNum > current;
+  const en_oferta = Boolean(p.en_oferta) && regularNum != null && regularNum > current;
 
   const regular_price = regularNum != null ? regularNum : current;
   const ahorro = Math.max(0, regular_price - current);
-  const pct =
-    regular_price > 0
-      ? Math.round((ahorro / regular_price) * 100)
-      : 0;
+  const pct = regular_price > 0 ? Math.round((ahorro / regular_price) * 100) : 0;
 
   return {
     price: current,
@@ -83,14 +58,11 @@ function normalizePricing(p) {
 
 export default function ProductCard({ producto, onAddedToCart }) {
   const { addToCart } = useContext(CartContext);
-  const { isFavorite, addToFavorites, removeFromFavorites } =
-    useContext(FavoritesContext);
+  const { isFavorite, addToFavorites, removeFromFavorites } = useContext(FavoritesContext);
 
   // ========= Galería ordenada =========
   const galeriaOrdenada = useMemo(() => {
-    const galeria = Array.isArray(producto.imagenes)
-      ? producto.imagenes
-      : [];
+    const galeria = Array.isArray(producto.imagenes) ? producto.imagenes : [];
 
     const arr = [...galeria].sort((a, b) => {
       const ap = a?.es_principal ? 1 : 0;
@@ -118,30 +90,21 @@ export default function ProductCard({ producto, onAddedToCart }) {
   const imageUrl = toFullUrl(principalRaw);
 
   // Precios
-  const { price, regular_price, en_oferta, ahorro, pct } =
-    normalizePricing(producto);
+  const { price, regular_price, en_oferta, ahorro, pct } = normalizePricing(producto);
 
   // Stock
-  const stock_actual = Number(
-    producto.stock_actual ?? producto.stock ?? 0
-  );
+  const stock_actual = Number(producto.stock_actual ?? producto.stock ?? 0);
   const stock_minimo = Number(producto.stock_minimo ?? 0);
   const sinStock = stock_actual <= 0;
-  const stockBajo =
-    !sinStock && stock_minimo > 0 && stock_actual <= stock_minimo;
+  const stockBajo = !sinStock && stock_minimo > 0 && stock_actual <= stock_minimo;
 
   // Flags
-  const isNew =
-    producto.es_nuevo ?? producto.isNew ?? false;
+  const isNew = producto.es_nuevo ?? producto.isNew ?? false;
 
   const discount = en_oferta && pct > 0 ? pct : null;
 
-  const rating = Number(
-    producto.rating ?? producto.calificacion_promedio ?? 4.8
-  );
-  const reviews = Number(
-    producto.reviews ?? producto.total_resenas ?? 120
-  );
+  const rating = Number(producto.rating ?? producto.calificacion_promedio ?? 4.8);
+  const reviews = Number(producto.reviews ?? producto.total_resenas ?? 120);
 
   // Quick View (modal estilo Figma)
   const [quickOpen, setQuickOpen] = useState(false);
@@ -192,11 +155,7 @@ export default function ProductCard({ producto, onAddedToCart }) {
     });
 
     if (en_oferta && ahorro > 0) {
-      toast.success(
-        `🎉 ¡Oferta agregada! Ahorras S/ ${ahorro.toFixed(
-          2
-        )} (${pct}%)`
-      );
+      toast.success(`🎉 ¡Oferta agregada! Ahorras S/ ${ahorro.toFixed(2)} (${pct}%)`);
     } else {
       toast.success("🛒 Agregado al carrito");
     }
@@ -385,21 +344,19 @@ export default function ProductCard({ producto, onAddedToCart }) {
             </div>
             <span className="text-xs md:text-sm text-gray-400">
               {rating.toFixed(1)}{" "}
-              <span className="text-gray-500">
-                ({reviews})
-              </span>
+              <span className="text-gray-500">({reviews})</span>
             </span>
           </div>
 
-        <div className="md:min-h-[76px] space-y-1"></div>
-          {/* Nombre */}
+          {/* Nombre (altura consistente sin “hueco morado”) */}
           <h3
             className="
-            text-white text-sm md:text-base
-            kokori-clamp-2
-            leading-snug
-            group-hover:text-fuchsia-400
-            transition-colors
+              text-white text-sm md:text-base
+              kokori-clamp-2
+              leading-snug
+              min-h-[2.6rem] md:min-h-[3rem]
+              group-hover:text-fuchsia-400
+              transition-colors
             "
             title={producto.nombre}
           >
@@ -414,13 +371,13 @@ export default function ProductCard({ producto, onAddedToCart }) {
                 kokori-clamp-2
                 hidden md:block
                 leading-snug
+                min-h-[2.5rem]
               "
               title={producto.descripcion}
             >
               {producto.descripcion}
             </p>
           )}
-
 
           {/* Precios */}
           <div className="flex items-baseline gap-2">
@@ -447,25 +404,15 @@ export default function ProductCard({ producto, onAddedToCart }) {
               rounded-full border-2 border-white/10
               text-xs md:text-sm py-3 md:py-4
               transform transition-all duration-300
-              ${
-                sinStock
-                  ? "opacity-60 cursor-not-allowed hover:scale-100"
-                  : "hover:scale-105"
-              }
+              ${sinStock ? "opacity-60 cursor-not-allowed hover:scale-100" : "hover:scale-105"}
             `}
-            title={
-              sinStock
-                ? "Sin stock disponible"
-                : "Agregar al carrito"
-            }
+            title={sinStock ? "Sin stock disponible" : "Agregar al carrito"}
           >
             <ShoppingCart className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
             <span className="hidden sm:inline">
               {sinStock ? "No disponible" : "Agregar al Carrito"}
             </span>
-            <span className="sm:hidden">
-              {sinStock ? "Agotado" : "Agregar"}
-            </span>
+            <span className="sm:hidden">{sinStock ? "Agotado" : "Agregar"}</span>
           </button>
         </div>
       </div>
@@ -499,7 +446,6 @@ export default function ProductCard({ producto, onAddedToCart }) {
           overflow: hidden;
         }
       `}</style>
-
     </>
   );
 }
