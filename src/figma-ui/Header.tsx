@@ -545,12 +545,38 @@ export function Header() {
 
   return (
     <header className="sticky top-0 z-50 bg-gradient-to-r from-purple-900 via-black to-fuchsia-900 shadow-2xl">
-      {/* Top Banner */}
-      <div className="bg-gradient-to-r from-fuchsia-600 to-pink-500 text-white text-center py-2 px-4">
-        <p className="flex items-center justify-center gap-2 flex-wrap text-sm">
-          ✨ <span>¡Envío gratis en puntos centricos de Lima en todas tus compras!</span> ✨
-        </p>
-      </div>
+{/* Top Banner (ticker) */}
+<div className="bg-gradient-to-r from-fuchsia-600 to-pink-500 text-white py-2">
+  <div className="relative overflow-hidden">
+    {/* “Fade” suave en bordes */}
+    <div className="pointer-events-none absolute inset-y-0 left-0 w-10 bg-gradient-to-r from-pink-500 to-transparent" />
+    <div className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-fuchsia-600 to-transparent" />
+
+    <div className="ticker group">
+      <div className="ticker__track">
+  {/* Secuencia (2 mensajes) */}
+  <span className="ticker__item">
+    ✨ ¡Envío gratis en puntos céntricos de Lima en todas tus compras! ✨
+    <span className="mx-3 opacity-70">•</span>
+  </span>
+  <span className="ticker__item">
+    🎁 Nuevos productos cada semana — promos kawaii y ofertas sorpresa 💜
+    <span className="mx-3 opacity-70">•</span>
+  </span>
+
+  {/* Duplicado para loop perfecto */}
+  <span className="ticker__item">
+    ✨ ¡Envío gratis en puntos céntricos de Lima en todas tus compras! ✨
+    <span className="mx-3 opacity-70">•</span>
+  </span>
+  <span className="ticker__item">
+    🎁 Nuevos productos cada semana — promos kawaii y ofertas sorpresa 💜
+    <span className="mx-3 opacity-70">•</span>
+  </span>
+</div>
+    </div>
+  </div>
+</div>
 
       {/* Main Header */}
       <div className="container mx-auto px-4">
@@ -895,6 +921,52 @@ export function Header() {
           .animate-ping-slow { animation: none !important; }
           .animate-kawaii-pop { animation: none !important; }
         }
+          /* =========================
+   Ticker / Marquee
+   ========================= */
+.ticker {
+  width: 100%;
+}
+
+.ticker__track {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  will-change: transform;
+  animation: ticker-move 20s linear infinite;
+}
+
+.ticker__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 28px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  text-shadow: 0 1px 0 rgba(0,0,0,.2);
+}
+
+/* Pausar al hover (opcional) */
+.ticker:hover .ticker__track,
+.group:hover .ticker__track {
+  animation-play-state: paused;
+}
+
+@keyframes ticker-move {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+/* Respeta usuarios que prefieren menos movimiento */
+@media (prefers-reduced-motion: reduce) {
+  .ticker__track {
+    animation: none !important;
+    justify-content: center;
+    width: 100%;
+  }
+}
+
       `}</style>
     </header>
   );

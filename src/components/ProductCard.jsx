@@ -391,12 +391,13 @@ export default function ProductCard({ producto, onAddedToCart }) {
             </span>
           </div>
 
+        <div className="md:min-h-[76px] space-y-1"></div>
           {/* Nombre */}
           <h3
             className="
               text-white text-sm md:text-base
-              line-clamp-2
-              min-h-[2.5rem] md:min-h-[3rem]
+              kokori-clamp-2
+              leading-snug
               group-hover:text-fuchsia-400
               transition-colors
             "
@@ -405,19 +406,21 @@ export default function ProductCard({ producto, onAddedToCart }) {
             {producto.nombre}
           </h3>
 
-          {/* Descripción corta (solo desktop, como en Figma) */}
+          {/* Descripción corta (solo desktop) */}
           {producto.descripcion && (
             <p
               className="
-                text-xs md:text-sm text-gray-400
-                line-clamp-2
-                min-h-[2rem] md:min-h-[2.5rem]
                 hidden md:block
+                text-xs md:text-sm text-gray-400
+                kokori-clamp-2
+                leading-relaxed
               "
+              title={producto.descripcion}
             >
               {producto.descripcion}
             </p>
           )}
+
 
           {/* Precios */}
           <div className="flex items-baseline gap-2">
@@ -481,6 +484,22 @@ export default function ProductCard({ producto, onAddedToCart }) {
         onToggleFavorite={handleFavoriteToggle}
         isFavorite={isFavorite(producto.id)}
       />
+
+      <style>{`
+        .kokori-clamp-2 {
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+        }
+        .kokori-clamp-3 {
+          display: -webkit-box;
+          -webkit-line-clamp: 3;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+        }
+      `}</style>
+
     </>
   );
 }
