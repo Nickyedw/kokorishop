@@ -96,7 +96,7 @@ export default function QuickViewModal({
       .split(".")
       .map((t) => t.trim())
       .filter(Boolean)
-      .slice(0, 6);
+      .slice(0, 8);
   })();
 
   const handleAddToCartClick = () => {
