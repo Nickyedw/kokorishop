@@ -395,11 +395,11 @@ export default function ProductCard({ producto, onAddedToCart }) {
           {/* Nombre */}
           <h3
             className="
-              text-white text-sm md:text-base
-              line-clamp-2
-              min-h-[2.5rem] md:min-h-[2.2rem]
-              group-hover:text-fuchsia-400
-              transition-colors
+            text-white text-sm md:text-base
+            kokori-clamp-2
+            leading-snug
+            group-hover:text-fuchsia-400
+            transition-colors
             "
             title={producto.nombre}
           >
@@ -410,10 +410,10 @@ export default function ProductCard({ producto, onAddedToCart }) {
           {producto.descripcion && (
             <p
               className="
-                hidden md:block
                 text-xs md:text-sm text-gray-400
                 kokori-clamp-2
-                leading-relaxed
+                hidden md:block
+                leading-snug
               "
               title={producto.descripcion}
             >
