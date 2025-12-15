@@ -396,8 +396,8 @@ export default function ProductCard({ producto, onAddedToCart }) {
           <h3
             className="
               text-white text-sm md:text-base
-              kokori-clamp-2
-              leading-snug
+              line-clamp-2
+              min-h-[2.5rem] md:min-h-[2.2rem]
               group-hover:text-fuchsia-400
               transition-colors
             "
