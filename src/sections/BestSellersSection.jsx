@@ -54,14 +54,49 @@ export default function BestSellersSection({ onAddedToCart }) {
     if (!visible) return;
 
     let alive = true;
+
+    const uniqById = (arr) => {
+      const seen = new Set();
+      const out = [];
+      for (const p of arr) {
+        const id = p?.id ?? p?.producto_id;
+        if (id == null) continue;
+        const key = String(id);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        out.push(p);
+      }
+      return out;
+    };
+
     (async () => {
       try {
         setLoading(true);
-        const res = await fetch(
-          `${API_BASE}/productos/mas-vendidos?bust=${Date.now()}`
-        );
-        const data = await res.json();
-        if (alive) setItems(Array.isArray(data) ? data : []);
+
+        const bust = `bust=${Date.now()}`;
+
+        // 1) Más vendidos
+        const resMV = await fetch(`${API_BASE}/productos/mas-vendidos?${bust}`);
+        const dataMV = await resMV.json();
+        const masVendidos = Array.isArray(dataMV) ? dataMV : [];
+
+        // Si ya hay suficiente, listo
+        if (masVendidos.length >= 8) {
+          if (alive) setItems(masVendidos.slice(0, 12));
+          return;
+        }
+
+        // 2) Fallback: destacados
+        const resDest = await fetch(`${API_BASE}/productos/destacados?${bust}`, {
+          cache: "no-store",
+        });
+        const dataDest = await resDest.json();
+        const destacados = Array.isArray(dataDest) ? dataDest : [];
+
+        const merged = uniqById([...masVendidos, ...destacados]);
+
+        // Garantiza mínimo “vista” (8). Si tienes menos en BD, mostrará lo que exista.
+        if (alive) setItems(merged.slice(0, 12));
       } catch {
         if (alive) setItems([]);
       } finally {
@@ -71,6 +106,7 @@ export default function BestSellersSection({ onAddedToCart }) {
 
     return () => (alive = false);
   }, [visible]);
+
 
   // === APLICAR FILTROS Y ORDEN ===
   const filteredItems = React.useMemo(() => {
