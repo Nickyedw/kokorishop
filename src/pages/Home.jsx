@@ -20,7 +20,7 @@ const API_APP = import.meta.env.VITE_API_URL || "http://localhost:3001";
 const API_BASE = `${API_APP}/api`;
 
 const Home = () => {
-  const [destacados, setDestacados] = useState([]);
+  const [setDestacados] = useState([]);
   //const [oferta, setOferta] = useState([]);
 
   const readBool = (k) => {
@@ -96,7 +96,7 @@ const Home = () => {
       <TrustBadges />
 
       {/* Sección: Productos Destacados */}
-      {destacados.length > 0 && (
+    {/*  {destacados.length > 0 && (
         <section className="px-6 mt-8">
           <h2 className="flex items-center gap-2 mb-4 text-xl sm:text-2xl lg:text-3xl font-bold text-yellow-300 drop-shadow-[0_1px_0_rgba(0,0,0,.25)]">
             <span className="text-lg sm:text-xl lg:text-2xl" aria-hidden>
@@ -114,7 +114,7 @@ const Home = () => {
             ))}
           </div>
         </section>
-      )}
+      )}*/}
 
       {/* Sección: Más Vendidos (Figma layout) */}
       <BestSellersSection onAddedToCart={handleAddedToCart} />

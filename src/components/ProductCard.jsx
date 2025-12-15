@@ -368,7 +368,7 @@ export default function ProductCard({ producto, onAddedToCart }) {
         </div>
 
         {/* Información del producto */}
-        <div className="p-3 md:p-4 space-y-2 md:space-y-3">
+        <div className="p-3 md:p-4 space-y-2 md:space-y-2">
           {/* Rating */}
           <div className="flex items-center gap-1 md:gap-2">
             <div className="flex items-center">
