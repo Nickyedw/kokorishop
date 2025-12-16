@@ -44,9 +44,8 @@ import ComingSoon from "./pages/ComingSoon";
 
 //const MAINTENANCE = import.meta.env.VITE_MODO_COMING_SOON === "true";
 
-const MAINTENANCE =
-  import.meta.env.VITE_MODO_COMING_SOON === "true" &&
-  import.meta.env.PROD;
+const BUILD_ID = "BUILD_2025_12_16_1"; // cambia el texto cada vez
+const MAINTENANCE = false; // fuerza OFF
 
 function App() {
   const content = MAINTENANCE ? (
@@ -224,6 +223,10 @@ function App() {
       {/* 👇 aquí le decimos al layout que oculte WhatsApp si está en modo mantenimiento */}
       <CartLayout hideWhatsapp={MAINTENANCE}>
         {content}
+        <div style={{position:"fixed", bottom:10, left:10, background:"#000", color:"#0f0", padding:"6px 10px", zIndex:99999}}>
+  {BUILD_ID}
+</div>
+
       </CartLayout>
 
       <ToastContainer
