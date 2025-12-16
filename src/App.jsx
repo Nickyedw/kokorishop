@@ -42,7 +42,11 @@ import ComingSoon from "./pages/ComingSoon";
 // - En build/producción           → true   → se muestra ComingSoon
 //const MAINTENANCE = import.meta.env.PROD;
 
-const MAINTENANCE = import.meta.env.VITE_MODO_COMING_SOON === "true";
+//const MAINTENANCE = import.meta.env.VITE_MODO_COMING_SOON === "true";
+
+const MAINTENANCE =
+  import.meta.env.VITE_MODO_COMING_SOON === "true" &&
+  import.meta.env.PROD;
 
 function App() {
   const content = MAINTENANCE ? (
