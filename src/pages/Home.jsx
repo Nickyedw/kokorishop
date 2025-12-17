@@ -20,7 +20,7 @@ const API_APP = import.meta.env.VITE_API_URL || "http://localhost:3001";
 const API_BASE = `${API_APP}/api`;
 
 const Home = () => {
-  const [setDestacados] = useState([]);
+  const [, setDestacados] = useState([]);
   //const [oferta, setOferta] = useState([]);
 
   const readBool = (k) => {
@@ -54,25 +54,26 @@ const Home = () => {
     const cargarSecciones = async () => {
       try {
         const bust = `?bust=${Date.now()}`;
-        const [resDestacados, resOferta] = await Promise.all([
-          fetch(`${API_BASE}/productos/destacados${bust}`, {
-            cache: "no-store",
-          }),
-          fetch(`${API_BASE}/productos/oferta${bust}`, { cache: "no-store" }),
-        ]);
 
-        //const [dataDestacados, dataOferta] = await Promise.all([
-        const [dataDestacados] = await Promise.all([
-          resDestacados.json(),
-          resOferta.json(),
-        ]);
+        // ✅ Solo traemos "destacados" (lo demás lo tienes comentado)
+        const resDestacados = await fetch(
+          `${API_BASE}/productos/destacados${bust}`,
+          { cache: "no-store" }
+        );
 
+        const dataDestacados = await resDestacados.json();
         setDestacados(Array.isArray(dataDestacados) ? dataDestacados : []);
-        //setOferta(Array.isArray(dataOferta) ? dataOferta : []);
+
+        // Si luego reactivas "oferta", lo volvemos a habilitar aquí 👇
+        // const resOferta = await fetch(`${API_BASE}/productos/oferta${bust}`, { cache: "no-store" });
+        // const dataOferta = await resOferta.json();
+        // setOferta(Array.isArray(dataOferta) ? dataOferta : []);
+
       } catch (err) {
         console.error("Error al cargar secciones del home:", err);
       }
     };
+
     cargarSecciones();
   }, []);
 
@@ -82,13 +83,11 @@ const Home = () => {
     window.dispatchEvent(new Event("cart:open"));
   };
 
- //const pagePaddingBottom = isAdmin ? "pb-[88px]" : "";
- const pagePaddingBottom = isAdmin;
+  //const pagePaddingBottom = isAdmin ? "pb-[88px]" : "";
+  const pagePaddingBottom = isAdmin ? "pb-[88px]" : "";
 
   return (
-    <div
-      className={`min-h-screen bg-purple-900 text-white ${pagePaddingBottom}`}
-    >
+    <div className={`min-h-screen bg-purple-900 text-white ${pagePaddingBottom}`}>
       <Header />
 
       {/* === HERO FIGMA + BADGES === */}
@@ -96,7 +95,7 @@ const Home = () => {
       <TrustBadges />
 
       {/* Sección: Productos Destacados */}
-    {/*  {destacados.length > 0 && (
+      {/*  {destacados.length > 0 && (
         <section className="px-6 mt-8">
           <h2 className="flex items-center gap-2 mb-4 text-xl sm:text-2xl lg:text-3xl font-bold text-yellow-300 drop-shadow-[0_1px_0_rgba(0,0,0,.25)]">
             <span className="text-lg sm:text-xl lg:text-2xl" aria-hidden>
@@ -164,6 +163,7 @@ const Home = () => {
           </Link>
         </footer>
       )}*/}
+
     </div>
   );
 };
