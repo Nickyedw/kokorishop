@@ -1,5 +1,5 @@
 // src/components/QuickViewModal.jsx
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   FaTimes,
   FaShoppingCart,
@@ -11,6 +11,11 @@ import {
   FaCheckCircle,
 } from "react-icons/fa";
 import ReactDOM from "react-dom";
+
+// ✅ Lightbox + Zoom (para ver imagen completa + zoom real)
+import Lightbox from "yet-another-react-lightbox";
+import "yet-another-react-lightbox/styles.css";
+import Zoom from "yet-another-react-lightbox/plugins/zoom";
 
 export default function QuickViewModal({
   isOpen,
@@ -28,6 +33,9 @@ export default function QuickViewModal({
   const [quantity, setQuantity] = useState(1);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
 
+  // ✅ NUEVO: lightbox open/close
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+
   // opcional: resetear cuando se abre de nuevo
   // useEffect(() => {
   //   if (isOpen) {
@@ -35,6 +43,18 @@ export default function QuickViewModal({
   //     setSelectedImageIndex(0);
   //   }
   // }, [isOpen, producto?.id]);
+
+  // ✅ IMPORTANTE: Hooks SIEMPRE arriba (antes del return null)
+  const imgList = useMemo(() => {
+    return images && images.length > 0
+      ? images
+      : [producto?.imagen_url || "/img/placeholder-kawaii.png"];
+  }, [images, producto?.imagen_url]);
+
+  // ✅ Slides del lightbox (SIEMPRE)
+  const slides = useMemo(() => {
+    return (imgList || []).map((src) => ({ src }));
+  }, [imgList]);
 
   if (!isOpen || !producto) return null;
 
@@ -47,9 +67,7 @@ export default function QuickViewModal({
   const rating = Number(
     producto?.rating ?? producto?.calificacion_promedio ?? 4.8
   );
-  const reviews = Number(
-    producto?.reviews ?? producto?.total_resenas ?? 120
-  );
+  const reviews = Number(producto?.reviews ?? producto?.total_resenas ?? 120);
 
   const basePrice =
     typeof regularPrice === "number" && regularPrice > 0
@@ -57,34 +75,22 @@ export default function QuickViewModal({
       : typeof price === "number"
       ? price
       : Number(
-          producto?.precio_regular ??
-            producto?.precio ??
-            producto?.price ??
-            0
+          producto?.precio_regular ?? producto?.precio ?? producto?.price ?? 0
         ) || 0;
 
   const finalPrice =
     typeof price === "number" && price > 0
       ? price
       : Number(
-          producto?.precio_oferta ??
-            producto?.precio ??
-            producto?.price ??
-            0
+          producto?.precio_oferta ?? producto?.precio ?? producto?.price ?? 0
         ) || 0;
 
-  const hasOffer =
-    basePrice > 0 && finalPrice > 0 && finalPrice < basePrice;
+  const hasOffer = basePrice > 0 && finalPrice > 0 && finalPrice < basePrice;
 
   const pct =
     hasOffer && basePrice > 0
       ? Math.round(((basePrice - finalPrice) / basePrice) * 100)
       : discount || 0;
-
-  const imgList =
-    images && images.length > 0
-      ? images
-      : [producto?.imagen_url || "/img/placeholder-kawaii.png"];
 
   // ✅ NUEVO: parse simple a bullets (máx 6)
   const descriptionBullets = (() => {
@@ -109,6 +115,12 @@ export default function QuickViewModal({
     if (typeof onToggleFavorite === "function") {
       onToggleFavorite();
     }
+  };
+
+  // ✅ NUEVO: abrir zoom (lightbox)
+  const openLightboxAt = (idx) => {
+    setSelectedImageIndex(idx);
+    setIsLightboxOpen(true);
   };
 
   const modalContent = (
@@ -168,13 +180,20 @@ export default function QuickViewModal({
             {/* Columna izquierda: imágenes */}
             <div className="p-6 md:p-8 border-b md:border-b-0 md:border-r border-gray-200/70 space-y-4">
               {/* Imagen principal */}
-              <div className="rounded-2xl overflow-hidden shadow-lg bg-gradient-to-br from-purple-50 to-pink-50">
-                <img
-                  src={imgList[selectedImageIndex]}
-                  alt={title}
-                  className="w-full h-[260px] md:h-[320px] object-cover transition-transform duration-500 hover:scale-110"
-                />
-              </div>
+              <button
+                type="button"
+                onClick={() => openLightboxAt(selectedImageIndex)}
+                className="w-full text-left"
+                aria-label="Ver imagen en grande"
+              >
+                <div className="rounded-2xl overflow-hidden shadow-lg bg-gradient-to-br from-purple-50 to-pink-50">
+                  <img
+                    src={imgList[selectedImageIndex]}
+                    alt={title}
+                    className="w-full h-[260px] md:h-[320px] object-cover transition-transform duration-500 hover:scale-[1.03]"
+                  />
+                </div>
+              </button>
 
               {/* Miniaturas */}
               {imgList.length > 1 && (
@@ -184,6 +203,7 @@ export default function QuickViewModal({
                       key={idx}
                       type="button"
                       onClick={() => setSelectedImageIndex(idx)}
+                      onDoubleClick={() => openLightboxAt(idx)}
                       className={`
                         flex-1 aspect-square rounded-lg overflow-hidden border-2 transition-all
                         ${
@@ -192,6 +212,8 @@ export default function QuickViewModal({
                             : "border-gray-200 hover:border-fuchsia-300"
                         }
                       `}
+                      aria-label={`Seleccionar imagen ${idx + 1}`}
+                      title="Tip: doble clic para zoom"
                     >
                       <img
                         src={img}
@@ -303,9 +325,7 @@ export default function QuickViewModal({
                             : "text-gray-700"
                         }
                       `}
-                      onClick={() =>
-                        setQuantity((q) => Math.max(1, q - 1))
-                      }
+                      onClick={() => setQuantity((q) => Math.max(1, q - 1))}
                       disabled={quantity <= 1}
                     >
                       –
@@ -340,11 +360,7 @@ export default function QuickViewModal({
                     hover:from-fuchsia-700 hover:to-pink-600
                     text-white shadow-lg shadow-fuchsia-400/40
                     transition-transform hover:scale-[1.02]
-                    ${
-                      !inStock
-                        ? "opacity-60 cursor-not-allowed"
-                        : ""
-                    }
+                    ${!inStock ? "opacity-60 cursor-not-allowed" : ""}
                   `}
                 >
                   <FaShoppingCart className="h-4 w-4" />
@@ -376,7 +392,8 @@ export default function QuickViewModal({
                   <FaTruck className="h-5 w-5 text-purple-600 mt-0.5" />
                   <div>
                     <p className="text-gray-900">
-                      Envío gratis en puntos centricos de Lima en todas tus compras
+                      Envío gratis en puntos centricos de Lima en todas tus
+                      compras
                     </p>
                     <p className="text-xs text-gray-500">
                       Entrega en 2–5 días hábiles
@@ -386,18 +403,25 @@ export default function QuickViewModal({
                 <div className="flex items-start gap-3">
                   <FaShieldAlt className="h-5 w-5 text-purple-600 mt-0.5" />
                   <div>
-                    <p className="text-gray-900">
-                      Garantía de satisfacción
-                    </p>
+                    <p className="text-gray-900">Garantía de satisfacción</p>
                     <p className="text-xs text-gray-500">
                       Devoluciones dentro de 30 días
                     </p>
                   </div>
                 </div>
               </div>
-
             </div>
           </div>
+
+          {/* ✅ LIGHTBOX FULLSCREEN con Zoom real */}
+          <Lightbox
+            open={isLightboxOpen}
+            close={() => setIsLightboxOpen(false)}
+            slides={slides}
+            index={selectedImageIndex}
+            plugins={[Zoom]}
+            on={{ view: ({ index }) => setSelectedImageIndex(index) }}
+          />
         </div>
       </div>
     </>

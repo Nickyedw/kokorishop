@@ -4,14 +4,12 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-"scripts": {
-  "dev": "vite",
-  "build": "vite build && node scripts/copy404.mjs",
-
-  "build:gh": "vite build --mode github && node scripts/copy404.mjs",
-
-  "deploy:gh": "npm run build:gh && git add -A && (git commit -m \"deploy: github pages\" || echo \"no changes\") && git push origin main"
-},
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build && node scripts/copy404.mjs",
+    "build:gh": "vite build --mode github && node scripts/copy404.mjs",
+    "deploy:gh": "npm run build:gh && git add -A && (git commit -m \"deploy: github pages\" || echo \"no changes\") && git push origin main"
+  },
   "dependencies": {
     "@radix-ui/react-checkbox": "^1.3.3",
     "@radix-ui/react-dialog": "^1.1.15",
@@ -39,7 +37,8 @@
     "react-toastify": "^11.0.5",
     "recharts": "^3.1.0",
     "sonner": "^2.0.7",
-    "xlsx": "^0.18.5"
+    "xlsx": "^0.18.5",
+    "yet-another-react-lightbox": "^3.27.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.25.0",
