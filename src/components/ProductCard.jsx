@@ -9,56 +9,27 @@ import QuickViewModal from "./QuickViewModal";
 
 import { Heart, ShoppingCart, Eye, Star, Sparkles } from "lucide-react";
 
-// ✅ IMPORTANTE: en producción NO queremos caer a localhost
-const API_APP = import.meta.env.VITE_API_URL; // ej: https://kokoshop-backend.onrender.com
-const API_BASE = API_APP ? `${API_APP}/api` : "/api";
+const API_APP = import.meta.env.VITE_API_URL || "http://localhost:3001";
+const API_BASE = `${API_APP}/api`;
 const FALLBACK_IMG = "/img/no-image.png";
 
 // Helpers para URL de imagen
 const isAbsoluteFsPath = (s) => /[A-Za-z]:[\\/]/.test(s || "");
 const pickUrl = (raw) => (typeof raw === "object" && raw !== null ? raw.url : raw);
 
-// ✅ detecta si es "solo filename" (sin /)
-const looksLikeFileNameOnly = (s) =>
-  typeof s === "string" &&
-  !s.includes("/") &&
-  /\.(png|jpe?g|webp|gif|svg)$/i.test(s);
-
 function toFullUrl(raw) {
   const v = pickUrl(raw);
-
-  // inválido
   if (typeof v !== "string" || v.trim() === "" || isAbsoluteFsPath(v)) {
     return FALLBACK_IMG;
   }
 
-  const s0 = v.replace(/\\/g, "/").trim();
-
-  // ya es absoluta
+  const s0 = v.replace(/\\/g, "/");
   if (/^https?:\/\//i.test(s0)) return s0;
 
-  // Si no hay API_APP definido, evita rutas rotas
-  if (!API_APP) return FALLBACK_IMG;
-
-  // ✅ CASO CLAVE: viene SOLO filename -> asumimos uploads/productos/
-  // Ej: "1765871845682-kuromi_alas_ia.webp"
-  if (looksLikeFileNameOnly(s0)) {
-    return `${API_APP}/uploads/productos/${s0}`;
-  }
-
-  // Si incluye /uploads/ en cualquier parte, lo recortamos desde ahí
   const upIdx = s0.toLowerCase().indexOf("/uploads/");
   if (upIdx >= 0) return `${API_APP}${s0.slice(upIdx)}`;
 
-  // si empieza con /, también lo servimos desde backend
   if (s0.startsWith("/")) return `${API_APP}${s0}`;
-
-  // si viene tipo "uploads/productos/xxx.webp"
-  if (s0.toLowerCase().startsWith("uploads/")) {
-    return `${API_APP}/${s0}`;
-  }
-
-  // fallback final
   return `${API_APP}/${s0}`;
 }
 
@@ -201,8 +172,6 @@ export default function ProductCard({ producto, onAddedToCart }) {
 
     (async () => {
       try {
-        if (!API_APP) return;
-
         await fetch(`${API_BASE}/notificaciones/stock-bajo`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -220,6 +189,8 @@ export default function ProductCard({ producto, onAddedToCart }) {
       }
     })();
   }, [stockBajo, producto.id, producto.nombre, stock_actual, stock_minimo]);
+
+  // ========== RENDER — ESTILO FIGMA ==========
 
   return (
     <>
@@ -324,7 +295,7 @@ export default function ProductCard({ producto, onAddedToCart }) {
             }}
             loading="lazy"
             decoding="async"
-            onClick={() => setQuickOpen(true)}
+            onClick={() => setQuickOpen(true)} // abre QuickViewModal
           />
 
           {/* Overlay Vista Rápida */}
@@ -355,8 +326,9 @@ export default function ProductCard({ producto, onAddedToCart }) {
           </div>
         </div>
 
-        {/* Información */}
+        {/* Información del producto */}
         <div className="p-3 md:p-4 space-y-2 md:space-y-2">
+          {/* Rating */}
           <div className="flex items-center gap-1 md:gap-2">
             <div className="flex items-center">
               {Array.from({ length: 5 }).map((_, i) => (
@@ -371,10 +343,12 @@ export default function ProductCard({ producto, onAddedToCart }) {
               ))}
             </div>
             <span className="text-xs md:text-sm text-gray-400">
-              {rating.toFixed(1)} <span className="text-gray-500">({reviews})</span>
+              {rating.toFixed(1)}{" "}
+              <span className="text-gray-500">({reviews})</span>
             </span>
           </div>
 
+          {/* Nombre (altura consistente sin “hueco morado”) */}
           <h3
             className="
               text-white text-sm md:text-base
@@ -389,6 +363,7 @@ export default function ProductCard({ producto, onAddedToCart }) {
             {producto.nombre}
           </h3>
 
+          {/* Descripción corta (solo desktop) */}
           {producto.descripcion && (
             <p
               className="
@@ -404,6 +379,7 @@ export default function ProductCard({ producto, onAddedToCart }) {
             </p>
           )}
 
+          {/* Precios */}
           <div className="flex items-baseline gap-2">
             <span className="text-xl md:text-2xl text-fuchsia-400">
               S/ {price.toFixed(2)}
@@ -415,6 +391,7 @@ export default function ProductCard({ producto, onAddedToCart }) {
             )}
           </div>
 
+          {/* Botón agregar al carrito */}
           <button
             type="button"
             onClick={() => handleAdd(1)}
@@ -432,12 +409,15 @@ export default function ProductCard({ producto, onAddedToCart }) {
             title={sinStock ? "Sin stock disponible" : "Agregar al carrito"}
           >
             <ShoppingCart className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
-            <span className="hidden sm:inline">{sinStock ? "No disponible" : "Agregar al Carrito"}</span>
+            <span className="hidden sm:inline">
+              {sinStock ? "No disponible" : "Agregar al Carrito"}
+            </span>
             <span className="sm:hidden">{sinStock ? "Agotado" : "Agregar"}</span>
           </button>
         </div>
       </div>
 
+      {/* QUICK VIEW MODAL (reemplaza al ImageZoom antiguo) */}
       <QuickViewModal
         isOpen={quickOpen}
         onClose={() => setQuickOpen(false)}
