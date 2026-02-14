@@ -32,6 +32,7 @@ const authLimiter = rateLimit({
 const extraOrigins = [
   'https://kokorishop.vercel.app',
   'https://kokorishop.com',
+  'https://www.kokorishop.com',
 ];
 
 // Tomamos la env CORS_ORIGIN y la combinamos con extraOrigins
