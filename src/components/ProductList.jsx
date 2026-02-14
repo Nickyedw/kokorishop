@@ -56,30 +56,45 @@ const isLockedImage = (item, product) => {
 };
 
 // ✅ URL robusta para imágenes (evita localhost, arma /uploads/ bien)
+// ✅ URL robusta y definitiva para imágenes
 function toFullUrl(raw) {
   if (!raw) return FALLBACK_IMG;
 
-  let s = typeof raw === "string" ? raw : raw?.url ?? raw?.src ?? "";
+  let s =
+    typeof raw === "string"
+      ? raw
+      : raw?.url ?? raw?.src ?? "";
+
   if (!s || typeof s !== "string") return FALLBACK_IMG;
 
-  s = s.replace(/\\/g, "/");
+  s = s.replace(/\\/g, "/").trim();
 
-  // absoluta
+  // 1️⃣ Si ya es URL absoluta
   if (/^https?:\/\//i.test(s)) return s;
 
-  // si no hay backend definido, evita rutas rotas
+  // 2️⃣ Si no hay backend configurado
   if (!API_APP) return FALLBACK_IMG;
 
-  // si contiene /uploads/ en cualquier parte, recorta desde ahí
+  // 3️⃣ Si solo es nombre de archivo (NO tiene slash)
+  if (!s.includes("/")) {
+    return `${API_APP}/uploads/${s}`;
+  }
+
+  // 4️⃣ Si contiene /uploads/
   const upIdx = s.toLowerCase().indexOf("/uploads/");
-  if (upIdx >= 0) return `${API_APP}${s.slice(upIdx)}`;
+  if (upIdx >= 0) {
+    return `${API_APP}${s.slice(upIdx)}`;
+  }
 
-  // cualquier ruta absoluta tipo "/algo"
-  if (s.startsWith("/")) return `${API_APP}${s}`;
+  // 5️⃣ Si empieza con slash
+  if (s.startsWith("/")) {
+    return `${API_APP}${s}`;
+  }
 
-  // cualquier ruta relativa "uploads/..." o "productos/..."
+  // 6️⃣ Cualquier otro caso relativo
   return `${API_APP}/${s}`;
 }
+
 
 // ✅ Faltaba esto: el helper que estás usando en el JSX
 const getImageUrl = (u) => toFullUrl(u);
