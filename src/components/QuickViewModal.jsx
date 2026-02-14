@@ -17,8 +17,9 @@ import Lightbox from "yet-another-react-lightbox";
 import "yet-another-react-lightbox/styles.css";
 import Zoom from "yet-another-react-lightbox/plugins/zoom";
 
-// ✅ CONFIG
-const API_APP = import.meta.env.VITE_API_URL; // ej: https://kokoshop-backend.onrender.com
+// ✅ CONFIG (normalizando slash final)
+const RAW_API = (import.meta.env.VITE_API_URL || "").trim().replace(/\/+$/, "");
+const API_APP = RAW_API || ""; // ej: https://kokoshop-backend.onrender.com
 const FALLBACK_IMG = "/img/no-image.png";
 const PLACEHOLDER = "/img/placeholder-kawaii.png";
 
@@ -26,29 +27,38 @@ const PLACEHOLDER = "/img/placeholder-kawaii.png";
 const isAbsoluteFsPath = (s) => /[A-Za-z]:[\\/]/.test(s || "");
 const pickUrl = (raw) => (typeof raw === "object" && raw !== null ? raw.url : raw);
 
+function isBadString(v) {
+  const s = String(v || "").trim().toLowerCase();
+  return !s || s === "null" || s === "undefined";
+}
+
 function toFullUrl(raw) {
   const v = pickUrl(raw);
 
-  if (typeof v !== "string" || v.trim() === "" || isAbsoluteFsPath(v)) {
+  if (typeof v !== "string" || isBadString(v) || isAbsoluteFsPath(v)) {
     return FALLBACK_IMG;
   }
 
-  const s0 = v.replace(/\\/g, "/");
+  const s0 = v.replace(/\\/g, "/").trim();
 
   // absoluta
   if (/^https?:\/\//i.test(s0)) return s0;
 
-  // si no hay backend definido, evita rutas rotas
-  if (!API_APP) return FALLBACK_IMG;
-
-  // recorta desde /uploads/
+  // si contiene /uploads/ en cualquier parte, recorta desde ahí
   const upIdx = s0.toLowerCase().indexOf("/uploads/");
-  if (upIdx >= 0) return `${API_APP}${s0.slice(upIdx)}`;
+  if (upIdx >= 0) {
+    const rel = s0.slice(upIdx); // /uploads/...
+    // si hay API_APP, lo pegamos; si no, devolvemos la ruta relativa
+    return API_APP ? `${API_APP}${rel}` : rel;
+  }
 
-  // cualquier ruta que comience con /
-  if (s0.startsWith("/")) return `${API_APP}${s0}`;
+  // ruta absoluta del server "/algo"
+  if (s0.startsWith("/")) {
+    return API_APP ? `${API_APP}${s0}` : s0;
+  }
 
-  return `${API_APP}/${s0}`;
+  // ruta relativa "algo/..."
+  return API_APP ? `${API_APP}/${s0}` : `/${s0}`;
 }
 
 export default function QuickViewModal({
@@ -82,8 +92,7 @@ export default function QuickViewModal({
 
     for (const it of rawList) {
       const full = toFullUrl(it);
-      if (!full) continue;
-      if (seen.has(full)) continue;
+      if (!full || seen.has(full)) continue;
       seen.add(full);
       out.push(full);
     }
@@ -92,9 +101,7 @@ export default function QuickViewModal({
   }, [images, producto?.imagen_url]);
 
   // ✅ Slides del lightbox (SIEMPRE)
-  const slides = useMemo(() => {
-    return (imgList || []).map((src) => ({ src }));
-  }, [imgList]);
+  const slides = useMemo(() => (imgList || []).map((src) => ({ src })), [imgList]);
 
   // ✅ Si no está abierto, no render
   if (!isOpen || !producto) return null;
@@ -141,18 +148,13 @@ export default function QuickViewModal({
   })();
 
   const handleAddToCartClick = () => {
-    if (typeof onAddToCart === "function") {
-      onAddToCart(quantity);
-    }
+    if (typeof onAddToCart === "function") onAddToCart(quantity);
   };
 
   const handleFavoriteClick = () => {
-    if (typeof onToggleFavorite === "function") {
-      onToggleFavorite();
-    }
+    if (typeof onToggleFavorite === "function") onToggleFavorite();
   };
 
-  // ✅ abrir lightbox
   const openLightboxAt = (idx) => {
     setSelectedImageIndex(idx);
     setIsLightboxOpen(true);
@@ -161,44 +163,23 @@ export default function QuickViewModal({
   const modalContent = (
     <>
       <style>{`
-        @keyframes qv-overlay-fade {
-          0% { opacity: 0; }
-          100% { opacity: 1; }
-        }
-        @keyframes qv-content-pop {
-          0% { opacity: 0; transform: translateY(18px) scale(0.96); }
-          100% { opacity: 1; transform: translateY(0) scale(1); }
-        }
+        @keyframes qv-overlay-fade { 0% { opacity: 0; } 100% { opacity: 1; } }
+        @keyframes qv-content-pop { 0% { opacity: 0; transform: translateY(18px) scale(0.96); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
       `}</style>
 
       <div
-        className="
-          fixed inset-0 z-[200]
-          flex items-center justify-center
-          bg-black/70 backdrop-blur-sm
-        "
+        className="fixed inset-0 z-[200] flex items-center justify-center bg-black/70 backdrop-blur-sm"
         style={{ animation: "qv-overlay-fade 0.25s ease-out" }}
         onClick={onClose}
       >
         <div
-          className="
-            relative bg-white rounded-3xl shadow-2xl
-            max-w-4xl w-[95%] md:w-[80%] lg:w-[70%]
-            max-h-[90vh] overflow-y-auto
-          "
+          className="relative bg-white rounded-3xl shadow-2xl max-w-4xl w-[95%] md:w-[80%] lg:w-[70%] max-h-[90vh] overflow-y-auto"
           style={{ animation: "qv-content-pop 0.28s ease-out" }}
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Close */}
           <button
             onClick={onClose}
-            className="
-              absolute top-3 right-3 h-9 w-9 rounded-full
-              flex items-center justify-center
-              bg-black/5 hover:bg-black/10
-              text-gray-600 hover:text-black
-              shadow-sm
-            "
+            className="absolute top-3 right-3 h-9 w-9 rounded-full flex items-center justify-center bg-black/5 hover:bg-black/10 text-gray-600 hover:text-black shadow-sm"
             aria-label="Cerrar"
           >
             <FaTimes />
@@ -215,7 +196,7 @@ export default function QuickViewModal({
               >
                 <div className="rounded-2xl overflow-hidden shadow-lg bg-gradient-to-br from-purple-50 to-pink-50">
                   <img
-                    src={imgList[selectedImageIndex]}
+                    src={imgList[selectedImageIndex] || FALLBACK_IMG}
                     alt={title}
                     className="w-full h-[260px] md:h-[320px] object-cover transition-transform duration-500 hover:scale-[1.03]"
                     onError={(e) => (e.currentTarget.src = FALLBACK_IMG)}
@@ -225,7 +206,6 @@ export default function QuickViewModal({
                 </div>
               </button>
 
-              {/* Miniaturas */}
               {imgList.length > 1 && (
                 <div className="flex gap-2">
                   {imgList.map((img, idx) => (
@@ -236,17 +216,15 @@ export default function QuickViewModal({
                       onDoubleClick={() => openLightboxAt(idx)}
                       className={`
                         flex-1 aspect-square rounded-lg overflow-hidden border-2 transition-all
-                        ${
-                          idx === selectedImageIndex
-                            ? "border-fuchsia-500 shadow-lg shadow-fuchsia-500/40"
-                            : "border-gray-200 hover:border-fuchsia-300"
-                        }
+                        ${idx === selectedImageIndex
+                          ? "border-fuchsia-500 shadow-lg shadow-fuchsia-500/40"
+                          : "border-gray-200 hover:border-fuchsia-300"}
                       `}
                       aria-label={`Seleccionar imagen ${idx + 1}`}
                       title="Tip: doble clic para zoom"
                     >
                       <img
-                        src={img}
+                        src={img || FALLBACK_IMG}
                         alt={`${title} ${idx + 1}`}
                         className="w-full h-full object-cover"
                         onError={(e) => (e.currentTarget.src = FALLBACK_IMG)}
@@ -262,18 +240,14 @@ export default function QuickViewModal({
             {/* Derecha: info */}
             <div className="p-6 md:p-8 space-y-6">
               <div>
-                <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">
-                  {title}
-                </h2>
+                <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">{title}</h2>
 
                 <div className="flex items-center gap-2 mb-2">
                   <div className="flex items-center">
                     {Array.from({ length: 5 }).map((_, i) => (
                       <FaStar
                         key={i}
-                        className={`h-4 w-4 ${
-                          i < Math.floor(rating) ? "text-yellow-400" : "text-gray-300"
-                        }`}
+                        className={`h-4 w-4 ${i < Math.floor(rating) ? "text-yellow-400" : "text-gray-300"}`}
                       />
                     ))}
                   </div>
@@ -282,24 +256,16 @@ export default function QuickViewModal({
                   </span>
                 </div>
 
-                <p
-                  className={`text-sm font-semibold ${
-                    inStock ? "text-emerald-600" : "text-red-500"
-                  }`}
-                >
+                <p className={`text-sm font-semibold ${inStock ? "text-emerald-600" : "text-red-500"}`}>
                   {inStock ? "✓ En Stock" : "✗ Agotado"}
                 </p>
               </div>
 
               <div className="flex items-baseline gap-3">
-                <p className="text-2xl md:text-2xl text-purple-600">
-                  S/ {finalPrice.toFixed(2)}
-                </p>
+                <p className="text-2xl md:text-2xl text-purple-600">S/ {finalPrice.toFixed(2)}</p>
                 {hasOffer && (
                   <>
-                    <p className="text-sm line-through text-gray-400">
-                      S/ {basePrice.toFixed(2)}
-                    </p>
+                    <p className="text-sm line-through text-gray-400">S/ {basePrice.toFixed(2)}</p>
                     {pct > 0 && (
                       <span className="inline-flex px-3 py-1 rounded-full text-xs font-semibold bg-pink-500 text-white">
                         {pct}% OFF
@@ -326,9 +292,7 @@ export default function QuickViewModal({
                     )}
                   </ul>
                 ) : (
-                  <p className="leading-relaxed">
-                    Este adorable producto kawaii es perfecto para alegrar tu día. 💕
-                  </p>
+                  <p className="leading-relaxed">Este adorable producto kawaii es perfecto para alegrar tu día. 💕</p>
                 )}
               </div>
 
@@ -338,18 +302,15 @@ export default function QuickViewModal({
                   <div className="flex items-center border border-gray-300 rounded-full overflow-hidden bg-white">
                     <button
                       type="button"
-                      className={`
-                        w-9 h-9 flex items-center justify-center text-lg hover:bg-gray-100
-                        ${quantity <= 1 ? "text-gray-300 cursor-not-allowed" : "text-gray-700"}
-                      `}
+                      className={`w-9 h-9 flex items-center justify-center text-lg hover:bg-gray-100 ${
+                        quantity <= 1 ? "text-gray-300 cursor-not-allowed" : "text-gray-700"
+                      }`}
                       onClick={() => setQuantity((q) => Math.max(1, q - 1))}
                       disabled={quantity <= 1}
                     >
                       –
                     </button>
-                    <span className="w-10 text-center text-sm font-semibold text-purple-900 bg-white">
-                      {quantity}
-                    </span>
+                    <span className="w-10 text-center text-sm font-semibold text-purple-900 bg-white">{quantity}</span>
                     <button
                       type="button"
                       className="w-9 h-9 flex items-center justify-center text-lg text-gray-700 hover:bg-gray-100"
@@ -367,12 +328,9 @@ export default function QuickViewModal({
                   onClick={handleAddToCartClick}
                   disabled={!inStock}
                   className={`
-                    flex-1 inline-flex items-center justify-center gap-2
-                    rounded-full px-6 py-3 text-sm font-semibold
-                    bg-gradient-to-r from-fuchsia-600 to-pink-500
-                    hover:from-fuchsia-700 hover:to-pink-600
-                    text-white shadow-lg shadow-fuchsia-400/40
-                    transition-transform hover:scale-[1.02]
+                    flex-1 inline-flex items-center justify-center gap-2 rounded-full px-6 py-3 text-sm font-semibold
+                    bg-gradient-to-r from-fuchsia-600 to-pink-500 hover:from-fuchsia-700 hover:to-pink-600
+                    text-white shadow-lg shadow-fuchsia-400/40 transition-transform hover:scale-[1.02]
                     ${!inStock ? "opacity-60 cursor-not-allowed" : ""}
                   `}
                 >
@@ -383,18 +341,9 @@ export default function QuickViewModal({
                 <button
                   type="button"
                   onClick={handleFavoriteClick}
-                  className="
-                    inline-flex items-center justify-center gap-2
-                    rounded-full px-5 py-3 text-sm font-semibold
-                    border border-gray-300 text-gray-700
-                    hover:bg-gray-50
-                  "
+                  className="inline-flex items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-semibold border border-gray-300 text-gray-700 hover:bg-gray-50"
                 >
-                  {isFavorite ? (
-                    <FaHeart className="h-4 w-4 text-pink-500" />
-                  ) : (
-                    <FaRegHeart className="h-4 w-4" />
-                  )}
+                  {isFavorite ? <FaHeart className="h-4 w-4 text-pink-500" /> : <FaRegHeart className="h-4 w-4" />}
                   {isFavorite ? "En favoritos" : "Agregar a Favoritos"}
                 </button>
               </div>
@@ -403,9 +352,7 @@ export default function QuickViewModal({
                 <div className="flex items-start gap-3">
                   <FaTruck className="h-5 w-5 text-purple-600 mt-0.5" />
                   <div>
-                    <p className="text-gray-900">
-                      Envío gratis en puntos centricos de Lima en todas tus compras
-                    </p>
+                    <p className="text-gray-900">Envío gratis en puntos centricos de Lima en todas tus compras</p>
                     <p className="text-xs text-gray-500">Entrega en 2–5 días hábiles</p>
                   </div>
                 </div>
@@ -420,7 +367,6 @@ export default function QuickViewModal({
             </div>
           </div>
 
-          {/* ✅ LIGHTBOX */}
           <Lightbox
             open={isLightboxOpen}
             close={() => setIsLightboxOpen(false)}
