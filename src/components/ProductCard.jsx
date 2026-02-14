@@ -21,29 +21,34 @@ const pickUrl = (raw) => (typeof raw === "object" && raw !== null ? raw.url : ra
 function toFullUrl(raw) {
   const v = pickUrl(raw);
 
-  // inválido
   if (typeof v !== "string" || v.trim() === "" || isAbsoluteFsPath(v)) {
     return FALLBACK_IMG;
   }
 
-  const s0 = v.replace(/\\/g, "/");
+  const s0 = v.replace(/\\/g, "/").trim();
 
-  // ya es absoluta
+  // Ya es absoluta
   if (/^https?:\/\//i.test(s0)) return s0;
 
-  // ✅ rutas tipo /uploads/... deben ir al BACKEND
-  // Si no hay API_APP definido, devolvemos fallback (para evitar localhost roto en prod)
   if (!API_APP) return FALLBACK_IMG;
 
-  // Si incluye /uploads/ en cualquier parte, lo recortamos desde ahí
-  const upIdx = s0.toLowerCase().indexOf("/uploads/");
-  if (upIdx >= 0) return `${API_APP}${s0.slice(upIdx)}`;
+  // 🔥 NUEVO: detecta uploads aunque no tenga slash inicial
+  if (s0.toLowerCase().startsWith("uploads/")) {
+    return `${API_APP}/${s0}`;
+  }
 
-  // si empieza con /, también lo servimos desde backend
-  if (s0.startsWith("/")) return `${API_APP}${s0}`;
+  if (s0.toLowerCase().includes("/uploads/")) {
+    const idx = s0.toLowerCase().indexOf("/uploads/");
+    return `${API_APP}${s0.slice(idx)}`;
+  }
+
+  if (s0.startsWith("/")) {
+    return `${API_APP}${s0}`;
+  }
 
   return `${API_APP}/${s0}`;
 }
+
 
 // Normalización de precios (soporta varios nombres de campos)
 function normalizePricing(p) {
