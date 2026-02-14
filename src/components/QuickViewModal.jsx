@@ -17,6 +17,40 @@ import Lightbox from "yet-another-react-lightbox";
 import "yet-another-react-lightbox/styles.css";
 import Zoom from "yet-another-react-lightbox/plugins/zoom";
 
+// ✅ CONFIG
+const API_APP = import.meta.env.VITE_API_URL; // ej: https://kokoshop-backend.onrender.com
+const FALLBACK_IMG = "/img/no-image.png";
+const PLACEHOLDER = "/img/placeholder-kawaii.png";
+
+// Helpers URL
+const isAbsoluteFsPath = (s) => /[A-Za-z]:[\\/]/.test(s || "");
+const pickUrl = (raw) => (typeof raw === "object" && raw !== null ? raw.url : raw);
+
+function toFullUrl(raw) {
+  const v = pickUrl(raw);
+
+  if (typeof v !== "string" || v.trim() === "" || isAbsoluteFsPath(v)) {
+    return FALLBACK_IMG;
+  }
+
+  const s0 = v.replace(/\\/g, "/");
+
+  // absoluta
+  if (/^https?:\/\//i.test(s0)) return s0;
+
+  // si no hay backend definido, evita rutas rotas
+  if (!API_APP) return FALLBACK_IMG;
+
+  // recorta desde /uploads/
+  const upIdx = s0.toLowerCase().indexOf("/uploads/");
+  if (upIdx >= 0) return `${API_APP}${s0.slice(upIdx)}`;
+
+  // cualquier ruta que comience con /
+  if (s0.startsWith("/")) return `${API_APP}${s0}`;
+
+  return `${API_APP}/${s0}`;
+}
+
 export default function QuickViewModal({
   isOpen,
   onClose,
@@ -33,22 +67,28 @@ export default function QuickViewModal({
   const [quantity, setQuantity] = useState(1);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
 
-  // ✅ NUEVO: lightbox open/close
+  // ✅ Lightbox open/close
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
 
-  // opcional: resetear cuando se abre de nuevo
-  // useEffect(() => {
-  //   if (isOpen) {
-  //     setQuantity(1);
-  //     setSelectedImageIndex(0);
-  //   }
-  // }, [isOpen, producto?.id]);
-
-  // ✅ IMPORTANTE: Hooks SIEMPRE arriba (antes del return null)
+  // ✅ IMPORTANTE: normalizamos SIEMPRE a URL completa
   const imgList = useMemo(() => {
-    return images && images.length > 0
-      ? images
-      : [producto?.imagen_url || "/img/placeholder-kawaii.png"];
+    const rawList =
+      images && images.length > 0
+        ? images
+        : [producto?.imagen_url || PLACEHOLDER];
+
+    const out = [];
+    const seen = new Set();
+
+    for (const it of rawList) {
+      const full = toFullUrl(it);
+      if (!full) continue;
+      if (seen.has(full)) continue;
+      seen.add(full);
+      out.push(full);
+    }
+
+    return out.length ? out : [FALLBACK_IMG];
   }, [images, producto?.imagen_url]);
 
   // ✅ Slides del lightbox (SIEMPRE)
@@ -56,6 +96,7 @@ export default function QuickViewModal({
     return (imgList || []).map((src) => ({ src }));
   }, [imgList]);
 
+  // ✅ Si no está abierto, no render
   if (!isOpen || !producto) return null;
 
   const title =
@@ -64,9 +105,7 @@ export default function QuickViewModal({
     producto?.nombre_producto ||
     "Producto kawaii";
 
-  const rating = Number(
-    producto?.rating ?? producto?.calificacion_promedio ?? 4.8
-  );
+  const rating = Number(producto?.rating ?? producto?.calificacion_promedio ?? 4.8);
   const reviews = Number(producto?.reviews ?? producto?.total_resenas ?? 120);
 
   const basePrice =
@@ -74,16 +113,12 @@ export default function QuickViewModal({
       ? regularPrice
       : typeof price === "number"
       ? price
-      : Number(
-          producto?.precio_regular ?? producto?.precio ?? producto?.price ?? 0
-        ) || 0;
+      : Number(producto?.precio_regular ?? producto?.precio ?? producto?.price ?? 0) || 0;
 
   const finalPrice =
     typeof price === "number" && price > 0
       ? price
-      : Number(
-          producto?.precio_oferta ?? producto?.precio ?? producto?.price ?? 0
-        ) || 0;
+      : Number(producto?.precio_oferta ?? producto?.precio ?? producto?.price ?? 0) || 0;
 
   const hasOffer = basePrice > 0 && finalPrice > 0 && finalPrice < basePrice;
 
@@ -92,7 +127,7 @@ export default function QuickViewModal({
       ? Math.round(((basePrice - finalPrice) / basePrice) * 100)
       : discount || 0;
 
-  // ✅ NUEVO: parse simple a bullets (máx 6)
+  // ✅ bullets (máx 8)
   const descriptionBullets = (() => {
     const raw = (producto?.descripcion || "").toString().trim();
     if (!raw) return [];
@@ -117,7 +152,7 @@ export default function QuickViewModal({
     }
   };
 
-  // ✅ NUEVO: abrir zoom (lightbox)
+  // ✅ abrir lightbox
   const openLightboxAt = (idx) => {
     setSelectedImageIndex(idx);
     setIsLightboxOpen(true);
@@ -125,21 +160,14 @@ export default function QuickViewModal({
 
   const modalContent = (
     <>
-      {/* Animación suave para overlay + contenido */}
       <style>{`
         @keyframes qv-overlay-fade {
           0% { opacity: 0; }
           100% { opacity: 1; }
         }
         @keyframes qv-content-pop {
-          0% {
-            opacity: 0;
-            transform: translateY(18px) scale(0.96);
-          }
-          100% {
-            opacity: 1;
-            transform: translateY(0) scale(1);
-          }
+          0% { opacity: 0; transform: translateY(18px) scale(0.96); }
+          100% { opacity: 1; transform: translateY(0) scale(1); }
         }
       `}</style>
 
@@ -177,9 +205,8 @@ export default function QuickViewModal({
           </button>
 
           <div className="grid md:grid-cols-2 gap-0 md:gap-8">
-            {/* Columna izquierda: imágenes */}
+            {/* Izquierda: imágenes */}
             <div className="p-6 md:p-8 border-b md:border-b-0 md:border-r border-gray-200/70 space-y-4">
-              {/* Imagen principal */}
               <button
                 type="button"
                 onClick={() => openLightboxAt(selectedImageIndex)}
@@ -191,6 +218,9 @@ export default function QuickViewModal({
                     src={imgList[selectedImageIndex]}
                     alt={title}
                     className="w-full h-[260px] md:h-[320px] object-cover transition-transform duration-500 hover:scale-[1.03]"
+                    onError={(e) => (e.currentTarget.src = FALLBACK_IMG)}
+                    loading="lazy"
+                    decoding="async"
                   />
                 </div>
               </button>
@@ -219,6 +249,9 @@ export default function QuickViewModal({
                         src={img}
                         alt={`${title} ${idx + 1}`}
                         className="w-full h-full object-cover"
+                        onError={(e) => (e.currentTarget.src = FALLBACK_IMG)}
+                        loading="lazy"
+                        decoding="async"
                       />
                     </button>
                   ))}
@@ -226,24 +259,20 @@ export default function QuickViewModal({
               )}
             </div>
 
-            {/* Columna derecha: info producto */}
+            {/* Derecha: info */}
             <div className="p-6 md:p-8 space-y-6">
-              {/* Título + stock */}
               <div>
                 <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">
                   {title}
                 </h2>
 
-                {/* Rating */}
                 <div className="flex items-center gap-2 mb-2">
                   <div className="flex items-center">
                     {Array.from({ length: 5 }).map((_, i) => (
                       <FaStar
                         key={i}
                         className={`h-4 w-4 ${
-                          i < Math.floor(rating)
-                            ? "text-yellow-400"
-                            : "text-gray-300"
+                          i < Math.floor(rating) ? "text-yellow-400" : "text-gray-300"
                         }`}
                       />
                     ))}
@@ -253,7 +282,6 @@ export default function QuickViewModal({
                   </span>
                 </div>
 
-                {/* Stock */}
                 <p
                   className={`text-sm font-semibold ${
                     inStock ? "text-emerald-600" : "text-red-500"
@@ -263,7 +291,6 @@ export default function QuickViewModal({
                 </p>
               </div>
 
-              {/* Precios */}
               <div className="flex items-baseline gap-3">
                 <p className="text-2xl md:text-2xl text-purple-600">
                   S/ {finalPrice.toFixed(2)}
@@ -282,7 +309,6 @@ export default function QuickViewModal({
                 )}
               </div>
 
-              {/* Descripción (✅ bullets visuales) */}
               <div className="space-y-2 text-sm text-gray-700">
                 <h3 className="font-semibold text-gray-900">Descripción</h3>
 
@@ -301,29 +327,20 @@ export default function QuickViewModal({
                   </ul>
                 ) : (
                   <p className="leading-relaxed">
-                    Este adorable producto kawaii es perfecto para alegrar tu
-                    día. Fabricado con materiales de alta calidad y diseño único
-                    que te encantará. ¡Ideal para regalar o consentirte! 💕
+                    Este adorable producto kawaii es perfecto para alegrar tu día. 💕
                   </p>
                 )}
               </div>
 
-              {/* Cantidad */}
               <div>
-                <h3 className="text-gray-900 mb-2 text-sm font-medium">
-                  Cantidad
-                </h3>
+                <h3 className="text-gray-900 mb-2 text-sm font-medium">Cantidad</h3>
                 <div className="flex items-center gap-4">
                   <div className="flex items-center border border-gray-300 rounded-full overflow-hidden bg-white">
                     <button
                       type="button"
                       className={`
                         w-9 h-9 flex items-center justify-center text-lg hover:bg-gray-100
-                        ${
-                          quantity <= 1
-                            ? "text-gray-300 cursor-not-allowed"
-                            : "text-gray-700"
-                        }
+                        ${quantity <= 1 ? "text-gray-300 cursor-not-allowed" : "text-gray-700"}
                       `}
                       onClick={() => setQuantity((q) => Math.max(1, q - 1))}
                       disabled={quantity <= 1}
@@ -335,10 +352,7 @@ export default function QuickViewModal({
                     </span>
                     <button
                       type="button"
-                      className="
-                        w-9 h-9 flex items-center justify-center text-lg
-                        text-gray-700 hover:bg-gray-100
-                      "
+                      className="w-9 h-9 flex items-center justify-center text-lg text-gray-700 hover:bg-gray-100"
                       onClick={() => setQuantity((q) => q + 1)}
                     >
                       +
@@ -347,7 +361,6 @@ export default function QuickViewModal({
                 </div>
               </div>
 
-              {/* Botones acción */}
               <div className="flex flex-col sm:flex-row gap-3 pt-2">
                 <button
                   type="button"
@@ -386,34 +399,28 @@ export default function QuickViewModal({
                 </button>
               </div>
 
-              {/* Beneficios (envío / garantía) */}
               <div className="border-t border-gray-200 pt-5 space-y-3 text-sm">
                 <div className="flex items-start gap-3">
                   <FaTruck className="h-5 w-5 text-purple-600 mt-0.5" />
                   <div>
                     <p className="text-gray-900">
-                      Envío gratis en puntos centricos de Lima en todas tus
-                      compras
+                      Envío gratis en puntos centricos de Lima en todas tus compras
                     </p>
-                    <p className="text-xs text-gray-500">
-                      Entrega en 2–5 días hábiles
-                    </p>
+                    <p className="text-xs text-gray-500">Entrega en 2–5 días hábiles</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
                   <FaShieldAlt className="h-5 w-5 text-purple-600 mt-0.5" />
                   <div>
                     <p className="text-gray-900">Garantía de satisfacción</p>
-                    <p className="text-xs text-gray-500">
-                      Devoluciones dentro de 30 días
-                    </p>
+                    <p className="text-xs text-gray-500">Devoluciones dentro de 30 días</p>
                   </div>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* ✅ LIGHTBOX FULLSCREEN con Zoom real */}
+          {/* ✅ LIGHTBOX */}
           <Lightbox
             open={isLightboxOpen}
             close={() => setIsLightboxOpen(false)}

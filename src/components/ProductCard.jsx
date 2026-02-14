@@ -9,8 +9,9 @@ import QuickViewModal from "./QuickViewModal";
 
 import { Heart, ShoppingCart, Eye, Star, Sparkles } from "lucide-react";
 
-const API_APP = import.meta.env.VITE_API_URL || "http://localhost:3001";
-const API_BASE = `${API_APP}/api`;
+// ✅ IMPORTANTE: en producción NO queremos caer a localhost
+const API_APP = import.meta.env.VITE_API_URL; // ej: https://tu-backend.onrender.com
+const API_BASE = API_APP ? `${API_APP}/api` : "/api";
 const FALLBACK_IMG = "/img/no-image.png";
 
 // Helpers para URL de imagen
@@ -19,17 +20,28 @@ const pickUrl = (raw) => (typeof raw === "object" && raw !== null ? raw.url : ra
 
 function toFullUrl(raw) {
   const v = pickUrl(raw);
+
+  // inválido
   if (typeof v !== "string" || v.trim() === "" || isAbsoluteFsPath(v)) {
     return FALLBACK_IMG;
   }
 
   const s0 = v.replace(/\\/g, "/");
+
+  // ya es absoluta
   if (/^https?:\/\//i.test(s0)) return s0;
 
+  // ✅ rutas tipo /uploads/... deben ir al BACKEND
+  // Si no hay API_APP definido, devolvemos fallback (para evitar localhost roto en prod)
+  if (!API_APP) return FALLBACK_IMG;
+
+  // Si incluye /uploads/ en cualquier parte, lo recortamos desde ahí
   const upIdx = s0.toLowerCase().indexOf("/uploads/");
   if (upIdx >= 0) return `${API_APP}${s0.slice(upIdx)}`;
 
+  // si empieza con /, también lo servimos desde backend
   if (s0.startsWith("/")) return `${API_APP}${s0}`;
+
   return `${API_APP}/${s0}`;
 }
 
@@ -172,6 +184,9 @@ export default function ProductCard({ producto, onAddedToCart }) {
 
     (async () => {
       try {
+        // ✅ si no hay API_APP, no intentes notificar (evita requests rotos)
+        if (!API_APP) return;
+
         await fetch(`${API_BASE}/notificaciones/stock-bajo`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -348,7 +363,7 @@ export default function ProductCard({ producto, onAddedToCart }) {
             </span>
           </div>
 
-          {/* Nombre (altura consistente sin “hueco morado”) */}
+          {/* Nombre */}
           <h3
             className="
               text-white text-sm md:text-base
@@ -417,7 +432,7 @@ export default function ProductCard({ producto, onAddedToCart }) {
         </div>
       </div>
 
-      {/* QUICK VIEW MODAL (reemplaza al ImageZoom antiguo) */}
+      {/* QUICK VIEW MODAL */}
       <QuickViewModal
         isOpen={quickOpen}
         onClose={() => setQuickOpen(false)}
