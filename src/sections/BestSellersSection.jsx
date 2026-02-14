@@ -8,6 +8,65 @@ import { ProductFilters } from "../figma-ui/ProductFilters";
 const API_APP = import.meta.env.VITE_API_URL || "http://localhost:3001";
 const API_BASE = `${API_APP}/api`;
 
+/** =========================
+ *  ✅ FIX: Normalizar rutas de imágenes
+ *  - Si viene "1765xxxx.webp" -> "/uploads/productos/1765xxxx.webp"
+ *  - Si viene "uploads/..." -> "/uploads/..."
+ *  - Si viene "productos/..." -> "/uploads/productos/..."
+ *  - Si viene URL absoluta -> se deja
+ *  ========================= */
+const isAbsUrl = (s) => /^https?:\/\//i.test(String(s || ""));
+const normalizeImgPath = (raw) => {
+  if (!raw || typeof raw !== "string") return raw;
+
+  const s = raw.replace(/\\/g, "/").trim();
+  if (!s) return raw;
+
+  // URL absoluta: OK
+  if (isAbsUrl(s)) return s;
+
+  // ya es ruta web
+  if (s.startsWith("/uploads/")) return s;
+
+  // casos comunes
+  if (s.startsWith("uploads/")) return `/${s}`;
+  if (s.startsWith("/productos/")) return `/uploads${s}`;
+  if (s.startsWith("productos/")) return `/uploads/${s}`;
+  if (s.startsWith("/")) return s;
+
+  // si es solo filename (sin /) y parece imagen -> asumimos /uploads/productos/
+  const looksLikeFile = !s.includes("/") && /\.(png|jpe?g|webp|gif|svg)$/i.test(s);
+  if (looksLikeFile) return `/uploads/productos/${s}`;
+
+  // por defecto: lo dejamos
+  return s;
+};
+
+const normalizeProductoImages = (p) => {
+  if (!p || typeof p !== "object") return p;
+
+  const out = { ...p };
+
+  // imagen_url principal
+  if (typeof out.imagen_url === "string") {
+    out.imagen_url = normalizeImgPath(out.imagen_url);
+  }
+
+  // galería
+  if (Array.isArray(out.imagenes)) {
+    out.imagenes = out.imagenes.map((img) => {
+      if (typeof img === "string") return normalizeImgPath(img);
+      if (img && typeof img === "object") {
+        const url = normalizeImgPath(img.url || img.src);
+        return { ...img, url };
+      }
+      return img;
+    });
+  }
+
+  return out;
+};
+
 function SkeletonCard() {
   return (
     <div className="rounded-2xl overflow-hidden bg-gradient-to-br from-purple-950/80 to-fuchsia-950/80 border border-fuchsia-500/20 animate-pulse">
@@ -30,7 +89,7 @@ export default function BestSellersSection({ onAddedToCart }) {
   // estado de filtros que viene de ProductFilters
   const [filters, setFilters] = useState({
     sortBy: "popular",
-    categories: [],       // ahora son IDs de categoría (string)
+    categories: [], // IDs (string)
     priceRange: [0, 500],
     ratingAtLeast: null,
     inStock: false,
@@ -76,9 +135,14 @@ export default function BestSellersSection({ onAddedToCart }) {
         const bust = `bust=${Date.now()}`;
 
         // 1) Más vendidos
-        const resMV = await fetch(`${API_BASE}/productos/mas-vendidos?${bust}`);
+        const resMV = await fetch(`${API_BASE}/productos/mas-vendidos?${bust}`, {
+          cache: "no-store",
+        });
         const dataMV = await resMV.json();
-        const masVendidos = Array.isArray(dataMV) ? dataMV : [];
+        const masVendidosRaw = Array.isArray(dataMV) ? dataMV : [];
+
+        // ✅ normalizamos imágenes
+        const masVendidos = masVendidosRaw.map(normalizeProductoImages);
 
         // Si ya hay suficiente, listo
         if (masVendidos.length >= 8) {
@@ -91,13 +155,18 @@ export default function BestSellersSection({ onAddedToCart }) {
           cache: "no-store",
         });
         const dataDest = await resDest.json();
-        const destacados = Array.isArray(dataDest) ? dataDest : [];
+        const destacadosRaw = Array.isArray(dataDest) ? dataDest : [];
 
-        const merged = uniqById([...masVendidos, ...destacados]);
+        // ✅ normalizamos imágenes
+        const destacados = destacadosRaw.map(normalizeProductoImages);
 
-        // Garantiza mínimo “vista” (8). Si tienes menos en BD, mostrará lo que exista.
+        const merged = uniqById([...masVendidos, ...destacados]).map(
+          normalizeProductoImages
+        );
+
         if (alive) setItems(merged.slice(0, 12));
-      } catch {
+      } catch (e) {
+        console.error("BestSellersSection fetch error:", e);
         if (alive) setItems([]);
       } finally {
         if (alive) setLoading(false);
@@ -106,7 +175,6 @@ export default function BestSellersSection({ onAddedToCart }) {
 
     return () => (alive = false);
   }, [visible]);
-
 
   // === APLICAR FILTROS Y ORDEN ===
   const filteredItems = React.useMemo(() => {
@@ -134,7 +202,6 @@ export default function BestSellersSection({ onAddedToCart }) {
     // CATEGORÍAS
     if (categories.length > 0) {
       result = result.filter((p) => {
-        // 1) Preferimos filtrar por ID real si viene del backend
         const catIdRaw = p.categoria_id ?? p.categoriaId ?? null;
 
         if (catIdRaw != null) {
@@ -142,19 +209,13 @@ export default function BestSellersSection({ onAddedToCart }) {
           return categories.includes(catId);
         }
 
-        // 2) Fallback: heurístico por nombre (por si algún producto viejo no tiene categoria_id)
-        const catName = (
-          p.categoria_nombre ||
-          p.categoria ||
-          ""
-        )
+        const catName = (p.categoria_nombre || p.categoria || "")
           .toString()
           .toLowerCase();
 
         if (!catName) return false;
 
         return categories.some((id) => {
-          // estos IDs ya no se usan como tal, pero mantenemos compatibilidad
           if (id === "plush") return catName.includes("peluch");
           if (id === "accessories") return catName.includes("accesor");
           if (id === "stationery")
@@ -166,7 +227,6 @@ export default function BestSellersSection({ onAddedToCart }) {
               catName.includes("tecnología")
             );
           if (id === "decor") return catName.includes("deco");
-          // si el ID es un número como "3", ya habrá pasado por el caso de arriba
           return false;
         });
       });
@@ -185,12 +245,11 @@ export default function BestSellersSection({ onAddedToCart }) {
       result = result.filter((p) => !!p.en_oferta);
     }
 
-    // "Nuevos": si no hay campo, no filtramos nada especial
+    // Nuevos
     if (isNew) {
       result = result.filter((p) => {
         if (typeof p.es_nuevo !== "undefined") return !!p.es_nuevo;
 
-        // fallback: si hay fecha, consideramos últimos 30 días como nuevos
         if (p.created_at || p.creado_en) {
           const fecha = new Date(p.created_at || p.creado_en);
           const ahora = new Date();
@@ -203,30 +262,23 @@ export default function BestSellersSection({ onAddedToCart }) {
       });
     }
 
-    // Rating mínimo (si hay campo)
+    // Rating mínimo
     if (ratingAtLeast != null) {
       result = result.filter((p) => {
-        const rating = Number(
-          p.rating ?? p.valoracion ?? p.puntuacion ?? NaN
-        );
-        if (Number.isNaN(rating)) return true; // si no hay rating, no lo excluimos
+        const rating = Number(p.rating ?? p.valoracion ?? p.puntuacion ?? NaN);
+        if (Number.isNaN(rating)) return true;
         return rating >= ratingAtLeast;
       });
     }
 
     // Orden
     const getPrice = (p) => Number(p.precio ?? p.price ?? 0) || 0;
-    const getRating = (p) =>
-      Number(p.rating ?? p.valoracion ?? p.puntuacion ?? 0) || 0;
+    const getRating = (p) => Number(p.rating ?? p.valoracion ?? p.puntuacion ?? 0) || 0;
 
-    if (sortBy === "price-low") {
-      result.sort((a, b) => getPrice(a) - getPrice(b));
-    } else if (sortBy === "price-high") {
-      result.sort((a, b) => getPrice(b) - getPrice(a));
-    } else if (sortBy === "rating") {
-      result.sort((a, b) => getRating(b) - getRating(a));
-    } else if (sortBy === "newest") {
-      // si no tienes fecha, usamos id como aproximación
+    if (sortBy === "price-low") result.sort((a, b) => getPrice(a) - getPrice(b));
+    else if (sortBy === "price-high") result.sort((a, b) => getPrice(b) - getPrice(a));
+    else if (sortBy === "rating") result.sort((a, b) => getRating(b) - getRating(a));
+    else if (sortBy === "newest") {
       result.sort((a, b) => {
         const fa = new Date(a.created_at || a.creado_en || 0).getTime();
         const fb = new Date(b.created_at || b.creado_en || 0).getTime();
@@ -234,7 +286,7 @@ export default function BestSellersSection({ onAddedToCart }) {
         return (b.id || 0) - (a.id || 0);
       });
     }
-    // "popular" deja el orden original del endpoint (más vendidos)
+    // popular: dejamos orden del endpoint
 
     return result;
   }, [items, filters]);
@@ -242,10 +294,7 @@ export default function BestSellersSection({ onAddedToCart }) {
   const count = filteredItems.length;
 
   return (
-    <section
-      ref={ref}
-      className="bg-gradient-to-b from-black via-purple-900/100 to-black py-0 sm:py-0"
-    >
+    <section ref={ref} className="bg-gradient-to-b from-black via-purple-900/100 to-black py-0 sm:py-0">
       <div className="max-w-6xl lg:max-w-7xl mx-auto px-4 sm:px-6">
         {/* === ENCABEZADO === */}
         <header className="text-center mb-10 sm:mb-12">
@@ -254,14 +303,13 @@ export default function BestSellersSection({ onAddedToCart }) {
             <h2 className="text-3xl md:text-4xl text-white">Más Vendidos</h2>
           </div>
 
-        <p className="text-gray-400 text-sm sm:text-base">
+          <p className="text-gray-400 text-sm sm:text-base">
             Los productos favoritos de nuestra comunidad kawaii 💕
           </p>
         </header>
 
         {/* === Filtros + grilla === */}
         <div className="grid gap-8 lg:grid-cols-[290px,1fr] items-start">
-          {/* aquí conectamos los filtros */}
           <ProductFilters onFiltersChange={setFilters} />
 
           <div className="space-y-4">
@@ -269,9 +317,7 @@ export default function BestSellersSection({ onAddedToCart }) {
             <div className="flex items-center justify-between text-xs sm:text-sm text-purple-100/80 px-1">
               <span>
                 Mostrando{" "}
-                <span className="font-semibold text-fuchsia-300">
-                  {count}
-                </span>{" "}
+                <span className="font-semibold text-fuchsia-300">{count}</span>{" "}
                 productos
               </span>
             </div>
@@ -333,47 +379,26 @@ export default function BestSellersSection({ onAddedToCart }) {
 
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
             {[
-              {
-                name: "Peluches",
-                emoji: "🧸",
-                color: "from-fuchsia-600 to-pink-600",
-              },
-              {
-                name: "Papelería",
-                emoji: "✏️",
-                color: "from-purple-600 to-fuchsia-600",
-              },
-              {
-                name: "Accesorios",
-                emoji: "👒",
-                color: "from-pink-600 to-fuchsia-600",
-              },
-              {
-                name: "Decoración",
-                emoji: "🏡",
-                color: "from-fuchsia-600 to-purple-600",
-              },
-              {
-                name: "Tecnología",
-                emoji: "🎧",
-                color: "from-pink-600 to-purple-600",
-              },
+              { name: "Peluches", emoji: "🧸", color: "from-fuchsia-600 to-pink-600" },
+              { name: "Papelería", emoji: "✏️", color: "from-purple-600 to-fuchsia-600" },
+              { name: "Accesorios", emoji: "👒", color: "from-pink-600 to-fuchsia-600" },
+              { name: "Decoración", emoji: "🏡", color: "from-fuchsia-600 to-purple-600" },
+              { name: "Tecnología", emoji: "🎧", color: "from-pink-600 to-purple-600" },
             ].map((c, i) => (
               <button
                 key={i}
                 className="
                   group relative overflow-hidden
-                  bg-gradient-to-br from-purple-900/30 to-fuchsia-900/30 
-                  backdrop-blur-sm border border-fuchsia-500/20 rounded-2xl p-6 
-                  shadow-md hover:shadow-2xl hover:shadow-fuchsia-500/20 
+                  bg-gradient-to-br from-purple-900/30 to-fuchsia-900/30
+                  backdrop-blur-sm border border-fuchsia-500/20 rounded-2xl p-6
+                  shadow-md hover:shadow-2xl hover:shadow-fuchsia-500/20
                   hover:border-fuchsia-500/50 transition-all duration-300
                   hover:scale-105
                 "
               >
                 <div
                   className={`absolute inset-0 bg-gradient-to-br ${c.color} opacity-0 group-hover:opacity-20 transition-opacity`}
-                ></div>
-
+                />
                 <div className="relative text-center space-y-2">
                   <div className="text-4xl mb-2 transform group-hover:scale-110 transition-transform">
                     {c.emoji}
