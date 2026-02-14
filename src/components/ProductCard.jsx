@@ -6,58 +6,84 @@ import { FavoritesContext } from "../context/FavoritesContext";
 import { toast } from "react-toastify";
 
 import QuickViewModal from "./QuickViewModal";
-
 import { Heart, ShoppingCart, Eye, Star, Sparkles } from "lucide-react";
 
 // ✅ IMPORTANTE: en producción NO queremos caer a localhost
-const API_APP = import.meta.env.VITE_API_URL; // ej: https://tu-backend.onrender.com
+const API_APP = import.meta.env.VITE_API_URL; // ej: https://kokoshop-backend.onrender.com
 const API_BASE = API_APP ? `${API_APP}/api` : "/api";
 const FALLBACK_IMG = "/img/no-image.png";
 
 // Helpers para URL de imagen
 const isAbsoluteFsPath = (s) => /[A-Za-z]:[\\/]/.test(s || "");
-const pickUrl = (raw) => (typeof raw === "object" && raw !== null ? raw.url : raw);
+const pickUrl = (raw) =>
+  typeof raw === "object" && raw !== null ? raw.url ?? raw.src ?? "" : raw;
 
 function toFullUrl(raw) {
   const v = pickUrl(raw);
 
+  // inválido
   if (typeof v !== "string" || v.trim() === "" || isAbsoluteFsPath(v)) {
     return FALLBACK_IMG;
   }
 
   const s0 = v.replace(/\\/g, "/").trim();
 
-  // Ya es absoluta
+  // ya es absoluta
   if (/^https?:\/\//i.test(s0)) return s0;
 
+  // ✅ rutas tipo /uploads/... deben ir al BACKEND
   if (!API_APP) return FALLBACK_IMG;
 
-  // 🔥 NUEVO: detecta uploads aunque no tenga slash inicial
-  if (s0.toLowerCase().startsWith("uploads/")) {
-    return `${API_APP}/${s0}`;
-  }
+  // Si incluye /uploads/ en cualquier parte, lo recortamos desde ahí
+  const upIdx = s0.toLowerCase().indexOf("/uploads/");
+  if (upIdx >= 0) return `${API_APP}${s0.slice(upIdx)}`;
 
-  if (s0.toLowerCase().includes("/uploads/")) {
-    const idx = s0.toLowerCase().indexOf("/uploads/");
-    return `${API_APP}${s0.slice(idx)}`;
-  }
-
-  if (s0.startsWith("/")) {
-    return `${API_APP}${s0}`;
-  }
+  // si empieza con /, también lo servimos desde backend
+  if (s0.startsWith("/")) return `${API_APP}${s0}`;
 
   return `${API_APP}/${s0}`;
 }
 
+// ✅ NUEVO: obtener imagen principal de forma robusta
+function getPrincipalImage(producto) {
+  if (!producto) return null;
+
+  // 1) campos posibles que puede devolver el backend
+  const candidates = [
+    producto.imagen_url,
+    producto.imagenUrl,
+    producto.image_url,
+    producto.imageUrl,
+    producto.imagen,
+    producto.url_imagen,
+    producto.urlImagen,
+    producto.foto,
+    producto.foto_url,
+  ].filter(Boolean);
+
+  if (candidates.length > 0) return candidates[0];
+
+  // 2) si no hay principal, usar primera imagen de galería
+  const gal = Array.isArray(producto.imagenes) ? producto.imagenes : [];
+  if (gal.length > 0) {
+    // prioriza es_principal si existe
+    const principal = gal.find((x) => x?.es_principal) || gal[0];
+    return pickUrl(principal);
+  }
+
+  return null;
+}
 
 // Normalización de precios (soporta varios nombres de campos)
 function normalizePricing(p) {
   const current = Number(p.price ?? p.precio ?? p.precio_oferta ?? 0);
 
-  const regularRaw = p.regular_price ?? p.precio_regular ?? p.precio_anterior ?? undefined;
+  const regularRaw =
+    p.regular_price ?? p.precio_regular ?? p.precio_anterior ?? undefined;
   const regularNum = regularRaw != null ? Number(regularRaw) : undefined;
 
-  const en_oferta = Boolean(p.en_oferta) && regularNum != null && regularNum > current;
+  const en_oferta =
+    Boolean(p.en_oferta) && regularNum != null && regularNum > current;
 
   const regular_price = regularNum != null ? regularNum : current;
   const ahorro = Math.max(0, regular_price - current);
@@ -75,7 +101,8 @@ function normalizePricing(p) {
 
 export default function ProductCard({ producto, onAddedToCart }) {
   const { addToCart } = useContext(CartContext);
-  const { isFavorite, addToFavorites, removeFromFavorites } = useContext(FavoritesContext);
+  const { isFavorite, addToFavorites, removeFromFavorites } =
+    useContext(FavoritesContext);
 
   // ========= Galería ordenada =========
   const galeriaOrdenada = useMemo(() => {
@@ -102,8 +129,9 @@ export default function ProductCard({ producto, onAddedToCart }) {
     });
   }, [producto.imagenes]);
 
-  // Imagen principal
-  const principalRaw = producto.imagen_url ?? null;
+  // ✅ Imagen principal robusta (antes solo imagen_url)
+  const principalRaw = useMemo(() => getPrincipalImage(producto), [producto]);
+
   const imageUrl = toFullUrl(principalRaw);
 
   // Precios
@@ -155,7 +183,7 @@ export default function ProductCard({ producto, onAddedToCart }) {
     }
   };
 
-  // Agregar al carrito (recibe cantidad desde el QuickView si hace falta)
+  // Agregar al carrito
   const handleAdd = (qty = 1) => {
     const quantity = Math.max(1, Number(qty) || 1);
 
@@ -167,7 +195,7 @@ export default function ProductCard({ producto, onAddedToCart }) {
       regular_price,
       en_oferta,
       quantity,
-      imagen_url: principalRaw,
+      imagen_url: principalRaw, // ✅ guardamos lo robusto
       stock_actual,
     });
 
@@ -189,7 +217,6 @@ export default function ProductCard({ producto, onAddedToCart }) {
 
     (async () => {
       try {
-        // ✅ si no hay API_APP, no intentes notificar (evita requests rotos)
         if (!API_APP) return;
 
         await fetch(`${API_BASE}/notificaciones/stock-bajo`, {
@@ -210,8 +237,6 @@ export default function ProductCard({ producto, onAddedToCart }) {
     })();
   }, [stockBajo, producto.id, producto.nombre, stock_actual, stock_minimo]);
 
-  // ========== RENDER — ESTILO FIGMA ==========
-
   return (
     <>
       <div
@@ -223,55 +248,30 @@ export default function ProductCard({ producto, onAddedToCart }) {
           border-2 border-fuchsia-500/20 hover:border-fuchsia-500/50
         "
       >
-        {/* Badges esquina superior izquierda */}
+        {/* Badges */}
         <div className="absolute top-3 left-3 z-20 flex flex-col gap-2">
           {isNew && (
-            <span
-              className="
-                inline-flex items-center justify-center
-                px-2 py-1 text-xs rounded-full
-                bg-gradient-to-r from-fuchsia-600 to-pink-500
-                text-white border-2 border-black shadow-lg
-              "
-            >
+            <span className="inline-flex items-center justify-center px-2 py-1 text-xs rounded-full bg-gradient-to-r from-fuchsia-600 to-pink-500 text-white border-2 border-black shadow-lg">
               <Sparkles className="h-3 w-3 mr-1" />
               Nuevo
             </span>
           )}
 
           {discount && !sinStock && (
-            <span
-              className="
-                inline-flex items-center justify-center
-                px-2 py-1 text-xs rounded-full
-                bg-gradient-to-r from-pink-600 to-fuchsia-600
-                text-white border-2 border-black shadow-lg
-              "
-            >
+            <span className="inline-flex items-center justify-center px-2 py-1 text-xs rounded-full bg-gradient-to-r from-pink-600 to-fuchsia-600 text-white border-2 border-black shadow-lg">
               -{discount}%
             </span>
           )}
 
           {sinStock && (
-            <span
-              className="
-                inline-flex items-center justify-center
-                px-2 py-1 text-xs rounded-full
-                bg-gray-900 text-white border-2 border-black shadow-lg
-              "
-            >
+            <span className="inline-flex items-center justify-center px-2 py-1 text-xs rounded-full bg-gray-900 text-white border-2 border-black shadow-lg">
               Agotado
             </span>
           )}
 
           {!sinStock && stockBajo && (
             <span
-              className="
-                inline-flex items-center justify-center
-                px-2 py-1 text-[11px] rounded-full
-                bg-amber-300 text-black border-2 border-black
-                shadow-lg font-semibold
-              "
+              className="inline-flex items-center justify-center px-2 py-1 text-[11px] rounded-full bg-amber-300 text-black border-2 border-black shadow-lg font-semibold"
               title={`Stock mínimo: ${stock_minimo}`}
             >
               Stock bajo
@@ -279,16 +279,11 @@ export default function ProductCard({ producto, onAddedToCart }) {
           )}
         </div>
 
-        {/* Botón favoritos */}
+        {/* Favoritos */}
         <button
           type="button"
           onClick={handleFavoriteToggle}
-          className="
-            absolute top-3 right-3 z-20
-            bg-black/80 backdrop-blur-sm rounded-full p-2
-            shadow-lg hover:scale-110
-            transition-transform border border-fuchsia-500/30
-          "
+          className="absolute top-3 right-3 z-20 bg-black/80 backdrop-blur-sm rounded-full p-2 shadow-lg hover:scale-110 transition-transform border border-fuchsia-500/30"
           aria-label="Agregar a favoritos"
         >
           <Heart
@@ -300,45 +295,26 @@ export default function ProductCard({ producto, onAddedToCart }) {
           />
         </button>
 
-        {/* Imagen + overlay Quick View */}
+        {/* Imagen */}
         <div className="relative aspect-square overflow-hidden bg-gradient-to-br from-black to-purple-900">
           <img
             src={imageUrl}
             alt={producto.nombre}
-            className="
-              w-full h-full object-cover
-              transition-transform duration-500
-              group-hover:scale-110
-            "
+            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
             onError={(e) => {
               e.currentTarget.src = FALLBACK_IMG;
             }}
             loading="lazy"
             decoding="async"
-            onClick={() => setQuickOpen(true)} // abre QuickViewModal
+            onClick={() => setQuickOpen(true)}
           />
 
-          {/* Overlay Vista Rápida */}
-          <div
-            className="
-              absolute inset-0 bg-black/40 backdrop-blur-sm
-              flex items-center justify-center
-              transition-opacity duration-300
-              opacity-0 group-hover:opacity-100
-              pointer-events-none group-hover:pointer-events-auto
-            "
-          >
+          {/* Overlay */}
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center transition-opacity duration-300 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto">
             <button
               type="button"
               onClick={() => setQuickOpen(true)}
-              className="
-                inline-flex items-center px-4 py-2 text-sm
-                bg-gradient-to-r from-fuchsia-600 to-pink-500
-                text-white rounded-full shadow-xl
-                hover:from-fuchsia-700 hover:to-pink-600
-                transform hover:scale-105
-                transition-all border-2 border-white/20
-              "
+              className="inline-flex items-center px-4 py-2 text-sm bg-gradient-to-r from-fuchsia-600 to-pink-500 text-white rounded-full shadow-xl hover:from-fuchsia-700 hover:to-pink-600 transform hover:scale-105 transition-all border-2 border-white/20"
             >
               <Eye className="h-4 w-4 mr-2" />
               Vista Rápida
@@ -346,9 +322,8 @@ export default function ProductCard({ producto, onAddedToCart }) {
           </div>
         </div>
 
-        {/* Información del producto */}
+        {/* Info */}
         <div className="p-3 md:p-4 space-y-2 md:space-y-2">
-          {/* Rating */}
           <div className="flex items-center gap-1 md:gap-2">
             <div className="flex items-center">
               {Array.from({ length: 5 }).map((_, i) => (
@@ -363,43 +338,26 @@ export default function ProductCard({ producto, onAddedToCart }) {
               ))}
             </div>
             <span className="text-xs md:text-sm text-gray-400">
-              {rating.toFixed(1)}{" "}
-              <span className="text-gray-500">({reviews})</span>
+              {rating.toFixed(1)} <span className="text-gray-500">({reviews})</span>
             </span>
           </div>
 
-          {/* Nombre */}
           <h3
-            className="
-              text-white text-sm md:text-base
-              kokori-clamp-2
-              leading-snug
-              min-h-[2.6rem] md:min-h-[3rem]
-              group-hover:text-fuchsia-400
-              transition-colors
-            "
+            className="text-white text-sm md:text-base kokori-clamp-2 leading-snug min-h-[2.6rem] md:min-h-[3rem] group-hover:text-fuchsia-400 transition-colors"
             title={producto.nombre}
           >
             {producto.nombre}
           </h3>
 
-          {/* Descripción corta (solo desktop) */}
           {producto.descripcion && (
             <p
-              className="
-                text-xs md:text-sm text-gray-400
-                kokori-clamp-2
-                hidden md:block
-                leading-snug
-                min-h-[2.5rem]
-              "
+              className="text-xs md:text-sm text-gray-400 kokori-clamp-2 hidden md:block leading-snug min-h-[2.5rem]"
               title={producto.descripcion}
             >
               {producto.descripcion}
             </p>
           )}
 
-          {/* Precios */}
           <div className="flex items-baseline gap-2">
             <span className="text-xl md:text-2xl text-fuchsia-400">
               S/ {price.toFixed(2)}
@@ -411,7 +369,6 @@ export default function ProductCard({ producto, onAddedToCart }) {
             )}
           </div>
 
-          {/* Botón agregar al carrito */}
           <button
             type="button"
             onClick={() => handleAdd(1)}
@@ -437,7 +394,7 @@ export default function ProductCard({ producto, onAddedToCart }) {
         </div>
       </div>
 
-      {/* QUICK VIEW MODAL */}
+      {/* QUICK VIEW */}
       <QuickViewModal
         isOpen={quickOpen}
         onClose={() => setQuickOpen(false)}
@@ -456,12 +413,6 @@ export default function ProductCard({ producto, onAddedToCart }) {
         .kokori-clamp-2 {
           display: -webkit-box;
           -webkit-line-clamp: 2;
-          -webkit-box-orient: vertical;
-          overflow: hidden;
-        }
-        .kokori-clamp-3 {
-          display: -webkit-box;
-          -webkit-line-clamp: 3;
           -webkit-box-orient: vertical;
           overflow: hidden;
         }
