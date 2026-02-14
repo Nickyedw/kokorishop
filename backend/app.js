@@ -1,159 +1,147 @@
 // app.js
-const express = require('express');
-const path = require('path');
-const cors = require('cors');
-const morgan = require('morgan');
-require('dotenv').config();
-const { query } = require('./db');
+const express = require("express");
+const path = require("path");
+const cors = require("cors");
+const morgan = require("morgan");
+require("dotenv").config();
+const { query } = require("./db");
 
-
-// IMPORTA el façade de correo
-const { verifyMailer, sendMail } = require('./services/mailer');
-
-// ⬇️ NEW: rate limit
-const rateLimit = require('express-rate-limit');
+const { verifyMailer, sendMail } = require("./services/mailer");
+const rateLimit = require("express-rate-limit");
 
 const app = express();
-app.set('trust proxy', 1); // Render/NGINX
+app.set("trust proxy", 1);
+
+// ✅ IMPORTANTE: servir uploads desde disco persistente si existe
+// En Render configura: UPLOADS_DIR=/var/data/uploads
+const UPLOADS_DIR = process.env.UPLOADS_DIR
+  ? path.resolve(process.env.UPLOADS_DIR)
+  : path.join(__dirname, "uploads");
+
+console.log("📦 UPLOADS_DIR =>", UPLOADS_DIR);
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: 'Demasiadas solicitudes de autenticación. Intenta más tarde.' },
+  message: { error: "Demasiadas solicitudes de autenticación. Intenta más tarde." },
 });
 
 /* =========================
    CORS
    ========================= */
-
-// Dominios que SIEMPRE queremos permitir, además de lo que venga en CORS_ORIGIN
 const extraOrigins = [
-  'https://kokorishop.vercel.app',
-  'https://kokorishop.com',
-  'https://www.kokorishop.com',
+  "https://kokorishop.vercel.app",
+  "https://kokorishop.com",
+  "https://www.kokorishop.com",
 ];
 
-// Tomamos la env CORS_ORIGIN y la combinamos con extraOrigins
-const allowedOrigins = (process.env.CORS_ORIGIN || '')
-  .split(',')
-  .map(s => s.trim())
+const allowedOrigins = (process.env.CORS_ORIGIN || "")
+  .split(",")
+  .map((s) => s.trim())
   .filter(Boolean)
   .concat(extraOrigins);
 
-console.log('[CORS] allowedOrigins:', allowedOrigins);
+console.log("[CORS] allowedOrigins:", allowedOrigins);
 
 app.use(
   cors({
     origin: (origin, cb) => {
-      // Peticiones sin origin (curl, Postman, etc.) -> permitir
-      if (!origin) {
-        return cb(null, true);
-      }
-
-      // ¿Está el origin en la lista permitida?
+      if (!origin) return cb(null, true);
       const isAllowed = allowedOrigins.includes(origin);
-
-      if (isAllowed) {
-        return cb(null, true);
-      }
-
-      console.error('[CORS] origin NO permitido:', origin, 'allowed:', allowedOrigins);
-      return cb(new Error('CORS: origin no permitido: ' + origin));
+      if (isAllowed) return cb(null, true);
+      console.error("[CORS] origin NO permitido:", origin, "allowed:", allowedOrigins);
+      return cb(new Error("CORS: origin no permitido: " + origin));
     },
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-    exposedHeaders: ['Content-Disposition'],
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    exposedHeaders: ["Content-Disposition"],
   })
 );
 
-// Preflight
 app.options(/.*/, cors());
-
 
 /* =========================
    Middlewares
    ========================= */
-app.use(morgan('dev'));
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(morgan("dev"));
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
 /* =========================
    Estáticos
    ========================= */
+// ✅ CAMBIO CLAVE: servir /uploads desde UPLOADS_DIR (persistente)
 app.use(
-  '/uploads',
-  express.static(path.join(__dirname, 'uploads'), {
-    maxAge: '7d',
-    setHeaders: (res) => res.setHeader('X-Content-Type-Options', 'nosniff'),
+  "/uploads",
+  express.static(UPLOADS_DIR, {
+    maxAge: "7d",
+    setHeaders: (res) => res.setHeader("X-Content-Type-Options", "nosniff"),
   })
 );
-app.use('/pdfs', express.static(path.join(__dirname, 'pdfs'), { maxAge: '1d' }));
-app.use('/assets', express.static(path.join(__dirname, 'assets'), { maxAge: '30d' }));
+
+app.use("/pdfs", express.static(path.join(__dirname, "pdfs"), { maxAge: "1d" }));
+app.use("/assets", express.static(path.join(__dirname, "assets"), { maxAge: "30d" }));
 
 /* =========================
    Depuración
    ========================= */
 app.use((req, _res, next) => {
-  console.log('DEBUG', req.method, req.url);
+  console.log("DEBUG", req.method, req.url);
   next();
 });
 
 /* =========================
    Rutas API
    ========================= */
-app.use('/api/auth/', authLimiter);
+app.use("/api/auth/", authLimiter);
 
-// Routers
-const authRoutes = require('./routes/auth');
-const productosRouter = require('./routes/productos');
-const pedidosRouter = require('./routes/pedidos');
-const comprobanteRoutes = require('./routes/comprobantes');
-const categoriaRoutes = require('./routes/categoriaRoutes');
-const opcionesEntregaRoutes = require('./routes/opcionesEntrega');
-const usuariosRouter = require('./routes/usuarios');
-const metodosPago = require('./routes/metodosPago');
-const notificacionesRouter = require('./routes/notificaciones.router');
+const authRoutes = require("./routes/auth");
+const productosRouter = require("./routes/productos");
+const pedidosRouter = require("./routes/pedidos");
+const comprobanteRoutes = require("./routes/comprobantes");
+const categoriaRoutes = require("./routes/categoriaRoutes");
+const opcionesEntregaRoutes = require("./routes/opcionesEntrega");
+const usuariosRouter = require("./routes/usuarios");
+const metodosPago = require("./routes/metodosPago");
+const notificacionesRouter = require("./routes/notificaciones.router");
 
-app.use('/api/auth', authRoutes);
-app.use('/api/usuarios', usuariosRouter);
-app.use('/api/productos', productosRouter);
-app.use('/productos', productosRouter);
-app.use('/api/pedidos', pedidosRouter);
-app.use('/comprobantes', comprobanteRoutes);
-app.use('/api/categorias', categoriaRoutes);
-//app.use('/categorias', categoriaRoutes);
-app.use('/api', opcionesEntregaRoutes);
-app.use('/api/metodos_pago', metodosPago);
-app.use('/api/notificaciones', notificacionesRouter);
+app.use("/api/auth", authRoutes);
+app.use("/api/usuarios", usuariosRouter);
+app.use("/api/productos", productosRouter);
+app.use("/productos", productosRouter);
+app.use("/api/pedidos", pedidosRouter);
+app.use("/comprobantes", comprobanteRoutes);
+app.use("/api/categorias", categoriaRoutes);
+app.use("/api", opcionesEntregaRoutes);
+app.use("/api/metodos_pago", metodosPago);
+app.use("/api/notificaciones", notificacionesRouter);
 
 /* =========================
    Health / Root
    ========================= */
-app.get('/', (_req, res) => res.send('🚀 API funcionando correctamente'));
-app.get('/health', (_req, res) => res.status(200).json({ ok: true, ts: Date.now() }));
+app.get("/", (_req, res) => res.send("🚀 API funcionando correctamente"));
+app.get("/health", (_req, res) => res.status(200).json({ ok: true, ts: Date.now() }));
 
-app.get('/health/db', async (_req, res) => {
+app.get("/health/db", async (_req, res) => {
   try {
-    const { rows } = await query('SELECT NOW() as now');
+    const { rows } = await query("SELECT NOW() as now");
     res.json({ ok: true, now: rows[0].now });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message });
   }
 });
 
-// Health email: si usas brevo_api responde OK; si no, verifica SMTP
-app.get('/health/email', async (_req, res) => {
+app.get("/health/email", async (_req, res) => {
   try {
-    const prefer = (process.env.EMAIL_TRANSPORT || 'auto').toLowerCase();
-    if (prefer === 'brevo_api') {
-      return res.json({ ok: true, transport: 'brevo_api' });
-    }
+    const prefer = (process.env.EMAIL_TRANSPORT || "auto").toLowerCase();
+    if (prefer === "brevo_api") return res.json({ ok: true, transport: "brevo_api" });
+
     const ok = await verifyMailer();
-    if (ok) return res.json({ ok: true, transport: 'smtp' });
-    return res.status(500).json({ ok: false, transport: 'smtp' });
+    if (ok) return res.json({ ok: true, transport: "smtp" });
+    return res.status(500).json({ ok: false, transport: "smtp" });
   } catch (e) {
     res.status(500).json({ ok: false, error: e.message });
   }
@@ -162,8 +150,7 @@ app.get('/health/email', async (_req, res) => {
 /* =========================
    📧 PRUEBA DE CORREO
    ========================= */
-// GET /test/email?to=correo@dominio
-app.get('/test/email', async (req, res) => {
+app.get("/test/email", async (req, res) => {
   const to =
     req.query.to ||
     process.env.EMAIL_TEST_TO ||
@@ -173,21 +160,20 @@ app.get('/test/email', async (req, res) => {
   try {
     await sendMail({
       to,
-      subject: '🔔 Prueba de correo (KokoriShop)',
+      subject: "🔔 Prueba de correo (KokoriShop)",
       html: `<h2>Prueba OK</h2>
-             <p>Transport: <b>${(process.env.EMAIL_TRANSPORT || 'auto').toLowerCase()}</b></p>
+             <p>Transport: <b>${(process.env.EMAIL_TRANSPORT || "auto").toLowerCase()}</b></p>
              <small>${new Date().toISOString()}</small>`,
       text: `Prueba OK - ${new Date().toISOString()}`,
     });
     res.json({ ok: true, to });
   } catch (e) {
-    console.error('❌ Test email error:', e.response?.data || e.message);
+    console.error("❌ Test email error:", e.response?.data || e.message);
     res.status(500).json({ ok: false, error: e.message, details: e.response?.data });
   }
 });
 
-// (opcional) versión POST: { "to": "correo@dominio" }
-app.post('/test/email', async (req, res) => {
+app.post("/test/email", async (req, res) => {
   const to =
     req.body?.to ||
     process.env.EMAIL_TEST_TO ||
@@ -197,13 +183,13 @@ app.post('/test/email', async (req, res) => {
   try {
     await sendMail({
       to,
-      subject: '🔔 Prueba de correo (KokoriShop)',
+      subject: "🔔 Prueba de correo (KokoriShop)",
       html: `<p>Prueba OK por POST</p><small>${new Date().toISOString()}</small>`,
       text: `Prueba OK por POST - ${new Date().toISOString()}`,
     });
     res.json({ ok: true, to });
   } catch (e) {
-    console.error('❌ Test email POST error:', e.response?.data || e.message);
+    console.error("❌ Test email POST error:", e.response?.data || e.message);
     res.status(500).json({ ok: false, error: e.message, details: e.response?.data });
   }
 });
@@ -211,19 +197,19 @@ app.post('/test/email', async (req, res) => {
 /* =========================
    404 y errores
    ========================= */
-app.use((req, res) => res.status(404).json({ mensaje: 'Ruta no encontrada' }));
+app.use((req, res) => res.status(404).json({ mensaje: "Ruta no encontrada" }));
 
-/* eslint-disable-next-line no-unused-vars */
-app.use((err, req, res, _next) => {
-  console.error('❌ Error global:', err);
+app.use((err, req, res, next) => {
+  void next;
+  console.error("❌ Error global:", err);
   if (
-    err.name === 'MulterError' ||
-    (typeof err.message === 'string' &&
-      (err.message.includes('archivo') || err.message.includes('Solo se permiten')))
+    err.name === "MulterError" ||
+    (typeof err.message === "string" &&
+      (err.message.includes("archivo") || err.message.includes("Solo se permiten")))
   ) {
     return res.status(400).json({ error: err.message });
   }
-  res.status(500).json({ error: 'Error del servidor: ' + (err.message || 'desconocido') });
+  res.status(500).json({ error: "Error del servidor: " + (err.message || "desconocido") });
 });
 
 /* =========================
@@ -232,12 +218,10 @@ app.use((err, req, res, _next) => {
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, async () => {
   console.log(`✅ Servidor backend corriendo en puerto ${PORT}`);
-
-  // Verifica solo si no estás forzando brevo_api
   try {
-    const prefer = (process.env.EMAIL_TRANSPORT || 'auto').toLowerCase();
-    if (prefer !== 'brevo_api') await verifyMailer();
+    const prefer = (process.env.EMAIL_TRANSPORT || "auto").toLowerCase();
+    if (prefer !== "brevo_api") await verifyMailer();
   } catch (e) {
-    console.warn('⚠️ Verificación de correo falló:', e.message);
+    console.warn("⚠️ Verificación de correo falló:", e.message);
   }
 });
